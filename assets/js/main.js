@@ -1201,6 +1201,67 @@ function pzSubmitAnswer(btn, commentId){
 }
 window.pzSubmitAnswer = pzSubmitAnswer;
 
+/* ═══════════════════════════════════════════════
+   DEĞERLENDİRME FORMU — yıldız + submit
+═══════════════════════════════════════════════ */
+(function(){
+  var hints = ['','Çok Kötü','Kötü','Orta','İyi','Mükemmel'];
+  var starsWrap = document.getElementById('pzRevStars');
+  var hint = document.getElementById('pzRevStarHint');
+  if(starsWrap && hint){
+    starsWrap.querySelectorAll('label').forEach(function(lbl){
+      lbl.addEventListener('mouseenter', function(){
+        var val = lbl.getAttribute('for').replace('pzStar','');
+        hint.textContent = hints[+val] || '';
+      });
+      lbl.addEventListener('mouseleave', function(){
+        var checked = starsWrap.querySelector('input:checked');
+        hint.textContent = checked ? (hints[+checked.value] || '') : '';
+      });
+    });
+    starsWrap.querySelectorAll('input').forEach(function(inp){
+      inp.addEventListener('change', function(){
+        hint.textContent = hints[+inp.value] || '';
+      });
+    });
+  }
+  var form = document.getElementById('pzReviewForm');
+  if(!form) return;
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var rating = form.querySelector('input[name="rating"]:checked');
+    var comment = document.getElementById('pzRevComment');
+    var msg = document.getElementById('pzRevMsg');
+    msg.style.display = 'none'; msg.className = 'pz-rev-msg';
+    if(!rating){ msg.className='pz-rev-msg err'; msg.textContent='Lütfen bir puan seçin.'; msg.style.display='block'; return; }
+    if(!comment || comment.value.trim().length < 10){ msg.className='pz-rev-msg err'; msg.textContent='Yorumunuz en az 10 karakter olmalı.'; msg.style.display='block'; return; }
+    var btn = form.querySelector('.pz-rev-submit');
+    btn.disabled = true; btn.textContent = 'Gönderiliyor…';
+    var fd = new FormData(form);
+    fetch(form.action, { method:'POST', body:fd, credentials:'same-origin' })
+      .then(function(r){
+        if(r.redirected || r.ok){
+          msg.className='pz-rev-msg ok';
+          msg.textContent='✓ Değerlendirmeniz alındı, onay bekliyor.';
+          msg.style.display='block';
+          form.reset();
+          if(hint) hint.textContent='';
+          btn.textContent='Gönderildi';
+        } else {
+          return r.text().then(function(t){
+            var m = t.match(/<p[^>]*>([\s\S]*?)<\/p>/);
+            throw new Error(m ? m[1].replace(/<[^>]+>/g,'') : 'Hata oluştu.');
+          });
+        }
+      })
+      .catch(function(err){
+        btn.disabled=false; btn.textContent='Gönder';
+        msg.className='pz-rev-msg err';
+        msg.textContent='✗ ' + (err.message||'Bağlantı hatası');
+        msg.style.display='block';
+      });
+  });
+})();
 
 /* ═══════════════════════════════════════════════
    MENÜ alt kategori KAYAR PENCERE (Hepsiburada tarzı)

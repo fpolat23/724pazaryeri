@@ -588,16 +588,41 @@ while ( have_posts() ) : the_post();
           <p style="text-align:center;color:var(--muted);padding:24px">Bu ürün için henüz değerlendirme yok. İlk değerlendirmeyi sen yaz!</p>
         <?php endif; ?>
 
-        <!-- WooCommerce değerlendirme formu -->
-        <div id="review_form_wrapper" style="margin-top:24px;">
-          <?php
-            if ( comments_open() ) {
-              comment_form( array(
-                'title_reply' => 'Değerlendirme Yaz',
-                'label_submit' => 'Gönder',
-              ) );
-            }
-          ?>
+        <!-- Değerlendirme formu -->
+        <div id="review_form_wrapper">
+          <?php if ( comments_open() ) : ?>
+          <div class="pz-rev-form-wrap" id="review_form">
+            <h3 class="pz-rev-title">Değerlendirme Yaz</h3>
+            <?php if ( is_user_logged_in() ) :
+              global $current_user;
+              wp_get_current_user(); ?>
+              <p class="pz-rev-as"><?php echo esc_html( $current_user->display_name ); ?> olarak giriş yapıldı &nbsp;·&nbsp; <a href="<?php echo esc_url( wp_logout_url( get_permalink() ) ); ?>">Çıkış yap</a></p>
+            <?php else : ?>
+              <p class="pz-rev-as">Değerlendirme yazmak için <a href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>">giriş yapın</a>.</p>
+            <?php endif; ?>
+            <form id="pzReviewForm" method="post" action="<?php echo esc_url( site_url( '/wp-comments-post.php' ) ); ?>">
+              <div class="pz-rev-stars-wrap">
+                <span class="pz-rev-label">Puanınız <em>*</em></span>
+                <div class="pz-rev-stars" id="pzRevStars" data-hint="">
+                  <?php for ( $s = 5; $s >= 1; $s-- ) : ?>
+                    <input type="radio" name="rating" id="pzStar<?php echo $s; ?>" value="<?php echo $s; ?>">
+                    <label for="pzStar<?php echo $s; ?>" title="<?php echo $s; ?> yıldız">★</label>
+                  <?php endfor; ?>
+                </div>
+                <span class="pz-rev-star-hint" id="pzRevStarHint"></span>
+              </div>
+              <div class="pz-rev-field">
+                <label for="pzRevComment">Yorumunuz <em>*</em></label>
+                <textarea id="pzRevComment" name="comment" rows="4" required minlength="10" placeholder="Ürün hakkındaki deneyiminizi paylaşın (en az 10 karakter)…"></textarea>
+              </div>
+              <input type="hidden" name="comment_post_ID" value="<?php echo esc_attr( get_the_ID() ); ?>">
+              <input type="hidden" name="comment_parent" value="0">
+              <?php wp_nonce_field( 'comment_nonce_field', 'comment_nonce' ); ?>
+              <button type="submit" class="pz-rev-submit">Gönder</button>
+              <p class="pz-rev-msg" id="pzRevMsg" style="display:none;"></p>
+            </form>
+          </div>
+          <?php endif; ?>
         </div>
       </div>
       <!-- SIMILAR -->
