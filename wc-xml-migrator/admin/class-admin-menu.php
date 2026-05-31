@@ -4,7 +4,8 @@ defined( 'ABSPATH' ) || exit;
 class WC_XML_Migrator_Admin {
 
 	public static function init(): void {
-		add_action( 'admin_menu', [ __CLASS__, 'register_menus' ] );
+		// Öncelik 99: WooCommerce kendi menüsünü (öncelik 10) eklemiş olur
+		add_action( 'admin_menu', [ __CLASS__, 'register_menus' ], 99 );
 		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
 
 		// AJAX — arka plan işlemler
@@ -15,14 +16,42 @@ class WC_XML_Migrator_Admin {
 	}
 
 	public static function register_menus(): void {
-		add_submenu_page(
-			'woocommerce',
-			__( 'XML Göç Aracı', 'wc-xml-migrator' ),
-			__( 'XML Göç Aracı', 'wc-xml-migrator' ),
-			'manage_woocommerce',
-			'wc-xml-migrator',
-			[ __CLASS__, 'render_page' ]
-		);
+		global $menu;
+
+		// WooCommerce menüsü var mı kontrol et
+		$parent = 'woocommerce';
+		$wc_menu_exists = false;
+		if ( is_array( $menu ) ) {
+			foreach ( $menu as $item ) {
+				if ( isset( $item[2] ) && $item[2] === 'woocommerce' ) {
+					$wc_menu_exists = true;
+					break;
+				}
+			}
+		}
+
+		if ( $wc_menu_exists ) {
+			// WooCommerce altına ekle
+			add_submenu_page(
+				$parent,
+				__( 'XML Göç Aracı', 'wc-xml-migrator' ),
+				__( 'XML Göç Aracı', 'wc-xml-migrator' ),
+				'manage_options',
+				'wc-xml-migrator',
+				[ __CLASS__, 'render_page' ]
+			);
+		} else {
+			// Bağımsız üst-düzey menü olarak ekle
+			add_menu_page(
+				__( 'XML Göç Aracı', 'wc-xml-migrator' ),
+				__( 'XML Göç Aracı', 'wc-xml-migrator' ),
+				'manage_options',
+				'wc-xml-migrator',
+				[ __CLASS__, 'render_page' ],
+				'dashicons-migrate',
+				56
+			);
+		}
 	}
 
 	public static function enqueue_assets( string $hook ): void {

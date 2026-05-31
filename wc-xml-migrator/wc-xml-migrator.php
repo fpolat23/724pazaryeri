@@ -34,7 +34,9 @@ register_activation_hook( __FILE__, function () {
 } );
 
 add_action( 'plugins_loaded', function () {
-	if ( ! class_exists( 'WooCommerce' ) ) {
+	// class_exists yerine fonksiyon kontrolü — bazı kurulumda daha güvenilir
+	$wc_active = class_exists( 'WooCommerce' ) || function_exists( 'WC' );
+	if ( ! $wc_active ) {
 		add_action( 'admin_notices', function () {
 			echo '<div class="notice notice-error"><p>' .
 				esc_html__( 'WC XML Migrator: WooCommerce aktif değil!', 'wc-xml-migrator' ) .
