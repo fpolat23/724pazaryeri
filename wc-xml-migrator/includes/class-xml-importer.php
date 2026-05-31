@@ -21,6 +21,25 @@ class WC_XML_Importer {
 	}
 
 	/**
+	 * Tek bir ürün XML string'ini içe aktarır (arka plan işlemci için).
+	 */
+	public function import_node_xml( string $product_xml ): void {
+		libxml_use_internal_errors( true );
+		$dom = new DOMDocument();
+		$dom->loadXML( $product_xml );
+		libxml_clear_errors();
+
+		$nodes = $dom->getElementsByTagName( 'product' );
+		if ( $nodes->length ) {
+			$this->process_product( $nodes->item( 0 ) );
+		}
+	}
+
+	public function get_results(): array {
+		return $this->results;
+	}
+
+	/**
 	 * XML string'ten ürünleri içe aktarır; sonuç dizisini döner.
 	 */
 	public function import( string $xml_content ): array {

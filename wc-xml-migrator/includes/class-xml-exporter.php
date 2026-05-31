@@ -19,6 +19,44 @@ class WC_XML_Exporter {
 		$this->status_filter     = $options['status'] ?? 'publish';
 	}
 
+	// ---- Arka plan işlem için public yardımcılar ----
+
+	public function count_products(): int {
+		$args = [ 'status' => $this->status_filter, 'return' => 'ids', 'limit' => -1 ];
+		if ( ! empty( $this->category_filter ) ) $args['category'] = $this->category_filter;
+		return count( wc_get_products( $args ) );
+	}
+
+	public function get_batch( int $page, int $size = 0 ): array {
+		if ( $size > 0 ) $this->batch_size = $size;
+		return $this->query_products( $page );
+	}
+
+	public function product_to_xml_string( WC_Product $product ): string {
+		$dom  = new DOMDocument( '1.0', 'UTF-8' );
+		$dom->formatOutput = true;
+		$root = $dom->createElement( 'root' );
+		$dom->appendChild( $root );
+		$this->append_product( $dom, $root, $product );
+		$el = $root->firstChild;
+		return $el ? $dom->saveXML( $el ) . "\n" : '';
+	}
+
+	public static function get_xml_header( int $total = 0 ): string {
+		return '<?xml version="1.0" encoding="UTF-8"?>' . "\n" .
+		       '<wc_products' .
+		       ' version="' . esc_attr( WC_XML_MIGRATOR_VERSION ) . '"' .
+		       ' exported_at="' . esc_attr( current_time( 'c' ) ) . '"' .
+		       ' site_url="' . esc_attr( get_site_url() ) . '"' .
+		       ' total_products="' . (int) $total . '">' . "\n";
+	}
+
+	public static function get_xml_footer(): string {
+		return '</wc_products>' . "\n";
+	}
+
+	// ---- Tek seferlik tam dışa aktarma (eski davranış) ----
+
 	/**
 	 * Tüm ürünleri XML olarak dışa aktarır; XML dizesini döner.
 	 */
