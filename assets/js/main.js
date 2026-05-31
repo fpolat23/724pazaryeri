@@ -843,7 +843,7 @@ window.filterBrandList = filterBrandList;
       var sl = document.createElement('div');
       sl.className = 'pz-car-slide';
       var im = document.createElement('img');
-      im.src = i === 0 ? src : '';
+      if(i === 0) im.src = src;
       im.setAttribute('data-src', src);
       im.alt = ''; im.draggable = false;
       sl.appendChild(im);
@@ -876,8 +876,9 @@ window.filterBrandList = filterBrandList;
       carTrack.querySelectorAll('.pz-car-slide').forEach(function(sl, i){
         if(Math.abs(i - idx) <= 1){
           var im = sl.querySelector('img');
-          var ds = im && im.getAttribute('data-src');
-          if(ds && !im.src) im.src = ds;
+          if(im && !im.getAttribute('src') && im.getAttribute('data-src')){
+            im.src = im.getAttribute('data-src');
+          }
         }
       });
     }
