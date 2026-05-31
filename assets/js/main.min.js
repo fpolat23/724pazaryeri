@@ -467,6 +467,23 @@ if(typeof showToast==='function')window.showToast=showToast;
 if(typeof toggleWishRow==='function')window.toggleWishRow=toggleWishRow;
 })();
 
+function pzShareApp(platform,url,title){
+  var labels={instagram:'Instagram',tiktok:'TikTok'};
+  if(navigator.share){
+    navigator.share({title:title,url:url}).catch(function(){});
+  } else {
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){
+        if(typeof showToast==='function')showToast('🔗 Bağlantı kopyalandı! '+labels[platform]+' uygulamasında paylaşabilirsiniz.');
+      });
+    } else {
+      var ta=document.createElement('textarea');ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');if(typeof showToast==='function')showToast('🔗 Bağlantı kopyalandı! '+labels[platform]+' uygulamasında paylaşabilirsiniz.');}catch(e){}
+      document.body.removeChild(ta);
+    }
+  }
+}
 function pzCopyLink(url){
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(function(){
