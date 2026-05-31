@@ -82,7 +82,7 @@ function bazario_product_card( $product ) {
                 </div>
                 <?php if ( $discount > 0 ) : ?><span class="psave">%<?php echo esc_html( $discount ); ?></span><?php endif; ?>
             </div>
-            <div class="pship">🚚 <?php echo $product->is_in_stock() ? 'Bugün Kargoda' : 'Stok Bekleniyor'; ?></div>
+            <div class="pship">🚚 <?php echo $product->is_in_stock() ? 'İş günlerinde saat 14:00\'e kadar verilen siparişleriniz bugün kargoda, resmi ve hafta tatillerinde ise ilk iş gününde kargoya verilir.' : 'Stok Bekleniyor'; ?></div>
             <div class="pfoot">
                 <?php if ( $city ) : ?>
                 <div class="ploc"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg><?php echo esc_html( $city ); ?></div>
