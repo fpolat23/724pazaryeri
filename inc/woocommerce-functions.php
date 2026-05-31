@@ -56,10 +56,16 @@ function bazario_product_card( $product ) {
         $badge = '<span class="pbadge new">YENİ</span>';
     }
 
+    // ücretsiz kargo rozeti (resim üstü)
+    $freeship_badge = ( $product->is_in_stock() && $sale >= 1500 )
+        ? '<span class="pbadge-freeship"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="flex-shrink:0"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zm-.5 1.5 1.96 2.5H17V9.5h2.5zM6 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg> Ücretsiz<br>Kargo</span>'
+        : '';
+
     ob_start(); ?>
     <div class="pcard" data-product-id="<?php echo esc_attr( $id ); ?>" data-href="<?php echo esc_url( $permalink ); ?>" style="cursor:pointer">
         <a class="pimg" href="<?php echo esc_url( $permalink ); ?>" style="background:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;">
             <?php echo $badge; ?>
+            <?php echo $freeship_badge; ?>
             <?php echo $img; ?>
             <div class="p-wish" onclick="event.stopPropagation();event.preventDefault();toggleWish(this)">🤍</div>
         </a>
