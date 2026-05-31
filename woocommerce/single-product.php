@@ -585,7 +585,7 @@ while ( have_posts() ) : the_post();
             endforeach;
           else :
         ?>
-          <p style="text-align:center;color:var(--muted);padding:24px">Bu ürün için henüz değerlendirme yok. İlk değerlendirmeyi sen yaz!</p>
+          <p style="text-align:center;color:var(--muted);padding:24px;white-space:normal;word-break:break-word;overflow-wrap:break-word;max-width:100%;box-sizing:border-box;">Bu ürün için henüz değerlendirme yok. İlk değerlendirmeyi sen yaz!</p>
         <?php endif; ?>
 
         <!-- Değerlendirme formu -->
