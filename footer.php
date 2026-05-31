@@ -21,7 +21,7 @@
     </div>
     <div class="fbot">
       <div class="fcopy">© 2025 <em>724PazarYeri.com</em> — Tüm hakları saklıdır.</div>
-      <div style="display:flex;gap:12px;"><span style="font-size:11px;color:rgba(255,255,255,.25);">🔒 SSL Güvenli</span><span style="font-size:11px;color:rgba(255,255,255,.25);">💳 Tüm kartlar</span></div>
+      <div style="display:flex;gap:14px;"><span style="font-size:12px;color:rgba(255,255,255,.55);">🔒 SSL Güvenli</span><span style="font-size:12px;color:rgba(255,255,255,.55);">💳 Tüm kartlar</span></div>
     </div>
   </div>
 </div>
