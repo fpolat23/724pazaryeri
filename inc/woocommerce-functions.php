@@ -61,8 +61,25 @@ function bazario_product_card( $product ) {
         ? '<span class="pbadge-freeship"><svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="flex-shrink:0"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zm-.5 1.5 1.96 2.5H17V9.5h2.5zM6 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg> Ücretsiz<br>Kargo</span>'
         : '';
 
+    // karşılaştırma verisi
+    $comp_img  = wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ) ?: wc_placeholder_img_src( 'thumbnail' );
+    $comp_data = esc_attr( wp_json_encode( array(
+        'id'       => $id,
+        'url'      => $permalink,
+        'title'    => $title,
+        'img'      => $comp_img,
+        'price'    => $sale,
+        'regular'  => $regular,
+        'discount' => $discount,
+        'rating'   => round( (float) $avg, 1 ),
+        'reviews'  => (int) $count,
+        'inStock'  => $product->is_in_stock(),
+        'freeShip' => ( $product->is_in_stock() && $sale >= 1500 ),
+        'seller'   => $seller_name,
+    ) ) );
+
     ob_start(); ?>
-    <div class="pcard" data-product-id="<?php echo esc_attr( $id ); ?>" data-href="<?php echo esc_url( $permalink ); ?>" style="cursor:pointer">
+    <div class="pcard" data-product-id="<?php echo esc_attr( $id ); ?>" data-href="<?php echo esc_url( $permalink ); ?>" data-pzcomp="<?php echo $comp_data; ?>" style="cursor:pointer">
         <a class="pimg" href="<?php echo esc_url( $permalink ); ?>" style="background:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;">
             <?php echo $badge; ?>
             <?php echo $freeship_badge; ?>
@@ -105,6 +122,10 @@ function bazario_product_card( $product ) {
                   <a class="pcart pcart-out" href="<?php echo esc_url( $permalink ); ?>" onclick="event.stopPropagation();">Tükendi</a>
                 <?php endif; ?>
             </div>
+            <button class="pcomp-btn" onclick="event.stopPropagation();pzToggleComp(this)">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+              <span class="pcomp-lbl">Karşılaştır</span>
+            </button>
         </div>
     </div>
     <?php

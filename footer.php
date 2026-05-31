@@ -97,6 +97,52 @@
   </div>
 </div>
 
+<!-- ═══ ÜRÜN KARŞILAŞTIRMA ÇUBUĞU ═══ -->
+<div class="pz-comp-bar" id="pzCompBar">
+  <div class="pz-comp-bar-in">
+    <div class="pz-comp-bar-left">
+      <div class="pz-comp-bar-ico">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+      </div>
+      <div>
+        <div class="pz-comp-bar-title">Karşılaştırma</div>
+        <div class="pz-comp-bar-sub" id="pzCompCount">0 ürün seçili</div>
+      </div>
+    </div>
+    <div class="pz-comp-slots" id="pzCompSlots"></div>
+    <div class="pz-comp-bar-right">
+      <button class="pz-comp-cta" id="pzCompCta" onclick="pzOpenComp()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+        Karşılaştır
+      </button>
+      <button class="pz-comp-clear-btn" onclick="pzClearComp()" title="Temizle">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ÜRÜN KARŞILAŞTIRMA MODAL ═══ -->
+<div class="pz-comp-modal" id="pzCompModal" onclick="if(event.target===this)pzCloseComp()">
+  <div class="pz-comp-modal-box">
+    <div class="pz-comp-modal-head">
+      <div class="pz-comp-modal-title">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+        Ürün Karşılaştırma
+      </div>
+      <div class="pz-comp-modal-actions">
+        <button class="pz-comp-modal-clearall" onclick="pzClearComp()">Tümünü Temizle</button>
+        <button class="pz-comp-modal-close" onclick="pzCloseComp()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="pz-comp-table-wrap">
+      <table class="pz-comp-table" id="pzCompTable"></table>
+    </div>
+  </div>
+</div>
+
 </div><!-- /.pazaryeri-wrap -->
 <?php wp_footer(); ?>
 </body>

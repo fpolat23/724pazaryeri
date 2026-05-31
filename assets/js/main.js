@@ -467,6 +467,195 @@ if(typeof showToast==='function')window.showToast=showToast;
 if(typeof toggleWishRow==='function')window.toggleWishRow=toggleWishRow;
 })();
 
+/* ── ÜRÜN KARŞILAŞTIRMA ── */
+var pzCompItems=(function(){try{return JSON.parse(localStorage.getItem('pzComp')||'[]');}catch(e){return [];}}());
+var PZ_COMP_MAX=4;
+
+function pzToggleComp(btn){
+  var card=btn.closest('.pcard');
+  if(!card)return;
+  var data;try{data=JSON.parse(card.getAttribute('data-pzcomp')||'{}');}catch(e){return;}
+  if(!data.id)return;
+  var idx=-1;
+  for(var i=0;i<pzCompItems.length;i++){if(pzCompItems[i].id===data.id){idx=i;break;}}
+  if(idx>-1){
+    pzCompItems.splice(idx,1);
+    btn.classList.remove('on');
+    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent='Karşılaştır';
+  }else{
+    if(pzCompItems.length>=PZ_COMP_MAX){if(typeof showToast==='function')showToast('En fazla '+PZ_COMP_MAX+' ürün karşılaştırabilirsiniz!');return;}
+    pzCompItems.push(data);
+    btn.classList.add('on');
+    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent='✓ Eklendi';
+  }
+  try{localStorage.setItem('pzComp',JSON.stringify(pzCompItems));}catch(e){}
+  pzUpdateCompBar();
+}
+
+function pzUpdateCompBar(){
+  var bar=document.getElementById('pzCompBar');
+  var slots=document.getElementById('pzCompSlots');
+  var cnt=document.getElementById('pzCompCount');
+  var cta=document.getElementById('pzCompCta');
+  if(!bar)return;
+  bar.classList.toggle('show',pzCompItems.length>0);
+  if(cnt)cnt.textContent=pzCompItems.length+' ürün seçili (max '+PZ_COMP_MAX+')';
+  if(cta){cta.disabled=pzCompItems.length<2;cta.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg> Karşılaştır'+(pzCompItems.length>0?' ('+pzCompItems.length+')':'');}
+  if(!slots)return;
+  var html='';
+  pzCompItems.forEach(function(p){
+    html+='<div class="pz-comp-slot"><img src="'+p.img+'" alt=""><button class="pz-comp-slot-rm" onclick="event.stopPropagation();pzRemoveComp('+p.id+')">✕</button></div>';
+  });
+  for(var i=pzCompItems.length;i<PZ_COMP_MAX;i++){
+    html+='<div class="pz-comp-slot pz-comp-slot-empty"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
+  }
+  slots.innerHTML=html;
+  pzSyncCompBtns();
+}
+
+function pzSyncCompBtns(){
+  document.querySelectorAll('.pcomp-btn').forEach(function(btn){
+    var card=btn.closest('.pcard');if(!card)return;
+    var data;try{data=JSON.parse(card.getAttribute('data-pzcomp')||'{}');}catch(e){return;}
+    var isIn=pzCompItems.some(function(p){return p.id===data.id;});
+    btn.classList.toggle('on',isIn);
+    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent=isIn?'✓ Eklendi':'Karşılaştır';
+  });
+}
+
+function pzRemoveComp(id){
+  pzCompItems=pzCompItems.filter(function(p){return p.id!==id;});
+  try{localStorage.setItem('pzComp',JSON.stringify(pzCompItems));}catch(e){}
+  pzUpdateCompBar();
+  var modal=document.getElementById('pzCompModal');
+  if(modal&&modal.classList.contains('show')){
+    if(pzCompItems.length<1)pzCloseComp();else pzBuildCompTable();
+  }
+}
+
+function pzClearComp(){
+  pzCompItems=[];
+  try{localStorage.removeItem('pzComp');}catch(e){}
+  pzUpdateCompBar();
+  var modal=document.getElementById('pzCompModal');
+  if(modal){modal.classList.remove('show');document.body.style.overflow='';}
+}
+
+function pzOpenComp(){
+  if(pzCompItems.length<2){if(typeof showToast==='function')showToast('⚖️ Karşılaştırmak için en az 2 ürün seçin!');return;}
+  var modal=document.getElementById('pzCompModal');if(!modal)return;
+  pzBuildCompTable();
+  modal.classList.add('show');
+  document.body.style.overflow='hidden';
+}
+
+function pzCloseComp(){
+  var modal=document.getElementById('pzCompModal');
+  if(modal)modal.classList.remove('show');
+  document.body.style.overflow='';
+}
+
+function pzFmtPrice(n){
+  if(typeof n!=='number')return '—';
+  return n.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₺';
+}
+
+function pzBuildCompTable(){
+  var table=document.getElementById('pzCompTable');
+  if(!table||pzCompItems.length===0)return;
+  var minPrice=Math.min.apply(null,pzCompItems.map(function(p){return p.price;}));
+  var maxDisc=Math.max.apply(null,pzCompItems.map(function(p){return p.discount;}));
+  var maxRating=Math.max.apply(null,pzCompItems.map(function(p){return p.rating;}));
+  var maxReviews=Math.max.apply(null,pzCompItems.map(function(p){return p.reviews;}));
+  var multi=pzCompItems.length>1;
+
+  var html='<thead><tr><th class="pz-ct-lbl"></th>';
+  pzCompItems.forEach(function(p){
+    html+='<th class="pz-ct-head">'+
+      '<div class="pz-ct-img-wrap"><img src="'+p.img+'" alt="'+p.title+'"></div>'+
+      '<div class="pz-ct-name">'+p.title+'</div>'+
+      '<div class="pz-ct-price">'+pzFmtPrice(p.price)+'</div>'+
+      '<a class="pz-ct-link" href="'+p.url+'" target="_blank">İncele →</a>'+
+      '<button class="pz-ct-rm" onclick="pzRemoveComp('+p.id+')">✕ Çıkar</button>'+
+    '</th>';
+  });
+  html+='</tr></thead><tbody>';
+
+  // Fiyat
+  html+='<tr><td class="pz-ct-lbl">💰 Fiyat</td>';
+  pzCompItems.forEach(function(p){
+    var best=multi&&p.price===minPrice;
+    html+='<td class="pz-ct-cell'+(best?' pz-ct-best':'')+'">'+
+      (best?'<span class="pz-ct-crown">🏆</span>':'')+
+      (p.regular>p.price?'<div class="pz-ct-old">'+pzFmtPrice(p.regular)+'</div>':'')+
+      '<div class="pz-ct-main">'+pzFmtPrice(p.price)+'</div>'+
+    '</td>';
+  });
+  html+='</tr>';
+
+  // İndirim
+  html+='<tr><td class="pz-ct-lbl">🏷️ İndirim</td>';
+  pzCompItems.forEach(function(p){
+    var best=multi&&p.discount>0&&p.discount===maxDisc;
+    html+='<td class="pz-ct-cell'+(best?' pz-ct-best':'')+'">'+
+      (best?'<span class="pz-ct-crown">🏆</span>':'')+
+      '<div class="pz-ct-main">'+(p.discount>0?'<span class="pz-ct-disc">%'+p.discount+'</span>':'<span class="pz-ct-na">—</span>')+'</div>'+
+    '</td>';
+  });
+  html+='</tr>';
+
+  // Puan
+  html+='<tr><td class="pz-ct-lbl">⭐ Puan</td>';
+  pzCompItems.forEach(function(p){
+    var best=multi&&p.rating>0&&p.rating===maxRating;
+    var stars='';for(var i=1;i<=5;i++)stars+=i<=Math.round(p.rating)?'★':'☆';
+    html+='<td class="pz-ct-cell'+(best?' pz-ct-best':'')+'">'+
+      (best?'<span class="pz-ct-crown">🏆</span>':'')+
+      '<div class="pz-ct-main"><span class="pz-ct-stars">'+stars+'</span><br><small>'+(p.rating>0?p.rating+' / 5':'Henüz yok')+'</small></div>'+
+    '</td>';
+  });
+  html+='</tr>';
+
+  // Yorum
+  html+='<tr><td class="pz-ct-lbl">💬 Yorumlar</td>';
+  pzCompItems.forEach(function(p){
+    var best=multi&&p.reviews>0&&p.reviews===maxReviews;
+    html+='<td class="pz-ct-cell'+(best?' pz-ct-best':'')+'">'+
+      (best?'<span class="pz-ct-crown">🏆</span>':'')+
+      '<div class="pz-ct-main">'+(p.reviews>0?p.reviews+' yorum':'<span class="pz-ct-na">Henüz yok</span>')+'</div>'+
+    '</td>';
+  });
+  html+='</tr>';
+
+  // Stok
+  html+='<tr><td class="pz-ct-lbl">📦 Stok</td>';
+  pzCompItems.forEach(function(p){
+    html+='<td class="pz-ct-cell"><div class="pz-ct-main '+(p.inStock?'pz-ct-yes':'pz-ct-no')+'">'+(p.inStock?'✓ Stokta':'✗ Tükendi')+'</div></td>';
+  });
+  html+='</tr>';
+
+  // Kargo
+  html+='<tr><td class="pz-ct-lbl">🚚 Kargo</td>';
+  pzCompItems.forEach(function(p){
+    html+='<td class="pz-ct-cell"><div class="pz-ct-main '+(p.freeShip?'pz-ct-yes':'')+'">'+  (p.freeShip?'🚚 Ücretsiz':'Ücretli')+'</div></td>';
+  });
+  html+='</tr>';
+
+  // Satıcı
+  html+='<tr><td class="pz-ct-lbl">🏪 Satıcı</td>';
+  pzCompItems.forEach(function(p){
+    html+='<td class="pz-ct-cell"><div class="pz-ct-main">'+p.seller+'</div></td>';
+  });
+  html+='</tr>';
+
+  html+='</tbody>';
+  table.innerHTML=html;
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  pzUpdateCompBar();
+});
+
 function pzShareApp(platform,url,title){
   var labels={instagram:'Instagram',tiktok:'TikTok'};
   if(navigator.share){
