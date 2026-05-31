@@ -82,6 +82,26 @@
   .pzv-stats{grid-template-columns:repeat(2,1fr);}
 }
 
+/* ═══ KATEGORİ FİLTRESİ ═══ */
+.pzv-products-filter{display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.pzv-filter-label{font-size:13px;font-weight:700;color:#646970;padding-top:8px;white-space:nowrap;}
+.pzv-filter-cats{display:flex;flex-wrap:wrap;gap:6px;}
+.pzv-fcat{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:1.5px solid #e3e3e3;border-radius:20px;font-size:13px;font-weight:500;color:#555;text-decoration:none;transition:all .14s;background:#fff;}
+.pzv-fcat span{font-size:11px;color:#999;background:#f0f0f0;border-radius:10px;padding:1px 6px;}
+.pzv-fcat:hover{border-color:#ff6a00;color:#ff6a00;}
+.pzv-fcat:hover span{background:#fff0e6;color:#ff6a00;}
+.pzv-fcat-active{background:#ff6a00;border-color:#ff6a00;color:#fff;}
+.pzv-fcat-active span{background:rgba(255,255,255,.25);color:#fff;}
+
+/* ═══ SAYFALANDIRMA ═══ */
+.pzv-pagination{display:flex;align-items:center;gap:4px;margin-top:20px;flex-wrap:wrap;}
+.pzv-page-btn{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 10px;border:1.5px solid #e3e3e3;border-radius:8px;font-size:13px;font-weight:600;color:#555;text-decoration:none;background:#fff;transition:all .14s;}
+.pzv-page-btn:hover{border-color:#ff6a00;color:#ff6a00;}
+.pzv-page-active{background:#ff6a00;border-color:#ff6a00;color:#fff;}
+.pzv-page-active:hover{background:#e85d00;border-color:#e85d00;color:#fff;}
+.pzv-page-dots{font-size:13px;color:#aaa;padding:0 4px;}
+.pzv-page-info{margin-left:auto;font-size:12px;color:#888;white-space:nowrap;}
+
 /* ═══ ÜRÜN ARAMA + EKLE — Modern kart tasarımı ═══ */
 .pzv-add-product{margin-top:14px;}
 .pzv-search-card{display:flex;gap:14px;background:linear-gradient(135deg,#fff5ec 0%,#fff 100%);border:2px solid #ffd4b0;border-radius:14px;padding:18px;box-shadow:0 4px 16px rgba(255,106,0,.08);align-items:flex-start;}

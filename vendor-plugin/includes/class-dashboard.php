@@ -134,20 +134,79 @@ class PZV_Dashboard {
     }
 
     private static function tab_products( $user_id ) {
-        $product_ids = PZV_Vendor::get_product_ids( $user_id );
+        $per_page  = 50;
+        $cur_page  = max( 1, intval( isset( $_GET['ppage'] ) ? $_GET['ppage'] : 1 ) );
+        $cur_cat   = intval( isset( $_GET['pcat'] ) ? $_GET['pcat'] : 0 );
+        $base_link = get_permalink();
+
+        // Tüm ürün ID'leri (kategori filtresi olmadan, toplam sayı için)
+        $all_ids   = PZV_Vendor::get_product_ids( $user_id );
+        $total_all = count( $all_ids );
+
+        // Sayfalı sorgu (kategori filtreli)
+        $query_args = array(
+            'post_type'      => 'product',
+            'author'         => $user_id,
+            'post_status'    => array( 'publish', 'draft', 'pending', 'private' ),
+            'posts_per_page' => $per_page,
+            'paged'          => $cur_page,
+            'no_found_rows'  => false,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+        );
+        if ( $cur_cat ) {
+            $query_args['tax_query'] = array( array(
+                'taxonomy' => 'product_cat',
+                'field'    => 'term_id',
+                'terms'    => $cur_cat,
+            ) );
+        }
+        $q           = new WP_Query( $query_args );
+        $total       = $q->found_posts;
+        $total_pages = $q->max_num_pages;
+
+        // Bu satıcının ürünlerinin bulunduğu kategoriler
+        $cats = ! empty( $all_ids )
+            ? get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => true, 'object_ids' => $all_ids, 'orderby' => 'name', 'order' => 'ASC' ) )
+            : array();
         ?>
         <div class="pzv-section-head">
-            <h3>📦 Ürünlerim (<?php echo count( $product_ids ); ?>)</h3>
+            <h3>📦 Ürünlerim
+                (<?php echo $cur_cat ? esc_html( $total . ' / ' . $total_all ) : $total_all; ?>)
+            </h3>
             <a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=product' ) ); ?>">➕ Yeni Ürün Ekle</a>
         </div>
-        <?php if ( empty( $product_ids ) ) : ?>
-            <p>Henüz ürününüz yok. <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=product' ) ); ?>">İlk ürünü ekleyin →</a></p>
+
+        <?php /* ── Kategori Filtresi ── */ ?>
+        <?php if ( ! empty( $cats ) && ! is_wp_error( $cats ) ) : ?>
+        <div class="pzv-products-filter">
+            <span class="pzv-filter-label">Kategori:</span>
+            <div class="pzv-filter-cats">
+                <?php
+                $all_url = add_query_arg( array( 'tab' => 'products', 'pcat' => 0, 'ppage' => 1 ), $base_link );
+                $all_cls = ( ! $cur_cat ) ? ' pzv-fcat-active' : '';
+                echo '<a href="' . esc_url( $all_url ) . '" class="pzv-fcat' . $all_cls . '">Tümü <span>' . $total_all . '</span></a>';
+                foreach ( $cats as $cat ) :
+                    if ( $cat->slug === 'uncategorized' ) continue;
+                    $cat_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $cat->term_id, 'ppage' => 1 ), $base_link );
+                    $cat_cls = ( $cur_cat === $cat->term_id ) ? ' pzv-fcat-active' : '';
+                    echo '<a href="' . esc_url( $cat_url ) . '" class="pzv-fcat' . $cat_cls . '">'
+                        . esc_html( $cat->name ) . ' <span>' . intval( $cat->count ) . '</span></a>';
+                endforeach;
+                ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if ( ! $q->have_posts() ) : ?>
+            <p style="padding:20px;color:#888;">Bu kategoride ürün bulunamadı.</p>
         <?php else : ?>
             <table class="pzv-table">
                 <thead><tr><th>Görsel</th><th>Ürün</th><th>SKU</th><th>Fiyat (₺)</th><th>Stok</th><th>Durum</th><th>İşlem</th></tr></thead>
                 <tbody>
-                <?php foreach ( $product_ids as $pid ) :
-                    $p = wc_get_product( $pid ); if ( ! $p ) continue;
+                <?php while ( $q->have_posts() ) : $q->the_post();
+                    $pid         = get_the_ID();
+                    $p           = wc_get_product( $pid ); if ( ! $p ) continue;
                     $cloned_from = get_post_meta( $pid, '_pzv_cloned_from', true );
                     ?>
                     <tr data-product="<?php echo (int) $pid; ?>">
@@ -157,16 +216,12 @@ class PZV_Dashboard {
                             <?php if ( $cloned_from ) : ?><br><small style="color:#888;">📋 Katalog ürünü</small><?php endif; ?>
                         </td>
                         <td><?php echo esc_html( $p->get_sku() ?: '-' ); ?></td>
-                        <td>
-                            <input type="number" class="pzv-quick-price" step="0.01" min="0" value="<?php echo esc_attr( $p->get_regular_price() ); ?>" style="width:90px;">
-                        </td>
-                        <td>
-                            <input type="number" class="pzv-quick-stock" min="0" value="<?php echo esc_attr( $p->get_stock_quantity() ); ?>" style="width:70px;">
-                        </td>
+                        <td><input type="number" class="pzv-quick-price" step="0.01" min="0" value="<?php echo esc_attr( $p->get_regular_price() ); ?>" style="width:90px;"></td>
+                        <td><input type="number" class="pzv-quick-stock" min="0" value="<?php echo esc_attr( $p->get_stock_quantity() ); ?>" style="width:70px;"></td>
                         <td>
                             <select class="pzv-quick-status">
                                 <option value="publish" <?php selected( $p->get_status(), 'publish' ); ?>>Yayında</option>
-                                <option value="draft" <?php selected( $p->get_status(), 'draft' ); ?>>Taslak</option>
+                                <option value="draft"   <?php selected( $p->get_status(), 'draft' );   ?>>Taslak</option>
                             </select>
                         </td>
                         <td>
@@ -174,9 +229,37 @@ class PZV_Dashboard {
                             <a class="button button-small" href="<?php echo esc_url( get_permalink( $pid ) ); ?>" target="_blank">👁</a>
                         </td>
                     </tr>
-                <?php endforeach; ?>
+                <?php endwhile; wp_reset_postdata(); ?>
                 </tbody>
             </table>
+
+            <?php /* ── Sayfalandırma ── */ ?>
+            <?php if ( $total_pages > 1 ) :
+                $from     = ( $cur_page - 1 ) * $per_page + 1;
+                $to       = min( $cur_page * $per_page, $total );
+                $cat_p    = $cur_cat ? array( 'pcat' => $cur_cat ) : array();
+                $pg_base  = add_query_arg( array_merge( array( 'tab' => 'products' ), $cat_p ), $base_link );
+                ?>
+            <div class="pzv-pagination">
+                <?php if ( $cur_page > 1 ) :
+                    echo '<a href="' . esc_url( add_query_arg( 'ppage', $cur_page - 1, $pg_base ) ) . '" class="pzv-page-btn">‹ Önceki</a>';
+                endif;
+
+                $range_start = max( 1, $cur_page - 2 );
+                $range_end   = min( $total_pages, $cur_page + 2 );
+                if ( $range_start > 1 ) echo '<a href="' . esc_url( add_query_arg( 'ppage', 1, $pg_base ) ) . '" class="pzv-page-btn">1</a><span class="pzv-page-dots">…</span>';
+                for ( $i = $range_start; $i <= $range_end; $i++ ) :
+                    $cls = ( $i === $cur_page ) ? ' pzv-page-active' : '';
+                    echo '<a href="' . esc_url( add_query_arg( 'ppage', $i, $pg_base ) ) . '" class="pzv-page-btn' . $cls . '">' . $i . '</a>';
+                endfor;
+                if ( $range_end < $total_pages ) echo '<span class="pzv-page-dots">…</span><a href="' . esc_url( add_query_arg( 'ppage', $total_pages, $pg_base ) ) . '" class="pzv-page-btn">' . $total_pages . '</a>';
+                if ( $cur_page < $total_pages ) :
+                    echo '<a href="' . esc_url( add_query_arg( 'ppage', $cur_page + 1, $pg_base ) ) . '" class="pzv-page-btn">Sonraki ›</a>';
+                endif;
+                ?>
+                <span class="pzv-page-info"><?php printf( '%d–%d / %d ürün', $from, $to, $total ); ?></span>
+            </div>
+            <?php endif; ?>
         <?php endif;
     }
 
