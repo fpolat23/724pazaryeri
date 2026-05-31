@@ -151,7 +151,7 @@ while ( have_posts() ) : the_post();
             $terms = array_map( function( $v ){ return (object) array( 'name' => $v, 'slug' => sanitize_title( $v ), 'raw' => $v ); }, $expanded );
           }
           if ( empty( $terms ) ) continue;
-          $label = wc_attribute_label( $attribute->get_name() );
+          $label = pz_attr_label( $attribute->get_name() );
           $is_color = ( stripos( $label, 'renk' ) !== false || stripos( $attribute->get_name(), 'color' ) !== false );
       ?>
         <div class="hb-variant-block">
@@ -181,7 +181,7 @@ while ( have_posts() ) : the_post();
           <div class="hb-quick-specs-title">Öne Çıkan Özellikler</div>
           <div class="hb-quick-specs-grid">
             <?php foreach ( $feat_attrs as $attr ) :
-              $aname = wc_attribute_label( $attr->get_name() );
+              $aname = pz_attr_label( $attr->get_name() );
               $avals = $attr->is_taxonomy() ? wc_get_product_terms( $product->get_id(), $attr->get_name(), array('fields'=>'names') ) : $attr->get_options();
               if ( empty($avals) ) continue; ?>
               <div class="hb-qs-item"><span class="hb-qs-k"><?php echo esc_html($aname); ?></span><span class="hb-qs-v"><?php echo esc_html( implode(', ', $avals) ); ?></span></div>
@@ -428,7 +428,7 @@ while ( have_posts() ) : the_post();
               if ( ! empty( $hl_attrs ) ) :
                 $hi = 0;
                 foreach ( $hl_attrs as $hl_attr ) :
-                  $hl_name = wc_attribute_label( $hl_attr->get_name() );
+                  $hl_name = pz_attr_label( $hl_attr->get_name() );
                   $hl_vals = $hl_attr->is_taxonomy()
                     ? wc_get_product_terms( $product->get_id(), $hl_attr->get_name(), array('fields'=>'names') )
                     : $hl_attr->get_options();
@@ -458,7 +458,7 @@ while ( have_posts() ) : the_post();
             $display_attrs = $product->get_attributes();
             if ( ! empty( $display_attrs ) ) :
               foreach ( $display_attrs as $attr ) :
-                $name = wc_attribute_label( $attr->get_name() );
+                $name = pz_attr_label( $attr->get_name() );
                 if ( $attr->is_taxonomy() ) {
                   $values = wc_get_product_terms( $product->get_id(), $attr->get_name(), array( 'fields' => 'names' ) );
                 } else {

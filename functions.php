@@ -4,9 +4,22 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.43' );
+define( 'PAZARYERI_VERSION', '9.9.44' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
+
+/**
+ * Attribute etiketini oku; wc_attribute_label kayıtlı değilse
+ * pa_ önekini siler ve kelimeyi düzgün biçimlendirir.
+ */
+function pz_attr_label( $attr_name ) {
+    $label = wc_attribute_label( $attr_name );
+    if ( strpos( $label, 'pa_' ) === 0 ) {
+        $label = str_replace( array( 'pa_', '_', '-' ), array( '', ' ', ' ' ), $label );
+        $label = mb_convert_case( trim( $label ), MB_CASE_TITLE, 'UTF-8' );
+    }
+    return $label;
+}
 
 /* ──────────────────────────────────────────────
    1) Tema desteği
