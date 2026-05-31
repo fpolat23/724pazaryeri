@@ -127,6 +127,16 @@ while ( have_posts() ) : the_post();
             );
           }
         }
+        // Her attribute için ilk stokta olan varyasyondan varsayılan değeri belirle
+        $pz_default_attrs = array();
+        foreach ( $pz_variations as $vd ) {
+          if ( ! $vd['in_stock'] ) continue;
+          foreach ( $vd['attributes'] as $ak => $av ) {
+            if ( ! isset( $pz_default_attrs[ $ak ] ) && $av !== '' ) {
+              $pz_default_attrs[ $ak ] = $av;
+            }
+          }
+        }
 // YENİ KURAL: GÖRÜNÜR olan TÜM attribute'lar seçim butonu olarak göster (Hepsiburada tarzı)
         foreach ( $attributes as $attribute ) :
           // Sadece "Görünür değil" + "Varyasyon değil" olanları atla
@@ -153,20 +163,35 @@ while ( have_posts() ) : the_post();
           if ( empty( $terms ) ) continue;
           $label = pz_attr_label( $attribute->get_name() );
           $is_color = ( stripos( $label, 'renk' ) !== false || stripos( $attribute->get_name(), 'color' ) !== false );
+          // Bu attribute için varsayılan (ilk stokta) değeri bul
+          $attr_full_key   = 'attribute_' . sanitize_title( $attribute->get_name() );
+          $default_attr_val = isset( $pz_default_attrs[ $attr_full_key ] ) ? $pz_default_attrs[ $attr_full_key ] : null;
+          $default_ti       = 0;
+          $default_name     = isset( $terms[0] ) ? $terms[0]->name : '';
+          if ( $default_attr_val !== null ) {
+            foreach ( $terms as $_ti => $_term ) {
+              $tv = $attr_is_tax ? $_term->slug : sanitize_title( $_term->name );
+              if ( $tv === $default_attr_val || $_term->slug === $default_attr_val ) {
+                $default_ti   = $_ti;
+                $default_name = $_term->name;
+                break;
+              }
+            }
+          }
       ?>
         <div class="hb-variant-block">
-          <div class="hb-variant-label"><?php echo esc_html( $label ); ?>: <span id="sel-<?php echo esc_attr( $attribute->get_name() ); ?>"><?php echo esc_html( $terms[0]->name ); ?></span></div>
+          <div class="hb-variant-label"><?php echo esc_html( $label ); ?>: <span id="sel-<?php echo esc_attr( $attribute->get_name() ); ?>"><?php echo esc_html( $default_name ); ?></span></div>
           <?php if ( $is_color ) : ?>
             <div class="hb-colors">
               <?php foreach ( $terms as $ti => $term ) :
                 $sw = isset( $color_map[ $term->slug ] ) ? $color_map[ $term->slug ] : '#ccc'; ?>
-                <button type="button" class="hb-color<?php echo $ti===0?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')" title="<?php echo esc_attr($term->name); ?>" style="background:<?php echo esc_attr($sw); ?>"></button>
+                <button type="button" class="hb-color<?php echo $ti===$default_ti?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')" title="<?php echo esc_attr($term->name); ?>" style="background:<?php echo esc_attr($sw); ?>"></button>
               <?php endforeach; ?>
             </div>
           <?php else : ?>
             <div class="hb-variants">
               <?php foreach ( $terms as $ti => $term ) : ?>
-                <button type="button" class="hb-var<?php echo $ti===0?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')"><?php echo esc_html($term->name); ?></button>
+                <button type="button" class="hb-var<?php echo $ti===$default_ti?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')"><?php echo esc_html($term->name); ?></button>
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
