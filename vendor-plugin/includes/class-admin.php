@@ -27,6 +27,9 @@ class PZV_Admin {
     public function menu() {
         add_menu_page( 'Satıcılar', '🏪 Satıcılar', 'manage_woocommerce', 'pzv-vendors', array( $this, 'page_vendors' ), 'dashicons-store', 25 );
         add_submenu_page( 'pzv-vendors', 'Satıcı Listesi', 'Satıcı Listesi', 'manage_woocommerce', 'pzv-vendors', array( $this, 'page_vendors' ) );
+        $pending_count = (int) ( wp_count_posts( 'product' )->pending ?? 0 );
+        $pending_badge = $pending_count ? ' <span class="awaiting-mod count-' . $pending_count . '"><span class="pending-count">' . $pending_count . '</span></span>' : '';
+        add_submenu_page( 'pzv-vendors', 'Onay Bekleyen Ürünler', 'Onay Bekleyen' . $pending_badge, 'manage_woocommerce', 'pzv-pending', array( $this, 'page_pending_products' ) );
         add_submenu_page( 'pzv-vendors', 'Bekleyen Ödemeler', 'Bekleyen Ödemeler', 'manage_woocommerce', 'pzv-payouts', array( $this, 'page_payouts' ) );
         add_submenu_page( 'pzv-vendors', 'Ayarlar', 'Ayarlar', 'manage_woocommerce', 'pzv-settings', array( $this, 'page_settings' ) );
         if ( PZV_Roles::is_vendor() ) {
@@ -433,6 +436,116 @@ class PZV_Admin {
         echo $icon . ' <a href="' . esc_url( get_edit_user_link( $author_id ) ) . '">' . esc_html( $store ) . '</a>';
     }
 
+
+    /** ─── SAYFA: Onay Bekleyen Ürünler ─── */
+    public function page_pending_products() {
+        $vendor_ids = array_map( function ( $u ) { return $u->ID; }, PZV_Vendor::get_all() );
+        ?>
+        <div class="wrap pzv-wrap">
+            <h1>⏳ Onay Bekleyen Ürünler</h1>
+            <?php if ( empty( $vendor_ids ) ) : ?>
+                <p>Henüz satıcı yok.</p>
+            <?php else :
+                $q = new WP_Query( array(
+                    'post_type'      => 'product',
+                    'post_status'    => 'pending',
+                    'posts_per_page' => 50,
+                    'author__in'     => $vendor_ids,
+                    'no_found_rows'  => false,
+                    'orderby'        => 'date',
+                    'order'          => 'DESC',
+                ) );
+                if ( ! $q->have_posts() ) :
+                    echo '<p style="color:#1a7a4a;font-weight:600;">🎉 Onay bekleyen ürün yok.</p>';
+                else : ?>
+                <table class="wp-list-table widefat striped">
+                    <thead><tr>
+                        <th style="width:60px;">Görsel</th>
+                        <th>Ürün</th>
+                        <th>Satıcı</th>
+                        <th>Tarih</th>
+                        <th style="width:190px;">İşlem</th>
+                    </tr></thead>
+                    <tbody>
+                    <?php while ( $q->have_posts() ) : $q->the_post();
+                        $pid     = get_the_ID();
+                        $product = wc_get_product( $pid ); if ( ! $product ) continue;
+                        $aid     = (int) get_post_field( 'post_author', $pid );
+                        $vendor  = PZV_Vendor::get( $aid );
+                        ?>
+                        <tr id="pzv-pending-row-<?php echo (int) $pid; ?>">
+                            <td><?php echo $product->get_image( array( 52, 52 ) ); ?></td>
+                            <td>
+                                <strong><?php echo esc_html( $product->get_name() ); ?></strong><br>
+                                <small>SKU: <?php echo esc_html( $product->get_sku() ?: '—' ); ?>
+                                &nbsp;|&nbsp;
+                                <?php echo wp_kses_post( $product->get_price_html() ); ?></small><br>
+                                <a href="<?php echo esc_url( admin_url( 'post.php?post=' . $pid . '&action=edit' ) ); ?>" style="font-size:12px;">Düzenle ↗</a>
+                                &nbsp;
+                                <a href="<?php echo esc_url( get_permalink( $pid ) ); ?>" target="_blank" style="font-size:12px;">Önizle ↗</a>
+                            </td>
+                            <td>
+                                <strong><?php echo $vendor ? esc_html( $vendor['store_name'] ) : '—'; ?></strong><br>
+                                <small><?php echo $vendor ? esc_html( $vendor['email'] ) : ''; ?></small>
+                            </td>
+                            <td><?php echo esc_html( get_the_date( 'd.m.Y H:i' ) ); ?></td>
+                            <td>
+                                <button class="button button-primary pzv-approve-product"
+                                    data-product="<?php echo (int) $pid; ?>" data-action="approve">✓ Onayla</button>
+                                &nbsp;
+                                <button class="button pzv-approve-product"
+                                    data-product="<?php echo (int) $pid; ?>" data-action="reject"
+                                    style="color:#dc2626;border-color:#fca5a5;">✗ Reddet</button>
+                            </td>
+                        </tr>
+                    <?php endwhile; wp_reset_postdata(); ?>
+                    </tbody>
+                </table>
+                <?php endif; endif; ?>
+        </div>
+        <?php
+    }
+
+    /** AJAX: Ürünü onayla veya reddet */
+    public static function ajax_approve_product() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+
+        $pid    = (int) ( $_POST['product_id'] ?? 0 );
+        $action = sanitize_key( $_POST['approve_action'] ?? 'approve' );
+        if ( ! $pid ) wp_send_json_error( array( 'message' => 'Ürün ID eksik' ) );
+
+        $product = wc_get_product( $pid );
+        if ( ! $product ) wp_send_json_error( array( 'message' => 'Ürün bulunamadı' ) );
+
+        $author_id = (int) get_post_field( 'post_author', $pid );
+        $vendor    = PZV_Vendor::get( $author_id );
+
+        if ( $action === 'approve' ) {
+            wp_update_post( array( 'ID' => $pid, 'post_status' => 'publish' ) );
+            if ( $vendor && $vendor['email'] ) {
+                wp_mail(
+                    $vendor['email'],
+                    '724PazarYeri - Ürününüz Yayınlandı',
+                    "Merhaba,\n\n\"{$product->get_name()}\" ürününüz onaylandı ve yayınlandı.\n\n"
+                    . "Ürün: " . get_permalink( $pid ) . "\n"
+                    . "Ürünlerim: " . home_url( '/saticim/?tab=products' )
+                );
+            }
+            wp_send_json_success( array( 'message' => 'Ürün yayınlandı.' ) );
+        } elseif ( $action === 'reject' ) {
+            $note = sanitize_textarea_field( $_POST['note'] ?? '' );
+            wp_update_post( array( 'ID' => $pid, 'post_status' => 'draft' ) );
+            if ( $vendor && $vendor['email'] ) {
+                $body = "Merhaba,\n\n\"{$product->get_name()}\" ürününüz onaylanmadı.\n\n";
+                if ( $note ) $body .= "Sebep: {$note}\n\n";
+                $body .= "Ürünlerim: " . home_url( '/saticim/?tab=products' );
+                wp_mail( $vendor['email'], '724PazarYeri - Ürününüz Onaylanmadı', $body );
+            }
+            wp_send_json_success( array( 'message' => 'Ürün reddedildi (taslağa alındı).' ) );
+        }
+        wp_send_json_error( array( 'message' => 'Geçersiz işlem' ) );
+    }
 
     /**
      * Ürün ekle/düzenle ekranına "Satıcı" meta box (sadece admin/shop_manager için)

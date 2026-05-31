@@ -275,8 +275,9 @@ class PZV_Dashboard {
                         <td><input type="number" class="pzv-quick-stock" min="0" value="<?php echo esc_attr( $p->get_stock_quantity() ); ?>" style="width:70px;"></td>
                         <td>
                             <select class="pzv-quick-status">
-                                <option value="publish" <?php selected( $p->get_status(), 'publish' ); ?>>Yayında</option>
-                                <option value="draft"   <?php selected( $p->get_status(), 'draft' );   ?>>Taslak</option>
+                                <option value="publish" <?php selected( $p->get_status(), 'publish' ); ?>>✓ Yayında</option>
+                                <option value="pending" <?php selected( $p->get_status(), 'pending' ); ?>>⏳ Onay Bekliyor</option>
+                                <option value="draft"   <?php selected( $p->get_status(), 'draft' );   ?>>📝 Taslak</option>
                             </select>
                         </td>
                         <td>
@@ -367,9 +368,10 @@ class PZV_Dashboard {
                     <div class="pzv-form-row">
                         <label>📝 Yayın durumu</label>
                         <select id="pzv-clone-status">
-                            <option value="publish">Hemen yayınla</option>
-                            <option value="draft">Taslak olarak kaydet (sonra yayınlarım)</option>
+                            <option value="pending">Onay için gönder (yönetici onaylar)</option>
+                            <option value="draft">Taslak olarak kaydet (sonra gönderirim)</option>
                         </select>
+                        <small>Ürünler yönetici onayından sonra yayınlanır.</small>
                     </div>
                 </div>
                 <div class="pzv-modal-actions">
@@ -456,7 +458,9 @@ class PZV_Dashboard {
         $price     = isset( $_POST['price'] ) ? floatval( $_POST['price'] ) : 0;
         $stock     = isset( $_POST['stock'] ) ? (int) $_POST['stock'] : 0;
         $sku       = isset( $_POST['sku'] ) ? sanitize_text_field( wp_unslash( $_POST['sku'] ) ) : '';
-        $status    = isset( $_POST['status'] ) && in_array( $_POST['status'], array( 'publish', 'draft' ), true ) ? $_POST['status'] : 'publish';
+        $requested = isset( $_POST['status'] ) ? sanitize_key( $_POST['status'] ) : 'pending';
+        // Vendor cannot publish directly — must go through admin approval
+        $status    = ( $requested === 'draft' ) ? 'draft' : 'pending';
 
         if ( ! $source_id || ! $price || $stock < 0 ) {
             wp_send_json_error( array( 'message' => 'Lütfen tüm zorunlu alanları doldurun.' ) );
@@ -528,7 +532,10 @@ class PZV_Dashboard {
 
         wp_send_json_success( array(
             'product_id' => $new_id,
-            'message'    => 'Ürün mağazanıza eklendi!',
+            'message'    => $status === 'draft'
+                ? 'Ürün taslak olarak kaydedildi.'
+                : 'Ürün onay için gönderildi. Yönetici onayından sonra yayınlanacak.',
+            'went_pending' => ( $status === 'pending' ),
             'edit_url'   => add_query_arg( 'tab', 'products', get_permalink( get_page_by_path( 'saticim' ) ) ),
             'view_url'   => get_permalink( $new_id ),
         ) );
@@ -556,11 +563,22 @@ class PZV_Dashboard {
             $product->set_stock_quantity( $stock );
             $product->set_stock_status( $stock > 0 ? 'instock' : 'outofstock' );
         }
-        if ( isset( $_POST['status'] ) && in_array( $_POST['status'], array( 'publish', 'draft' ), true ) ) {
-            $product->set_status( $_POST['status'] );
+        $went_pending = false;
+        if ( isset( $_POST['status'] ) ) {
+            $new_status = sanitize_key( $_POST['status'] );
+            if ( $new_status === 'publish' ) {
+                // Vendor cannot publish directly — force pending approval
+                $product->set_status( 'pending' );
+                $went_pending = true;
+            } elseif ( in_array( $new_status, array( 'draft', 'pending' ), true ) ) {
+                $product->set_status( $new_status );
+            }
         }
+        // Allow price/stock saves to bypass the wp_insert_post_data pending filter
+        if ( ! defined( 'PZV_DOING_QUICK_SAVE' ) ) define( 'PZV_DOING_QUICK_SAVE', true );
         $product->save();
-        wp_send_json_success( array( 'message' => 'Güncellendi' ) );
+        $msg = $went_pending ? 'Onay için gönderildi. Yönetici onayından sonra yayınlanacak.' : 'Güncellendi';
+        wp_send_json_success( array( 'message' => $msg, 'went_pending' => $went_pending ) );
     }
 
     private static function tab_orders( $user_id ) {

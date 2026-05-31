@@ -76,4 +76,50 @@
         }
       });
   });
+
+  // Bekleyen ürün onayla / reddet
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.pzv-approve-product');
+    if (!btn) return;
+    e.preventDefault();
+    var pid    = btn.getAttribute('data-product');
+    var action = btn.getAttribute('data-action');
+    var note   = '';
+    if (action === 'approve') {
+      if (!confirm('Bu ürün onaylanıp yayınlansın mı? Satıcıya bilgi e-postası gönderilecek.')) return;
+    } else {
+      note = prompt('Reddetme nedeni (satıcıya e-posta ile iletilecek, boş bırakılabilir):', '') || '';
+      if (note === null) return;
+      if (!confirm('Bu ürün reddedilip taslağa alınsın mı?')) return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'İşleniyor...';
+    var fd = new FormData();
+    fd.append('action',         'pzv_approve_product');
+    fd.append('nonce',          pzv.nonce);
+    fd.append('product_id',     pid);
+    fd.append('approve_action', action);
+    fd.append('note',           note);
+    fetch(pzv.ajax_url, { method:'POST', body:fd, credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res && res.success) {
+          var row = document.getElementById('pzv-pending-row-' + pid);
+          if (row) {
+            row.style.background = action === 'approve' ? '#dcfce7' : '#fee2e2';
+            row.style.transition = 'background .3s';
+            setTimeout(function(){ row.remove(); }, 800);
+          }
+        } else {
+          btn.disabled = false;
+          btn.textContent = action === 'approve' ? '✓ Onayla' : '✗ Reddet';
+          alert('Hata: ' + ((res && res.data && res.data.message) || 'bilinmeyen'));
+        }
+      })
+      .catch(function(){
+        btn.disabled = false;
+        btn.textContent = action === 'approve' ? '✓ Onayla' : '✗ Reddet';
+        alert('Bağlantı hatası');
+      });
+  });
 })();

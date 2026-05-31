@@ -182,7 +182,7 @@
     document.getElementById('pzv-clone-price').value = data.price;
     document.getElementById('pzv-clone-stock').value = '';
     document.getElementById('pzv-clone-sku').value = '';
-    document.getElementById('pzv-clone-status').value = 'publish';
+    document.getElementById('pzv-clone-status').value = 'pending';
     modal.querySelector('.pzv-modal-msg').textContent = '';
     modal.style.display = 'flex';
   }
@@ -236,7 +236,8 @@
           cloneBtn.textContent = '📥 Mağazama Ekle';
           if (res && res.success) {
             msg.className = 'pzv-modal-msg success';
-            msg.innerHTML = '✓ ' + res.data.message + '<br><br><a class="button button-primary" href="'+res.data.edit_url+'">Ürünlerim sayfasına git →</a>';
+            var cloneIcon = res.data.went_pending ? '⏳' : '✓';
+            msg.innerHTML = cloneIcon + ' ' + res.data.message + '<br><br><a class="button button-primary" href="'+res.data.edit_url+'">Ürünlerim sayfasına git →</a>';
             // Arama sonucundaki butonu güncelle
             var oldBtn = document.querySelector('.pzv-clone-btn[data-id="'+sourceId+'"]');
             if (oldBtn) oldBtn.outerHTML = '<button class="button button-small" disabled>✓ Eklenmiş</button>';
@@ -277,9 +278,18 @@
         .then(function(res){
           btn.disabled = false;
           if (res && res.success) {
-            btn.textContent = '✓';
-            btn.style.background = '#1a7a4a';
-            setTimeout(function(){ btn.textContent = '💾'; btn.style.background = ''; }, 1500);
+            if (res.data && res.data.went_pending) {
+              btn.textContent = '⏳';
+              btn.style.background = '#d97706';
+              // Status select'i güncelle
+              var statusSel = row.querySelector('.pzv-quick-status');
+              if (statusSel) statusSel.value = 'pending';
+              setTimeout(function(){ btn.textContent = '💾'; btn.style.background = ''; }, 2500);
+            } else {
+              btn.textContent = '✓';
+              btn.style.background = '#1a7a4a';
+              setTimeout(function(){ btn.textContent = '💾'; btn.style.background = ''; }, 1500);
+            }
           } else {
             btn.textContent = '💾';
             alert((res && res.data && res.data.message) || 'Hata');
