@@ -58,6 +58,7 @@ while ( have_posts() ) : the_post();
       </div>
       <div class="hb-main-img">
         <?php if ( $disc > 0 ) : ?><span class="hb-disc-badge">%<?php echo esc_html( $disc ); ?><br><small>indirim</small></span><?php endif; ?>
+        <?php if ( $sale >= 1500 ) : ?><span class="hb-freeship-badge"><span class="hb-freeship-ico">🚚</span><span class="hb-freeship-txt">Ücretsiz<br>Kargo</span></span><?php endif; ?>
         <button class="hb-fav" id="imgFav" onclick="toggleImgFav()" aria-label="Favorilere ekle">🤍</button>
         <img loading="lazy" decoding="async" id="mainImgEl" src="<?php echo esc_url( $main_full ); ?>" alt="<?php the_title_attribute(); ?>">
         <div class="hb-zoom-hint">🔍 İncelemek için üzerine gelin</div>
@@ -288,6 +289,7 @@ while ( have_posts() ) : the_post();
 
       <!-- Kargo / teslimat -->
       <div class="hb-delivery">
+        <?php if ( $in_stock ) : ?>
         <div class="hb-del-row hb-del-kargo<?php echo ( $price >= 1500 ) ? ' hb-del-kargo-free' : ''; ?>">
           <div class="hb-del-ico-wrap">🚚</div>
           <div class="hb-del-content">
@@ -310,6 +312,16 @@ while ( have_posts() ) : the_post();
             <small class="pship-txt">Kargo bilgisi hesaplanıyor…</small>
           </div>
         </div>
+        <?php else : ?>
+        <div class="hb-del-row hb-del-stok">
+          <div class="hb-del-ico-wrap">📦</div>
+          <div class="hb-del-content">
+            <strong>Stok Bekleniyor</strong>
+            <small>Bu ürün şu an stokta bulunmuyor</small>
+          </div>
+          <span class="hb-del-badge hb-del-badge-grey">STOKTA YOK</span>
+        </div>
+        <?php endif; ?>
       </div>
 
       <!-- Adet + Sepet -->
