@@ -74,21 +74,24 @@ class PZV_Dashboard {
 
     private static function render_tabs( $current ) {
         $tabs = array(
-            'overview'    => '📊 Özet',
-            'products'    => '📦 Ürünlerim',
-            'add-product' => '➕ Ürün Ekle',
-            'orders'      => '📋 Siparişlerim',
-            'earnings'    => '💰 Kazançlarım',
-            'profile'     => '⚙️ Profilim',
+            'overview'    => array( 'icon' => '📊', 'label' => 'Özet' ),
+            'products'    => array( 'icon' => '📦', 'label' => 'Ürünlerim' ),
+            'add-product' => array( 'icon' => '➕', 'label' => 'Ürün Ekle' ),
+            'orders'      => array( 'icon' => '📋', 'label' => 'Siparişlerim' ),
+            'earnings'    => array( 'icon' => '💰', 'label' => 'Kazançlarım' ),
+            'profile'     => array( 'icon' => '⚙️', 'label' => 'Profilim' ),
         );
         $base = get_permalink();
         ?>
         <nav class="pzv-dash-tabs">
-            <?php foreach ( $tabs as $k => $label ) :
-                $url = add_query_arg( 'tab', $k, $base );
+            <?php foreach ( $tabs as $k => $t ) :
+                $url    = add_query_arg( 'tab', $k, $base );
                 $active = ( $current === $k ) ? ' pzv-active' : '';
                 ?>
-                <a href="<?php echo esc_url( $url ); ?>" class="pzv-tab<?php echo $active; ?>"><?php echo esc_html( $label ); ?></a>
+                <a href="<?php echo esc_url( $url ); ?>" class="pzv-tab<?php echo $active; ?>">
+                    <span class="pzv-tab-icon"><?php echo $t['icon']; ?></span>
+                    <span class="pzv-tab-label"><?php echo esc_html( $t['label'] ); ?></span>
+                </a>
             <?php endforeach; ?>
         </nav>
         <?php
