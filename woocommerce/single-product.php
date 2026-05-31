@@ -288,13 +288,20 @@ while ( have_posts() ) : the_post();
 
       <!-- Kargo / teslimat -->
       <div class="hb-delivery">
-        <div class="hb-del-row hb-del-kargo">
+        <div class="hb-del-row hb-del-kargo<?php echo ( $price >= 1500 ) ? ' hb-del-kargo-free' : ''; ?>">
           <div class="hb-del-ico-wrap">🚚</div>
           <div class="hb-del-content">
-            <strong>1500₺ Üzeri Ücretsiz Kargo</strong>
-            <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', strtotime('+2 days') ) ); ?> – <?php echo esc_html( date_i18n( 'j F', strtotime('+4 days') ) ); ?></small>
+            <?php if ( $price >= 1500 ) : ?>
+              <strong>Bu Ürün İçin Kargo Ücretsiz!</strong>
+              <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', strtotime('+2 days') ) ); ?> – <?php echo esc_html( date_i18n( 'j F', strtotime('+4 days') ) ); ?></small>
+            <?php else : ?>
+              <strong>1500₺ Üzeri Ücretsiz Kargo</strong>
+              <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', strtotime('+2 days') ) ); ?> – <?php echo esc_html( date_i18n( 'j F', strtotime('+4 days') ) ); ?></small>
+            <?php endif; ?>
           </div>
-          <span class="hb-del-badge hb-del-badge-green">ÜCRETSİZ</span>
+          <?php if ( $price >= 1500 ) : ?>
+            <span class="hb-del-badge hb-del-badge-green">ÜCRETSİZ</span>
+          <?php endif; ?>
         </div>
         <div class="hb-del-row hb-del-hizli">
           <div class="hb-del-ico-wrap">⚡</div>
