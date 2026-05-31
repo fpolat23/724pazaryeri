@@ -1,0 +1,150 @@
+/* PZV Vendor Dashboard - Frontend (Dokan tarzı) */
+.pzv-dash{max-width:1200px;margin:24px auto;padding:0 18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1d2327;}
+.pzv-dash-login{background:#fff;border-radius:12px;padding:40px 24px;text-align:center;border:1px solid #e3e3e3;max-width:520px;margin:40px auto;}
+.pzv-dash-login h3{margin-top:0;color:#ff6a00;}
+
+.pzv-dash-header{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1a1917 0%,#2a2825 100%);color:#fff;padding:22px 28px;border-radius:14px;margin-bottom:18px;box-shadow:0 6px 24px rgba(0,0,0,.08);flex-wrap:wrap;gap:16px;}
+.pzv-dash-store-name{font-size:22px;font-weight:800;}
+.pzv-dash-store-meta{font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;}
+.pzv-dash-store-meta a{color:#ffb000;text-decoration:none;}
+.pzv-dash-balance{text-align:right;}
+.pzv-dash-balance-l{font-size:12px;color:rgba(255,255,255,.6);letter-spacing:.5px;text-transform:uppercase;}
+.pzv-dash-balance-n{font-size:26px;font-weight:800;color:#ffb000;margin-top:2px;}
+
+.pzv-dash-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:18px;background:#fff;border-radius:10px;padding:6px;border:1px solid #e3e3e3;box-shadow:0 2px 6px rgba(0,0,0,.03);}
+.pzv-tab{padding:10px 16px;text-decoration:none;color:#555;font-size:14px;font-weight:600;border-radius:7px;transition:all .14s;flex:1;text-align:center;min-width:110px;}
+.pzv-tab:hover{background:#fff5ec;color:#ff6a00;}
+.pzv-tab.pzv-active{background:#ff6a00;color:#fff;}
+
+.pzv-dash-content{background:#fff;border-radius:12px;padding:24px;border:1px solid #e3e3e3;box-shadow:0 2px 8px rgba(0,0,0,.03);}
+.pzv-dash-content h3{margin-top:0;font-size:18px;font-weight:700;}
+.pzv-dash-content h4{font-size:15px;font-weight:700;margin-top:18px;}
+
+.pzv-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+.pzv-stat{background:#f6f4f0;border:1px solid #e3e3e3;border-radius:10px;padding:18px 16px;text-align:center;}
+.pzv-stat-n{font-size:22px;font-weight:800;color:#1d2327;line-height:1.1;}
+.pzv-stat-l{font-size:12px;color:#646970;margin-top:6px;font-weight:600;}
+.pzv-stat-pending{background:#fff7ed;border-color:#fed7aa;}
+.pzv-stat-pending .pzv-stat-n{color:#d9822b;}
+.pzv-stat-paid{background:#ecfdf5;border-color:#86d2a5;}
+.pzv-stat-paid .pzv-stat-n{color:#1a7a4a;}
+
+.pzv-table{width:100%;border-collapse:collapse;margin:12px 0;background:#fff;}
+.pzv-table thead th{text-align:left;background:#f6f4f0;padding:10px 12px;font-size:13px;font-weight:700;color:#1d2327;border-bottom:2px solid #e3e3e3;}
+.pzv-table tbody td{padding:12px;border-bottom:1px solid #f0ede8;font-size:13.5px;vertical-align:middle;}
+.pzv-table tbody tr:hover{background:#fafafa;}
+.pzv-table img{display:block;border-radius:6px;}
+
+.pzv-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;}
+
+.pzv-status{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#f0f0f1;color:#646970;}
+.pzv-status-completed,.pzv-status-paid,.pzv-status-publish{background:#dcfce7;color:#15803d;}
+.pzv-status-processing,.pzv-status-pending{background:#fef3c7;color:#92400e;}
+.pzv-status-on-hold{background:#dbeafe;color:#1e40af;}
+.pzv-status-cancelled,.pzv-status-failed,.pzv-status-refunded,.pzv-status-trash{background:#fee2e2;color:#991b1b;}
+.pzv-status-draft{background:#e5e7eb;color:#374151;}
+
+.pzv-order-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0;}
+.pzv-order-box{background:#f6f4f0;border-radius:10px;padding:14px 16px;}
+.pzv-order-box h4{margin:0 0 8px;font-size:13px;color:#646970;text-transform:uppercase;letter-spacing:.5px;}
+.pzv-order-box p{margin:6px 0;font-size:14px;line-height:1.5;}
+
+.pzv-form-table{width:100%;border-collapse:collapse;}
+.pzv-form-table th{text-align:left;font-size:13px;font-weight:600;width:160px;padding:10px 12px 10px 0;vertical-align:top;}
+.pzv-form-table td{padding:8px 0;}
+.pzv-form-table input, .pzv-form-table select, .pzv-form-table textarea{width:100%;max-width:420px;padding:9px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;}
+.pzv-order-msg{margin-top:12px;font-weight:600;}
+.pzv-order-msg.success{color:#1a7a4a;}
+.pzv-order-msg.error{color:#dc2626;}
+
+.pzv-dash .button{display:inline-block;padding:8px 16px;background:#fff;border:1px solid #ccc;color:#1d2327;text-decoration:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;transition:all .14s;}
+.pzv-dash .button:hover{background:#f6f4f0;}
+.pzv-dash .button-primary{background:#ff6a00;color:#fff;border-color:#ff6a00;}
+.pzv-dash .button-primary:hover{background:#e85d00;border-color:#e85d00;color:#fff;}
+.pzv-dash .button-small{padding:5px 10px;font-size:12px;}
+.pzv-dash .button-hero{padding:12px 24px;font-size:15px;font-weight:600;}
+
+@media(max-width:768px){
+  .pzv-dash{padding:0 12px;margin:14px auto;}
+  .pzv-dash-header{padding:16px 18px;}
+  .pzv-dash-balance{text-align:left;}
+  .pzv-dash-content{padding:16px;}
+  .pzv-table{font-size:12.5px;}
+  .pzv-table thead th, .pzv-table tbody td{padding:8px 6px;}
+  .pzv-table img{width:40px;height:40px;}
+  .pzv-tab{padding:8px 10px;font-size:13px;min-width:auto;}
+  .pzv-stats{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ═══ ÜRÜN ARAMA + EKLE — Modern kart tasarımı ═══ */
+.pzv-add-product{margin-top:14px;}
+.pzv-search-card{display:flex;gap:14px;background:linear-gradient(135deg,#fff5ec 0%,#fff 100%);border:2px solid #ffd4b0;border-radius:14px;padding:18px;box-shadow:0 4px 16px rgba(255,106,0,.08);align-items:flex-start;}
+.pzv-search-icon{font-size:38px;line-height:1;flex-shrink:0;animation:pzvIconBounce 2s ease-in-out infinite;}
+@keyframes pzvIconBounce{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-4px);}
+}
+.pzv-search-body{flex:1;min-width:0;}
+.pzv-search-label{display:block;font-weight:700;font-size:13px;color:#ff6a00;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.pzv-search-row{display:flex;gap:8px;}
+.pzv-search-row input{flex:1;padding:13px 16px;border:2px solid #fff;border-radius:10px;font-size:15px;outline:none;transition:all .14s;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.pzv-search-row input:focus{border-color:#ff6a00;box-shadow:0 2px 8px rgba(255,106,0,.15);}
+.pzv-search-row .button-primary{padding:0 22px;font-weight:700;font-size:14px;border-radius:10px;flex-shrink:0;min-width:80px;}
+.pzv-search-status{margin-top:8px;font-size:12.5px;color:#646970;min-height:18px;font-weight:500;}
+.pzv-btn-spinner{display:inline-block;animation:pzvSpin 1.2s linear infinite;}
+@keyframes pzvSpin{
+  0%{transform:rotate(0);}
+  100%{transform:rotate(360deg);}
+}
+
+@media(max-width:640px){
+  .pzv-search-card{padding:14px;gap:10px;}
+  .pzv-search-icon{font-size:30px;}
+  .pzv-search-row{flex-wrap:nowrap;}
+  .pzv-search-row .button-primary{padding:0 14px;min-width:70px;}
+}
+
+.pzv-search-results{margin-top:16px;}
+.pzv-no-result{padding:32px;text-align:center;color:#888;background:#fafafa;border:1px dashed #ddd;border-radius:10px;}
+.pzv-search-item{display:flex;align-items:center;gap:14px;padding:12px;background:#fff;border:1px solid #e3e3e3;border-radius:10px;margin-bottom:8px;transition:all .14s;}
+.pzv-search-item:hover{border-color:#ff6a00;box-shadow:0 2px 8px rgba(255,106,0,.08);}
+.pzv-search-item img{width:60px;height:60px;object-fit:cover;border-radius:6px;background:#f6f4f0;flex-shrink:0;}
+.pzv-search-info{flex:1;min-width:0;}
+.pzv-search-name{font-weight:600;font-size:14px;color:#1d2327;margin-bottom:4px;}
+.pzv-search-meta{font-size:12.5px;color:#646970;}
+.pzv-search-actions{display:flex;gap:6px;flex-shrink:0;}
+
+/* ═══ MODAL ═══ */
+.pzv-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px;}
+.pzv-modal-box{background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.pzv-modal-box h3{margin-top:0;font-size:20px;}
+.pzv-modal-close{position:absolute;top:12px;right:12px;background:transparent;border:none;font-size:28px;cursor:pointer;color:#999;line-height:1;padding:4px 10px;}
+.pzv-modal-close:hover{color:#000;}
+
+.pzv-modal-product-card{display:flex;gap:12px;background:#fff5ec;padding:12px;border-radius:10px;margin:14px 0 20px;border:1px solid #ffd4b0;}
+.pzv-modal-product-card img{width:64px;height:64px;object-fit:cover;border-radius:6px;background:#fff;flex-shrink:0;}
+.pzv-mp-name{font-weight:700;font-size:14px;color:#1d2327;}
+.pzv-mp-meta{font-size:12px;color:#646970;margin-top:4px;}
+
+.pzv-form-row{margin-bottom:14px;}
+.pzv-form-row label{display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#1d2327;}
+.pzv-form-row .req{color:#dc2626;}
+.pzv-form-row input, .pzv-form-row select{width:100%;padding:10px 12px;border:1px solid #ccc;border-radius:6px;font-size:14px;outline:none;}
+.pzv-form-row input:focus, .pzv-form-row select:focus{border-color:#ff6a00;}
+.pzv-form-row small{display:block;color:#888;font-size:11.5px;margin-top:4px;}
+
+.pzv-modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+.pzv-modal-msg{margin-top:12px;padding:10px;border-radius:6px;font-weight:600;font-size:13px;}
+.pzv-modal-msg.success{background:#dcfce7;color:#15803d;}
+.pzv-modal-msg.error{background:#fee2e2;color:#991b1b;}
+.pzv-modal-msg:empty{display:none;}
+
+/* ═══ HIZLI DÜZENLE INPUTS ═══ */
+.pzv-quick-price, .pzv-quick-stock, .pzv-quick-status{padding:6px 8px!important;border:1px solid #ccc;border-radius:5px;font-size:13px;}
+.pzv-quick-save{transition:all .14s;}
+
+@media(max-width:640px){
+  .pzv-search-item{flex-wrap:wrap;}
+  .pzv-search-actions{width:100%;}
+  .pzv-modal-box{padding:20px;}
+}
