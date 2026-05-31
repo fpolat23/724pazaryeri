@@ -289,7 +289,7 @@ while ( have_posts() ) : the_post();
       <!-- Kargo / teslimat -->
       <div class="hb-delivery">
         <div class="hb-del-row"><span class="hb-del-ico">🚚</span><div><strong>1500₺ Üzeri Ücretsiz Kargo</strong><br><small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', strtotime('+2 days') ) ); ?> - <?php echo esc_html( date_i18n( 'j F', strtotime('+4 days') ) ); ?></small></div></div>
-        <div class="hb-del-row"><span class="hb-del-ico">⚡</span><div><strong>Hızlı Teslimat</strong><br><small>Bugün 14:00'a kadar siparişlerde yarın kargoda</small></div></div>
+        <div class="hb-del-row"><span class="hb-del-ico">⚡</span><div><strong>Hızlı Teslimat</strong><br><small class="pship-txt">Kargo bilgisi hesaplanıyor…</small></div></div>
       </div>
 
       <!-- Adet + Sepet -->

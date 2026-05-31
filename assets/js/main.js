@@ -1774,3 +1774,79 @@ window.pzSendVerifyCode = function(btn){
       alert('Bağlantı hatası: ' + (err && err.message ? err.message : 'bilinmeyen') + '\n\nSayfayı yenileyip tekrar deneyin.');
     });
 };
+
+/* ── Dinamik kargo sayacı (Türkiye saati, iş günü, tatil kontrolü) ── */
+(function(){
+  var fixedHols = ['1-1','4-23','5-1','5-19','7-15','8-30','10-29'];
+  var lunarHols = {
+    2025: ['3-28','3-29','3-30','3-31','4-1','6-5','6-6','6-7','6-8','6-9'],
+    2026: ['3-19','3-20','3-21','3-22','5-26','5-27','5-28','5-29','5-30'],
+    2027: ['3-9','3-10','3-11','5-16','5-17','5-18','5-19','5-20']
+  };
+
+  function trNow() {
+    var now = new Date();
+    return new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 3 * 3600000);
+  }
+
+  function isHol(d) {
+    var key = (d.getMonth() + 1) + '-' + d.getDate();
+    if (fixedHols.indexOf(key) !== -1) return true;
+    var yh = lunarHols[d.getFullYear()];
+    return yh ? yh.indexOf(key) !== -1 : false;
+  }
+
+  function isWorkDay(d) {
+    var w = d.getDay();
+    return w !== 0 && w !== 6 && !isHol(d);
+  }
+
+  function nextWorkDay(from) {
+    var d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
+    for (var i = 0; i < 14; i++) {
+      if (isWorkDay(d)) return d;
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
+  }
+
+  function dayNames(d) {
+    return ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'][d.getDay()];
+  }
+
+  function computeText() {
+    var tr = trNow();
+    var cutoff = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate(), 14, 0, 0, 0);
+    var diffMs = cutoff - tr;
+
+    if (isWorkDay(tr) && diffMs > 0) {
+      var totalMins = Math.ceil(diffMs / 60000);
+      var h = Math.floor(totalMins / 60);
+      var m = totalMins % 60;
+      var timeStr = '';
+      if (h > 0) timeStr += h + ' saat ';
+      if (m > 0) timeStr += m + ' dakika ';
+      return timeStr.trim() + ' içinde sipariş verirseniz bugün kargoda';
+    }
+
+    var nwd = nextWorkDay(tr);
+    var tmrw = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate() + 1);
+    var whenStr = (nwd.toDateString() === tmrw.toDateString()) ? 'yarın' : dayNames(nwd);
+    return 'En geç ' + whenStr + ' kargoya verilir';
+  }
+
+  function update() {
+    var els = document.querySelectorAll('[data-pship] .pship-txt, .hb-del-row .pship-txt');
+    if (!els.length) return;
+    var txt = computeText();
+    for (var i = 0; i < els.length; i++) els[i].textContent = txt;
+  }
+
+  function init() {
+    update();
+    setInterval(update, 60000);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
