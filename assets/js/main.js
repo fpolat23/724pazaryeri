@@ -822,8 +822,9 @@ window.filterBrandList = filterBrandList;
     // Tüm resim URL'lerini thumb onclick'ten topla
     var carImgs = [];
     document.querySelectorAll('.hb-thumb').forEach(function(th){
-      var m = (th.getAttribute('onclick')||'').match(/'([^']+)'/g);
-      if(m && m[0]) carImgs.push(m[0].replace(/'/g,''));
+      var oc = th.getAttribute('onclick') || th.getAttribute('onmouseenter') || '';
+      var m = oc.match(/'([^']+)'/);
+      if(m && m[1]) carImgs.push(m[1]);
     });
     if(!carImgs.length) carImgs = [mainImg.src];
     var N = carImgs.length;
@@ -836,16 +837,24 @@ window.filterBrandList = filterBrandList;
     }
 
     // ── Çok resim: Karusel kur ──
+    // Tüm layout-critical CSS inline — harici CSS'e bağımlılık yok
+    var carWrap = document.createElement('div');
+    carWrap.className = 'pz-car-wrap';
+    carWrap.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;cursor:zoom-in;';
+
     var carTrack = document.createElement('div');
     carTrack.className = 'pz-car-track';
+    carTrack.style.cssText = 'display:flex;width:100%;height:100%;will-change:transform;-webkit-user-select:none;user-select:none;';
 
     carImgs.forEach(function(src, i){
       var sl = document.createElement('div');
       sl.className = 'pz-car-slide';
+      sl.style.cssText = 'flex:0 0 100%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;';
       var im = document.createElement('img');
-      if(i === 0) im.src = src;
+      if(i === 0) im.setAttribute('src', src);
       im.setAttribute('data-src', src);
       im.alt = ''; im.draggable = false;
+      im.style.cssText = 'max-width:92%;max-height:420px;object-fit:contain;pointer-events:none;display:block;';
       sl.appendChild(im);
       carTrack.appendChild(sl);
     });
@@ -863,12 +872,12 @@ window.filterBrandList = filterBrandList;
       dotBar.appendChild(dotEl);
     }
 
-    mainBox.insertBefore(carTrack, mainImg);
+    carWrap.appendChild(carTrack);
+    carWrap.appendChild(btnPrev);
+    carWrap.appendChild(btnNext);
+    carWrap.appendChild(dotBar);
+    mainBox.appendChild(carWrap);
     mainImg.style.display = 'none';
-    mainBox.appendChild(btnPrev);
-    mainBox.appendChild(btnNext);
-    mainBox.appendChild(dotBar);
-    mainBox.style.cursor = 'zoom-in';
 
     var cur = 0, autoTimer, dragStartX = 0, dragging = false, dragDx = 0;
 
@@ -877,7 +886,7 @@ window.filterBrandList = filterBrandList;
         if(Math.abs(i - idx) <= 1){
           var im = sl.querySelector('img');
           if(im && !im.getAttribute('src') && im.getAttribute('data-src')){
-            im.src = im.getAttribute('data-src');
+            im.setAttribute('src', im.getAttribute('data-src'));
           }
         }
       });
@@ -903,7 +912,7 @@ window.filterBrandList = filterBrandList;
     });
 
     // Karusel'e tıklama → lightbox
-    carTrack.addEventListener('click', function(){
+    carWrap.addEventListener('click', function(){
       if(Math.abs(dragDx) > 6) return;
       pzOpenGalleryLb(carImgs, cur);
     });
@@ -921,7 +930,7 @@ window.filterBrandList = filterBrandList;
     }
     carTrack.addEventListener('mousedown', function(e){ if(e.button) return; e.preventDefault(); dStart(e.clientX); carTrack.style.cursor='grabbing'; });
     document.addEventListener('mousemove', function(e){ dMove(e.clientX); });
-    document.addEventListener('mouseup', function(e){ if(dragging){ dEnd(e.clientX); carTrack.style.cursor='grab'; } });
+    document.addEventListener('mouseup', function(e){ if(dragging){ dEnd(e.clientX); carTrack.style.cursor=''; } });
     carTrack.addEventListener('touchstart', function(e){ dStart(e.touches[0].clientX); },{passive:true});
     carTrack.addEventListener('touchmove', function(e){ dMove(e.touches[0].clientX); },{passive:true});
     carTrack.addEventListener('touchend', function(e){ dEnd(e.changedTouches[0].clientX); });
@@ -935,7 +944,7 @@ window.filterBrandList = filterBrandList;
       else {
         carImgs[0]=src;
         var fi=carTrack.querySelector('.pz-car-slide:first-child img');
-        if(fi){ fi.src=src; fi.setAttribute('data-src',src); }
+        if(fi){ fi.setAttribute('src',src); fi.setAttribute('data-src',src); }
         goTo(0);
       }
     };
@@ -947,7 +956,7 @@ window.filterBrandList = filterBrandList;
       else {
         carImgs[0]=src;
         var fi=carTrack.querySelector('.pz-car-slide:first-child img');
-        if(fi){ fi.src=src; fi.setAttribute('data-src',src); }
+        if(fi){ fi.setAttribute('src',src); fi.setAttribute('data-src',src); }
         goTo(0);
       }
     };
