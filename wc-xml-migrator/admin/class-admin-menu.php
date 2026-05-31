@@ -166,6 +166,7 @@ class WC_XML_Migrator_Admin {
 						<td>
 							<label><input type="checkbox" name="include_images" value="1" checked> <?php esc_html_e( 'Görsel URL\'leri', 'wc-xml-migrator' ); ?></label><br>
 							<label><input type="checkbox" name="include_variations" value="1" checked> <?php esc_html_e( 'Varyasyonlar', 'wc-xml-migrator' ); ?></label><br>
+							<label><input type="checkbox" name="include_term_images" value="1" checked> <?php esc_html_e( 'Kategori ve marka görselleri', 'wc-xml-migrator' ); ?></label><br>
 							<label><input type="checkbox" name="include_meta" value="1"> <?php esc_html_e( 'Özel meta verileri', 'wc-xml-migrator' ); ?></label>
 						</td>
 					</tr>
@@ -295,7 +296,17 @@ class WC_XML_Migrator_Admin {
 									<br><small style="color:#dc3232"><?php echo esc_html( count( $errors ) ); ?> hata</small>
 								<?php endif; ?>
 							</td>
-							<td><?php echo esc_html( get_date_from_gmt( $job->created_at, get_option( 'date_format' ) . ' H:i' ) ); ?></td>
+							<td><?php
+								// WordPress'in kendi timezone ayarını kullan (Türkiye: Europe/Istanbul)
+								try {
+									$tz  = new DateTimeZone( wp_timezone_string() );
+									$dt  = new DateTime( $job->created_at, new DateTimeZone( 'UTC' ) );
+									$dt->setTimezone( $tz );
+									echo esc_html( $dt->format( 'd.m.Y H:i' ) );
+								} catch ( Exception $e ) {
+									echo esc_html( $job->created_at );
+								}
+							?></td>
 							<td>
 								<?php if ( $job->file_url ) : ?>
 									<a href="<?php echo esc_url( $job->file_url ); ?>" download class="button button-small">
@@ -340,6 +351,7 @@ class WC_XML_Migrator_Admin {
 			'categories'          => array_map( 'sanitize_text_field', (array) ( $_POST['categories'] ?? [] ) ),
 			'include_images'      => ! empty( $_POST['include_images'] ),
 			'include_variations'  => ! empty( $_POST['include_variations'] ),
+			'include_term_images' => ! empty( $_POST['include_term_images'] ),
 			'include_meta'        => ! empty( $_POST['include_meta'] ),
 			'batch_size'          => min( 100, max( 1, (int) ( $_POST['batch_size'] ?? 20 ) ) ),
 		];

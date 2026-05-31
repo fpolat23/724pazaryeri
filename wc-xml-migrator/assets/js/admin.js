@@ -79,7 +79,7 @@
         $form.find('#export-categories option:selected').each(function () {
             formData.append('categories[]', $(this).val());
         });
-        ['include_images', 'include_variations', 'include_meta'].forEach(function (n) {
+        ['include_images', 'include_variations', 'include_term_images', 'include_meta'].forEach(function (n) {
             if ($form.find('[name="' + n + '"]').is(':checked')) formData.append(n, '1');
         });
 

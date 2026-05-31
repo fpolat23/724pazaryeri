@@ -39,6 +39,98 @@ class WC_XML_Importer {
 		return $this->results;
 	}
 
+	// ---- Kategori ve marka görselleri içe aktarma ----
+
+	/**
+	 * XML dosyasındaki <term_images> bölümünü işler; term'leri oluşturur ve görsellerini indirir.
+	 */
+	public function import_term_images_from_file( string $file_path ): array {
+		$dom = new DOMDocument();
+		libxml_use_internal_errors( true );
+		if ( ! $dom->load( $file_path ) ) {
+			libxml_clear_errors();
+			return [ 'errors' => [ 'XML dosyası yüklenemedi.' ] ];
+		}
+		libxml_clear_errors();
+
+		$results = [ 'created' => 0, 'updated' => 0, 'errors' => [] ];
+
+		$sections = $dom->getElementsByTagName( 'term_images' );
+		if ( ! $sections->length ) return $results;
+
+		$section = $sections->item( 0 );
+
+		foreach ( $section->childNodes as $tax_node ) {
+			if ( ! ( $tax_node instanceof DOMElement ) || $tax_node->tagName !== 'taxonomy' ) continue;
+
+			$taxonomy = $tax_node->getAttribute( 'name' );
+			if ( ! $taxonomy || ! taxonomy_exists( $taxonomy ) ) continue;
+
+			foreach ( $tax_node->childNodes as $term_node ) {
+				if ( ! ( $term_node instanceof DOMElement ) || $term_node->tagName !== 'term' ) continue;
+
+				try {
+					$this->process_term_image( $term_node, $taxonomy, $results );
+				} catch ( Throwable $e ) {
+					$slug = $this->get_text( $term_node, 'slug' );
+					$results['errors'][] = "$taxonomy/$slug: " . $e->getMessage();
+				}
+			}
+		}
+
+		return $results;
+	}
+
+	private function process_term_image( DOMElement $node, string $taxonomy, array &$results ): void {
+		$slug        = $this->get_text( $node, 'slug' );
+		$name        = $this->get_text( $node, 'name' ) ?: $slug;
+		$parent_slug = $this->get_text( $node, 'parent_slug' );
+		$description = $this->get_text( $node, 'description' );
+
+		if ( ! $slug ) return;
+
+		// Üst term
+		$parent_id = 0;
+		if ( $parent_slug ) {
+			$parent = get_term_by( 'slug', $parent_slug, $taxonomy );
+			if ( $parent ) $parent_id = $parent->term_id;
+		}
+
+		// Term yoksa oluştur
+		$term = get_term_by( 'slug', $slug, $taxonomy );
+		if ( ! $term ) {
+			$inserted = wp_insert_term( $name, $taxonomy, [
+				'slug'        => $slug,
+				'parent'      => $parent_id,
+				'description' => $description,
+			] );
+			if ( is_wp_error( $inserted ) ) {
+				$results['errors'][] = "Term oluşturulamadı ($slug): " . $inserted->get_error_message();
+				return;
+			}
+			$term_id = $inserted['term_id'];
+			$results['created']++;
+		} else {
+			$term_id = $term->term_id;
+			$results['updated']++;
+		}
+
+		// Görsel indir ve thumbnail_id olarak ata
+		if ( ! $this->download_images ) return;
+
+		$image_url = '';
+		foreach ( $node->getElementsByTagName( 'image' ) as $img_node ) {
+			$image_url = $this->get_text( $img_node, 'url' );
+			break;
+		}
+		if ( ! $image_url ) return;
+
+		$att_id = $this->sideload_image( $image_url, 0, '', '' );
+		if ( $att_id ) {
+			update_term_meta( $term_id, 'thumbnail_id', $att_id );
+		}
+	}
+
 	/**
 	 * XML string'ten ürünleri içe aktarır; sonuç dizisini döner.
 	 */

@@ -3,17 +3,16 @@ defined( 'ABSPATH' ) || exit;
 
 class WC_XML_Background_Importer {
 
-	const HOOK_BATCH = 'wc_xml_migrator_import_batch';
-	const GROUP      = 'wc-xml-migrator';
-	const BATCH_SIZE = 10;
+	const HOOK_BATCH        = 'wc_xml_migrator_import_batch';
+	const HOOK_TERM_IMAGES  = 'wc_xml_migrator_import_term_images';
+	const GROUP             = 'wc-xml-migrator';
+	const BATCH_SIZE        = 10;
 
 	public static function init(): void {
-		add_action( self::HOOK_BATCH, [ __CLASS__, 'process_batch' ], 10, 2 );
+		add_action( self::HOOK_BATCH,       [ __CLASS__, 'process_batch' ],       10, 2 );
+		add_action( self::HOOK_TERM_IMAGES, [ __CLASS__, 'process_term_images' ], 10, 1 );
 	}
 
-	/**
-	 * İçe aktarma işi başlatır; job ID'sini döner.
-	 */
 	public static function start( string $file_path, array $options ): int {
 		$total = self::count_products_in_xml( $file_path );
 
@@ -25,10 +24,12 @@ class WC_XML_Background_Importer {
 			'options'     => $options,
 		] );
 
-		if ( $total === 0 ) {
-			WC_XML_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
-		} else {
+		// İlk adım: ürünler → son adım: term görselleri
+		if ( $total > 0 ) {
 			as_enqueue_async_action( self::HOOK_BATCH, [ 'job_id' => $job_id, 'offset' => 0 ], self::GROUP );
+		} else {
+			// Ürün yoksa direkt term görsellerine geç
+			as_enqueue_async_action( self::HOOK_TERM_IMAGES, [ 'job_id' => $job_id ], self::GROUP );
 		}
 
 		return $job_id;
@@ -43,17 +44,10 @@ class WC_XML_Background_Importer {
 			return;
 		}
 
-		$options     = json_decode( $job->options, true ) ?: [];
-		$batch_size  = self::BATCH_SIZE;
-		$nodes       = self::read_product_nodes( $job->file_path, $offset, $batch_size );
-
-		if ( empty( $nodes ) ) {
-			WC_XML_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
-			return;
-		}
-
-		$importer = new WC_XML_Importer( $options );
-		$errors   = [];
+		$options    = json_decode( $job->options, true ) ?: [];
+		$nodes      = self::read_product_nodes( $job->file_path, $offset, self::BATCH_SIZE );
+		$importer   = new WC_XML_Importer( $options );
+		$errors     = [];
 
 		foreach ( $nodes as $index => $node_xml ) {
 			try {
@@ -70,8 +64,9 @@ class WC_XML_Background_Importer {
 			'errors'    => $errors,
 		] );
 
-		if ( count( $nodes ) < $batch_size ) {
-			WC_XML_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
+		if ( count( $nodes ) < self::BATCH_SIZE ) {
+			// Ürünler bitti → term görsellerini içe aktar
+			as_enqueue_async_action( self::HOOK_TERM_IMAGES, [ 'job_id' => $job_id ], self::GROUP );
 		} else {
 			as_enqueue_async_action(
 				self::HOOK_BATCH,
@@ -82,8 +77,24 @@ class WC_XML_Background_Importer {
 	}
 
 	/**
-	 * XMLReader ile yalnızca sayım yapar – belleği düşük tutar.
+	 * Son adım: kategori ve marka görsellerini içe aktarır.
 	 */
+	public static function process_term_images( int $job_id ): void {
+		$job = WC_XML_Job_Manager::get( $job_id );
+		if ( ! $job ) return;
+
+		$options  = json_decode( $job->options, true ) ?: [];
+		$importer = new WC_XML_Importer( $options );
+
+		$term_results = $importer->import_term_images_from_file( $job->file_path );
+
+		if ( ! empty( $term_results['errors'] ) ) {
+			WC_XML_Job_Manager::update( $job_id, [ 'errors' => $term_results['errors'] ] );
+		}
+
+		WC_XML_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
+	}
+
 	private static function count_products_in_xml( string $file_path ): int {
 		$reader = new XMLReader();
 		if ( ! $reader->open( $file_path ) ) return 0;
@@ -92,17 +103,13 @@ class WC_XML_Background_Importer {
 		while ( $reader->read() ) {
 			if ( $reader->nodeType === XMLReader::ELEMENT && $reader->localName === 'product' ) {
 				$count++;
-				$reader->next(); // alt düğümleri atla
+				$reader->next();
 			}
 		}
 		$reader->close();
 		return $count;
 	}
 
-	/**
-	 * Belirtilen offset ve limit kadar ürün XML'ini döner.
-	 * DOMDocument kullanır – güvenilir ve basit.
-	 */
 	private static function read_product_nodes( string $file_path, int $offset, int $limit ): array {
 		$dom = new DOMDocument();
 		libxml_use_internal_errors( true );
@@ -119,9 +126,7 @@ class WC_XML_Background_Importer {
 
 		for ( $i = $offset; $i < $end; $i++ ) {
 			$node = $nodes->item( $i );
-			if ( $node ) {
-				$result[] = $dom->saveXML( $node );
-			}
+			if ( $node ) $result[] = $dom->saveXML( $node );
 		}
 
 		return $result;

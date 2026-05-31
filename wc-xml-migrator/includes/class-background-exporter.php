@@ -81,6 +81,14 @@ class WC_XML_Background_Exporter {
 			return;
 		}
 
+		// Kategori ve marka görsellerini ekle
+		$options  = json_decode( $job->options, true ) ?: [];
+		$exporter = new WC_XML_Exporter( $options );
+		$term_xml = $exporter->export_term_images_xml();
+		if ( $term_xml ) {
+			file_put_contents( $job->file_path, $term_xml, FILE_APPEND | LOCK_EX );
+		}
+
 		file_put_contents( $job->file_path, WC_XML_Exporter::get_xml_footer(), FILE_APPEND | LOCK_EX );
 
 		$xml_path = preg_replace( '/\.tmp$/', '.xml', $job->file_path );

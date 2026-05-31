@@ -7,16 +7,21 @@ class WC_XML_Exporter {
 	private $include_images;
 	private $include_variations;
 	private $include_meta;
+	private $include_term_images;
 	private $category_filter;
 	private $status_filter;
 
+	// Desteklenen marka taksonomi slug'ları (otomatik algılanır)
+	const BRAND_TAXONOMIES = [ 'product_brand', 'pwb-brand', 'yith_product_brand', 'product_brands' ];
+
 	public function __construct( array $options = [] ) {
-		$this->batch_size        = (int) ( $options['batch_size'] ?? 50 );
-		$this->include_images    = (bool) ( $options['include_images'] ?? true );
+		$this->batch_size         = (int) ( $options['batch_size'] ?? 50 );
+		$this->include_images     = (bool) ( $options['include_images'] ?? true );
 		$this->include_variations = (bool) ( $options['include_variations'] ?? true );
-		$this->include_meta      = (bool) ( $options['include_meta'] ?? false );
-		$this->category_filter   = array_filter( (array) ( $options['categories'] ?? [] ) );
-		$this->status_filter     = $options['status'] ?? 'publish';
+		$this->include_meta       = (bool) ( $options['include_meta'] ?? false );
+		$this->include_term_images = (bool) ( $options['include_term_images'] ?? true );
+		$this->category_filter    = array_filter( (array) ( $options['categories'] ?? [] ) );
+		$this->status_filter      = $options['status'] ?? 'publish';
 	}
 
 	// ---- Arka plan işlem için public yardımcılar ----
@@ -43,16 +48,103 @@ class WC_XML_Exporter {
 	}
 
 	public static function get_xml_header( int $total = 0 ): string {
+		// Türkiye saatini (veya WP ayarındaki timezone'u) kullan
+		try {
+			$tz = new DateTimeZone( wp_timezone_string() );
+			$dt = new DateTime( 'now', $tz );
+			$exported_at = $dt->format( 'd.m.Y H:i:s' ) . ' (' . $tz->getName() . ')';
+		} catch ( Exception $e ) {
+			$exported_at = current_time( 'c' );
+		}
+
 		return '<?xml version="1.0" encoding="UTF-8"?>' . "\n" .
 		       '<wc_products' .
 		       ' version="' . esc_attr( WC_XML_MIGRATOR_VERSION ) . '"' .
-		       ' exported_at="' . esc_attr( current_time( 'c' ) ) . '"' .
+		       ' exported_at="' . esc_attr( $exported_at ) . '"' .
 		       ' site_url="' . esc_attr( get_site_url() ) . '"' .
 		       ' total_products="' . (int) $total . '">' . "\n";
 	}
 
 	public static function get_xml_footer(): string {
 		return '</wc_products>' . "\n";
+	}
+
+	// ---- Kategori ve marka görselleri ----
+
+	/**
+	 * Taksonomi term görsellerini XML olarak döner.
+	 */
+	public function export_term_images_xml(): string {
+		if ( ! $this->include_term_images ) return '';
+
+		$taxonomies = $this->get_image_taxonomies();
+		if ( empty( $taxonomies ) ) return '';
+
+		$dom = new DOMDocument( '1.0', 'UTF-8' );
+		$dom->formatOutput = true;
+		$root = $dom->createElement( 'term_images' );
+		$dom->appendChild( $root );
+		$has_data = false;
+
+		foreach ( $taxonomies as $taxonomy ) {
+			if ( ! taxonomy_exists( $taxonomy ) ) continue;
+
+			$tax_obj = get_taxonomy( $taxonomy );
+			$terms   = get_terms( [ 'taxonomy' => $taxonomy, 'hide_empty' => false, 'orderby' => 'parent' ] );
+			if ( is_wp_error( $terms ) || empty( $terms ) ) continue;
+
+			$tax_el     = $dom->createElement( 'taxonomy' );
+			$tax_el->setAttribute( 'name', $taxonomy );
+			$tax_el->setAttribute( 'label', $tax_obj ? $tax_obj->label : $taxonomy );
+			$has_in_tax = false;
+
+			foreach ( $terms as $term ) {
+				$thumb_id = (int) get_term_meta( $term->term_id, 'thumbnail_id', true );
+				if ( ! $thumb_id ) continue;
+
+				$image_url = wp_get_attachment_url( $thumb_id );
+				if ( ! $image_url ) continue;
+
+				$term_el = $dom->createElement( 'term' );
+				$this->add_text( $dom, $term_el, 'slug', $term->slug );
+				$this->add_text( $dom, $term_el, 'name', $term->name );
+				$this->add_text( $dom, $term_el, 'description', $term->description );
+
+				if ( $term->parent ) {
+					$parent = get_term( $term->parent, $taxonomy );
+					if ( $parent && ! is_wp_error( $parent ) ) {
+						$this->add_text( $dom, $term_el, 'parent_slug', $parent->slug );
+					}
+				}
+
+				$img_el = $dom->createElement( 'image' );
+				$this->add_text( $dom, $img_el, 'url', $image_url );
+				$this->add_text( $dom, $img_el, 'alt', get_post_meta( $thumb_id, '_wp_attachment_image_alt', true ) );
+				$term_el->appendChild( $img_el );
+
+				$tax_el->appendChild( $term_el );
+				$has_in_tax = true;
+			}
+
+			if ( $has_in_tax ) {
+				$root->appendChild( $tax_el );
+				$has_data = true;
+			}
+		}
+
+		if ( ! $has_data ) return '';
+		return $dom->saveXML( $root ) . "\n";
+	}
+
+	/**
+	 * Görseli olan taksonomileri döner (product_cat + kurulu marka eklentileri).
+	 */
+	private function get_image_taxonomies(): array {
+		$list = [ 'product_cat' ];
+		foreach ( self::BRAND_TAXONOMIES as $tax ) {
+			if ( taxonomy_exists( $tax ) ) $list[] = $tax;
+		}
+		return $list;
 	}
 
 	// ---- Tek seferlik tam dışa aktarma (eski davranış) ----
