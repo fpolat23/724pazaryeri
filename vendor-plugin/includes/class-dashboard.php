@@ -166,9 +166,39 @@ class PZV_Dashboard {
         $total_pages = $q->max_num_pages;
 
         // Bu satıcının ürünlerinin bulunduğu kategoriler
-        $cats = ! empty( $all_ids )
-            ? get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => true, 'object_ids' => $all_ids, 'orderby' => 'name', 'order' => 'ASC' ) )
-            : array();
+        $cats = ! empty( $all_ids ) ? get_terms( array(
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => true,
+            'object_ids' => $all_ids,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ) ) : array();
+
+        // Hiyerarşik ağaç kur
+        $term_map     = array();
+        $top_cats     = array();
+        $children_map = array();
+        if ( ! empty( $cats ) && ! is_wp_error( $cats ) ) {
+            foreach ( $cats as $c ) {
+                if ( $c->slug !== 'uncategorized' ) $term_map[ $c->term_id ] = $c;
+            }
+            foreach ( $term_map as $tid => $term ) {
+                if ( $term->parent === 0 || ! isset( $term_map[ $term->parent ] ) ) {
+                    $top_cats[] = $term;
+                } else {
+                    $children_map[ $term->parent ][] = $term;
+                }
+            }
+        }
+
+        // Hangi üst-kategori açık?
+        $active_parent_id = 0;
+        if ( $cur_cat && isset( $term_map[ $cur_cat ] ) ) {
+            $t = $term_map[ $cur_cat ];
+            $active_parent_id = ( $t->parent === 0 || ! isset( $term_map[ $t->parent ] ) )
+                ? $cur_cat    // seçilen zaten üst-kategori → kendi çocuklarını aç
+                : $t->parent; // seçilen alt-kategori → üst-kategoriyi aç
+        }
         ?>
         <div class="pzv-section-head">
             <h3>📦 Ürünlerim
@@ -177,24 +207,49 @@ class PZV_Dashboard {
             <a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=product' ) ); ?>">➕ Yeni Ürün Ekle</a>
         </div>
 
-        <?php /* ── Kategori Filtresi ── */ ?>
-        <?php if ( ! empty( $cats ) && ! is_wp_error( $cats ) ) : ?>
+        <?php /* ── Hiyerarşik Kategori Filtresi ── */ ?>
+        <?php if ( ! empty( $top_cats ) ) : ?>
         <div class="pzv-products-filter">
-            <span class="pzv-filter-label">Kategori:</span>
-            <div class="pzv-filter-cats">
+            <?php /* Satır 1: Üst kategoriler */ ?>
+            <div class="pzv-filter-row pzv-filter-parents">
                 <?php
                 $all_url = add_query_arg( array( 'tab' => 'products', 'pcat' => 0, 'ppage' => 1 ), $base_link );
                 $all_cls = ( ! $cur_cat ) ? ' pzv-fcat-active' : '';
                 echo '<a href="' . esc_url( $all_url ) . '" class="pzv-fcat' . $all_cls . '">Tümü <span>' . $total_all . '</span></a>';
-                foreach ( $cats as $cat ) :
-                    if ( $cat->slug === 'uncategorized' ) continue;
-                    $cat_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $cat->term_id, 'ppage' => 1 ), $base_link );
-                    $cat_cls = ( $cur_cat === $cat->term_id ) ? ' pzv-fcat-active' : '';
+                foreach ( $top_cats as $cat ) :
+                    $tid     = $cat->term_id;
+                    $cat_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $tid, 'ppage' => 1 ), $base_link );
+                    $is_active_parent = ( $active_parent_id === $tid );
+                    $is_direct_sel    = ( $cur_cat === $tid );
+                    $cat_cls = ( $is_active_parent || $is_direct_sel ) ? ' pzv-fcat-active' : '';
+                    $has_children = isset( $children_map[ $tid ] );
                     echo '<a href="' . esc_url( $cat_url ) . '" class="pzv-fcat' . $cat_cls . '">'
-                        . esc_html( $cat->name ) . ' <span>' . intval( $cat->count ) . '</span></a>';
+                        . esc_html( $cat->name )
+                        . ( $has_children ? ' <span class="pzv-fcat-arrow">›</span>' : '' )
+                        . ' <span>' . intval( $cat->count ) . '</span></a>';
                 endforeach;
                 ?>
             </div>
+
+            <?php /* Satır 2: Alt kategoriler (sadece üst seçiliyse) */ ?>
+            <?php if ( $active_parent_id && isset( $children_map[ $active_parent_id ] ) ) :
+                $parent_term = $term_map[ $active_parent_id ];
+                $parent_all_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $active_parent_id, 'ppage' => 1 ), $base_link );
+                ?>
+            <div class="pzv-filter-row pzv-filter-children">
+                <span class="pzv-filter-child-label">↳ <?php echo esc_html( $parent_term->name ); ?>:</span>
+                <?php
+                $all_sub_cls = ( $cur_cat === $active_parent_id ) ? ' pzv-fcat-active' : '';
+                echo '<a href="' . esc_url( $parent_all_url ) . '" class="pzv-fcat pzv-fcat-sub' . $all_sub_cls . '">Tümü</a>';
+                foreach ( $children_map[ $active_parent_id ] as $child ) :
+                    $child_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $child->term_id, 'ppage' => 1 ), $base_link );
+                    $child_cls = ( $cur_cat === $child->term_id ) ? ' pzv-fcat-active' : '';
+                    echo '<a href="' . esc_url( $child_url ) . '" class="pzv-fcat pzv-fcat-sub' . $child_cls . '">'
+                        . esc_html( $child->name ) . ' <span>' . intval( $child->count ) . '</span></a>';
+                endforeach;
+                ?>
+            </div>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
 
