@@ -823,7 +823,7 @@ window.filterBrandList = filterBrandList;
     var carImgs = [];
     document.querySelectorAll('.hb-thumb').forEach(function(th){
       var m = (th.getAttribute('onclick')||'').match(/'([^']+)'/g);
-      if(m && m[1]) carImgs.push(m[1].replace(/'/g,''));
+      if(m && m[0]) carImgs.push(m[0].replace(/'/g,''));
     });
     if(!carImgs.length) carImgs = [mainImg.src];
     var N = carImgs.length;
