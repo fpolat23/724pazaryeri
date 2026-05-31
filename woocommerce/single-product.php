@@ -448,11 +448,16 @@ while ( have_posts() ) : the_post();
             <?php endif; ?>
             <?php if ( $pd_tags && ! is_wp_error( $pd_tags ) ) : ?>
               <div class="pd-taxbox">
-                <div class="pd-taxbox-title">Etiketler</div>
+                <div class="pd-taxbox-title pd-taxbox-title-tag"><span class="pd-taxbox-hash">#</span> Etiketler</div>
                 <div class="pd-taxbox-links">
-                  <?php foreach ( $pd_tags as $pd_tag ) : ?>
-                    <a class="pd-tax-link pd-tax-tag" href="<?php echo esc_url( get_term_link( $pd_tag ) ); ?>">#<?php echo esc_html( $pd_tag->name ); ?></a>
-                  <?php endforeach; ?>
+                  <?php foreach ( $pd_tags as $pd_tag ) :
+                    $tag_words = preg_split( '/\s+/', trim( $pd_tag->name ) );
+                    foreach ( $tag_words as $tw ) :
+                      if ( $tw === '' ) continue;
+                      $tw_url = home_url( '/?s=' . urlencode( $tw ) . '&post_type=product' );
+                  ?>
+                    <a class="pd-tax-tag" href="<?php echo esc_url( $tw_url ); ?>"><?php echo esc_html( $tw ); ?></a>
+                  <?php endforeach; endforeach; ?>
                 </div>
               </div>
             <?php endif; ?>
