@@ -319,10 +319,20 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-inst-v{font-weight:700;}
 .pazaryeri-wrap .hb-724pay{background:linear-gradient(120deg,#5a2d82,#8e44ad);color:#fff;border-radius:10px;padding:11px 14px;font-size:12px;margin-bottom:16px;}
 .pazaryeri-wrap .hb-724pay-badge{background:rgba(255,255,255,.22);padding:2px 9px;border-radius:6px;font-weight:800;font-size:11px;}
-.pazaryeri-wrap .hb-delivery{display:flex;flex-direction:column;gap:10px;padding:14px;background:#faf8f5;border-radius:12px;margin-bottom:16px;}
-.pazaryeri-wrap .hb-del-row{display:flex;gap:10px;font-size:12px;line-height:1.4;}
-.pazaryeri-wrap .hb-del-ico{font-size:20px;flex-shrink:0;}
-.pazaryeri-wrap .hb-del-row small{color:var(--muted);}
+.pazaryeri-wrap .hb-delivery{display:flex;flex-direction:column;gap:9px;margin-bottom:16px;}
+.pazaryeri-wrap .hb-del-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:12px;line-height:1.4;}
+.pazaryeri-wrap .hb-del-kargo{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #bbf7d0;}
+.pazaryeri-wrap .hb-del-hizli{background:linear-gradient(135deg,#fff8f0,#fff1e0);border:1.5px solid #fed7aa;}
+.pazaryeri-wrap .hb-del-ico-wrap{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.pazaryeri-wrap .hb-del-kargo .hb-del-ico-wrap{background:#bbf7d0;}
+.pazaryeri-wrap .hb-del-hizli .hb-del-ico-wrap{background:#ffedd5;}
+.pazaryeri-wrap .hb-del-content{flex:1;min-width:0;}
+.pazaryeri-wrap .hb-del-content strong{display:block;font-size:13px;font-weight:700;margin-bottom:2px;}
+.pazaryeri-wrap .hb-del-kargo .hb-del-content strong{color:#166534;}
+.pazaryeri-wrap .hb-del-hizli .hb-del-content strong{color:var(--accent);}
+.pazaryeri-wrap .hb-del-content small{font-size:11px;color:var(--muted);display:block;}
+.pazaryeri-wrap .hb-del-badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;white-space:nowrap;flex-shrink:0;letter-spacing:.4px;}
+.pazaryeri-wrap .hb-del-badge-green{background:#166534;color:#fff;}
 .pazaryeri-wrap .hb-qty-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
 .pazaryeri-wrap .hb-qty-label{font-size:13px;font-weight:600;}
 .pazaryeri-wrap .hb-qty{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;}
