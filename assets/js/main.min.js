@@ -684,14 +684,12 @@ window.filterBrandList = filterBrandList;
 
   // Seçili varyasyonun stok sayısını ekrana yansıt
   function pzUpdateStockInfo(v){
-    var stockEl = document.querySelector('.hb-stock-info, .hb-stock');
+    var stockEl = document.getElementById('pzStockInfo');
     if(!stockEl) return;
     if(!v){
-      // Hiç seçim yok
       stockEl.innerHTML = stockEl.getAttribute('data-orig') || stockEl.innerHTML;
       return;
     }
-    // Orijinali sakla (ilk çalıştırmada)
     if(!stockEl.getAttribute('data-orig')) stockEl.setAttribute('data-orig', stockEl.innerHTML);
     if(v.in_stock === false){
       stockEl.innerHTML = '<span class="hb-stock-out">⚠ Bu seçenek tükendi</span>';
@@ -707,7 +705,7 @@ window.filterBrandList = filterBrandList;
 
   // STOKSUZ SEÇENEKLERİ İŞARETLE (sayfa yüklenince ve seçim değiştiğinde)
   function pzMarkUnavailableOptions(){
-    if(!window.pzVariations || !window.pzVariations.length) return;
+    if(!pzVarData || !pzVarData.length) return;
     // Her varyant butonu için: bu değer içeren bir in_stock varyasyon var mı?
     document.querySelectorAll('.hb-var, .hb-color').forEach(function(btn){
       var attr = btn.getAttribute('data-attr');
@@ -715,8 +713,8 @@ window.filterBrandList = filterBrandList;
       if(!attr || !val) return;
       // Mevcut DİĞER seçimlerle birlikte bu değer için stokta varyasyon var mı?
       var hasStock = false;
-      for(var i=0; i<window.pzVariations.length; i++){
-        var v = window.pzVariations[i];
+      for(var i=0; i<pzVarData.length; i++){
+        var v = pzVarData[i];
         if(v.in_stock === false) continue;
         // Bu varyasyon, bu butonun değerini içeriyor mu?
         var attrVal = v.attributes[attr];
@@ -819,12 +817,11 @@ window.filterBrandList = filterBrandList;
     if(!mainBox || !mainImg || mainImg._clickZoom) return;
     mainImg._clickZoom = true;
 
-    // Tüm resim URL'lerini thumb onclick'ten topla
+    // Tüm resim URL'lerini data-full attribute'undan topla (güvenilir)
     var carImgs = [];
     document.querySelectorAll('.hb-thumb').forEach(function(th){
-      var oc = th.getAttribute('onclick') || th.getAttribute('onmouseenter') || '';
-      var m = oc.match(/'([^']+)'/);
-      if(m && m[1]) carImgs.push(m[1]);
+      var full = th.getAttribute('data-full');
+      if(full) carImgs.push(full);
     });
     if(!carImgs.length) carImgs = [mainImg.src];
     var N = carImgs.length;

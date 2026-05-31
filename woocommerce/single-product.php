@@ -51,8 +51,8 @@ while ( have_posts() ) : the_post();
         <?php foreach ( $all_imgs as $idx => $img_id ) :
           $thumb = wp_get_attachment_image_url( $img_id, 'thumbnail' );
           $full  = wp_get_attachment_image_url( $img_id, 'large' ); ?>
-          <div class="hb-thumb<?php echo $idx === 0 ? ' on' : ''; ?>" onmouseenter="hbSetImg(this,'<?php echo esc_url( $full ); ?>')" onclick="hbSetImg(this,'<?php echo esc_url( $full ); ?>')">
-            <img loading="lazy" decoding="async" src="<?php echo esc_url( $thumb ); ?>" alt="" loading="lazy">
+          <div class="hb-thumb<?php echo $idx === 0 ? ' on' : ''; ?>" data-full="<?php echo esc_url( $full ); ?>" onmouseenter="hbSetImg(this,'<?php echo esc_url( $full ); ?>')" onclick="hbSetImg(this,'<?php echo esc_url( $full ); ?>')">
+            <img loading="lazy" decoding="async" src="<?php echo esc_url( $thumb ); ?>" alt="">
           </div>
         <?php endforeach; ?>
       </div>
@@ -277,11 +277,7 @@ while ( have_posts() ) : the_post();
             <input type="number" id="qtyVal" name="quantity" value="1" min="1" step="1" <?php echo $stock_qty ? 'max="'.esc_attr($stock_qty).'"' : ''; ?>>
             <button type="button" onclick="qty(1)">+</button>
           </div>
-          <?php if ( $in_stock ) : ?>
-            <span class="hb-stock-ok"><?php echo $stock_qty ? '✓ '.esc_html($stock_qty).' adet stokta' : '✓ Stokta'; ?></span>
-          <?php else : ?>
-            <span class="hb-stock-no">Tükendi</span>
-          <?php endif; ?>
+          <span id="pzStockInfo" class="hb-stock-info"><?php if ( $in_stock ) : ?><span class="hb-stock-ok"><?php echo $stock_qty ? '✓ '.esc_html($stock_qty).' adet stokta' : '✓ Stokta'; ?></span><?php else : ?><span class="hb-stock-no">Tükendi</span><?php endif; ?></span>
         </div>
         <?php if ( $pz_is_variable_prod ) : ?>
           <input type="hidden" name="product_id" value="<?php echo esc_attr($product->get_id()); ?>">
