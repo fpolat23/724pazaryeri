@@ -611,6 +611,7 @@ window.filterBrandList = filterBrandList;
   // ── Varyasyon verisi ──
   var pzVarData = [];
   var pzSelected = {}; // {attribute_pa_renk: 'siyah', ...}
+  var pzCarouselGoTo = null; // varyasyon resim değiştiğinde carousel'i günceller
 
   function pzLoadVarData(){
     var el = document.getElementById('pzVariationData');
@@ -775,6 +776,7 @@ window.filterBrandList = filterBrandList;
     if(main){ main.src = src; }
     var lb = document.getElementById('pzLightboxImg');
     if(lb){ lb.src = src; }
+    if(pzCarouselGoTo) pzCarouselGoTo(src);
   }
   window.hbSetImg = function(el, src){
     document.querySelectorAll('.hb-thumb').forEach(function(t){ t.classList.remove('on'); });
@@ -810,45 +812,224 @@ window.filterBrandList = filterBrandList;
     down.onclick = function(){ thumbs.scrollBy({ top:150, behavior:'smooth' }); };
   }
 
-  // ── Amazon tarzı TIKLA-BÜYÜT (lightbox + iç zoom) ──
+  // ── Ürün Galerisi: Otomatik Karusel + Kaydırma + Galeri Lightbox ──
   function pzInitClickZoom(){
-    var main = document.getElementById('mainImgEl');
-    if(!main || main._clickZoom) return;
-    main._clickZoom = true;
-    main.style.cursor = 'zoom-in';
+    var mainBox = document.querySelector('.hb-main-img');
+    var mainImg = document.getElementById('mainImgEl');
+    if(!mainBox || !mainImg || mainImg._clickZoom) return;
+    mainImg._clickZoom = true;
 
-    main.addEventListener('click', function(){
-      var lb = document.getElementById('pzLightbox');
-      if(!lb){
-        lb = document.createElement('div');
-        lb.id = 'pzLightbox';
-        lb.className = 'pz-lightbox';
-        lb.innerHTML = '<button class="pz-lb-close" type="button">✕</button>'+
-                       '<div class="pz-lb-stage" id="pzLbStage"><img id="pzLightboxImg" src="'+main.src+'" alt=""></div>'+
-                       '<div class="pz-lb-hint">Yakınlaştırmak için resmin üzerine gelin · Kapatmak için ✕ veya ESC</div>';
-        document.body.appendChild(lb);
-        // kapatma
-        lb.querySelector('.pz-lb-close').onclick = function(){ lb.classList.remove('on'); };
-        lb.addEventListener('click', function(e){ if(e.target===lb) lb.classList.remove('on'); });
-        document.addEventListener('keydown', function(e){ if(e.key==='Escape') lb.classList.remove('on'); });
-        // iç zoom (mousemove)
-        var stage = document.getElementById('pzLbStage');
-        var lbImg = document.getElementById('pzLightboxImg');
-        stage.addEventListener('mousemove', function(e){
-          var r = stage.getBoundingClientRect();
-          var x = ((e.clientX - r.left)/r.width)*100;
-          var y = ((e.clientY - r.top)/r.height)*100;
-          lbImg.style.transformOrigin = x+'% '+y+'%';
-          lbImg.style.transform = 'scale(2.5)';
-        });
-        stage.addEventListener('mouseleave', function(){
-          lbImg.style.transform = 'scale(1)';
-        });
-      } else {
-        document.getElementById('pzLightboxImg').src = main.src;
-      }
-      lb.classList.add('on');
+    // Tüm resim URL'lerini thumb onclick'ten topla
+    var carImgs = [];
+    document.querySelectorAll('.hb-thumb').forEach(function(th){
+      var m = (th.getAttribute('onclick')||'').match(/'([^']+)'/g);
+      if(m && m[1]) carImgs.push(m[1].replace(/'/g,''));
     });
+    if(!carImgs.length) carImgs = [mainImg.src];
+    var N = carImgs.length;
+
+    // Tek resim: sadece lightbox aç
+    if(N < 2){
+      mainImg.style.cursor = 'zoom-in';
+      mainImg.addEventListener('click', function(){ pzOpenGalleryLb(carImgs, 0); });
+      return;
+    }
+
+    // ── Çok resim: Karusel kur ──
+    var carTrack = document.createElement('div');
+    carTrack.className = 'pz-car-track';
+
+    carImgs.forEach(function(src, i){
+      var sl = document.createElement('div');
+      sl.className = 'pz-car-slide';
+      var im = document.createElement('img');
+      im.src = i === 0 ? src : '';
+      im.setAttribute('data-src', src);
+      im.alt = ''; im.draggable = false;
+      sl.appendChild(im);
+      carTrack.appendChild(sl);
+    });
+
+    var btnPrev = document.createElement('button');
+    btnPrev.type='button'; btnPrev.className='pz-car-btn pz-car-prev'; btnPrev.innerHTML='&#8249;'; btnPrev.setAttribute('aria-label','Önceki');
+    var btnNext = document.createElement('button');
+    btnNext.type='button'; btnNext.className='pz-car-btn pz-car-next'; btnNext.innerHTML='&#8250;'; btnNext.setAttribute('aria-label','Sonraki');
+
+    var dotBar = document.createElement('div');
+    dotBar.className = 'pz-car-dots';
+    for(var di = 0; di < N; di++){
+      var dotEl = document.createElement('button');
+      dotEl.type='button'; dotEl.className='pz-car-dot'+(di===0?' on':'');
+      dotBar.appendChild(dotEl);
+    }
+
+    mainBox.insertBefore(carTrack, mainImg);
+    mainImg.style.display = 'none';
+    mainBox.appendChild(btnPrev);
+    mainBox.appendChild(btnNext);
+    mainBox.appendChild(dotBar);
+    mainBox.style.cursor = 'zoom-in';
+
+    var cur = 0, autoTimer, dragStartX = 0, dragging = false, dragDx = 0;
+
+    function loadNear(idx){
+      carTrack.querySelectorAll('.pz-car-slide').forEach(function(sl, i){
+        if(Math.abs(i - idx) <= 1){
+          var im = sl.querySelector('img');
+          var ds = im && im.getAttribute('data-src');
+          if(ds && !im.src) im.src = ds;
+        }
+      });
+    }
+
+    function goTo(idx, anim){
+      idx = ((idx % N) + N) % N;
+      cur = idx;
+      loadNear(idx);
+      carTrack.style.transition = anim===false ? 'none' : 'transform .42s cubic-bezier(.22,.61,.36,1)';
+      carTrack.style.transform = 'translateX(-'+(idx*100)+'%)';
+      document.querySelectorAll('.hb-thumb').forEach(function(t, i){ t.classList.toggle('on', i===idx); });
+      dotBar.querySelectorAll('.pz-car-dot').forEach(function(dt, i){ dt.classList.toggle('on', i===idx); });
+      mainImg.src = carImgs[idx] || mainImg.src;
+      clearInterval(autoTimer);
+      autoTimer = setInterval(function(){ goTo(cur+1); }, 5000);
+    }
+
+    btnPrev.addEventListener('click', function(e){ e.stopPropagation(); goTo(cur-1); });
+    btnNext.addEventListener('click', function(e){ e.stopPropagation(); goTo(cur+1); });
+    dotBar.querySelectorAll('.pz-car-dot').forEach(function(dt, i){
+      dt.addEventListener('click', function(e){ e.stopPropagation(); goTo(i); });
+    });
+
+    // Karusel'e tıklama → lightbox
+    carTrack.addEventListener('click', function(){
+      if(Math.abs(dragDx) > 6) return;
+      pzOpenGalleryLb(carImgs, cur);
+    });
+
+    // Sürükleme (dokunmatik + fare)
+    function dStart(x){ dragStartX=x; dragging=true; dragDx=0; clearInterval(autoTimer); carTrack.style.transition='none'; }
+    function dMove(x){ if(!dragging) return; dragDx=x-dragStartX; carTrack.style.transform='translateX(calc(-'+(cur*100)+'% + '+dragDx+'px))'; }
+    function dEnd(x){
+      if(!dragging) return; dragging=false;
+      dragDx = x - dragStartX;
+      carTrack.style.transition='transform .42s cubic-bezier(.22,.61,.36,1)';
+      if(dragDx < -50) goTo(cur+1);
+      else if(dragDx > 50) goTo(cur-1);
+      else goTo(cur);
+    }
+    carTrack.addEventListener('mousedown', function(e){ if(e.button) return; e.preventDefault(); dStart(e.clientX); carTrack.style.cursor='grabbing'; });
+    document.addEventListener('mousemove', function(e){ dMove(e.clientX); });
+    document.addEventListener('mouseup', function(e){ if(dragging){ dEnd(e.clientX); carTrack.style.cursor='grab'; } });
+    carTrack.addEventListener('touchstart', function(e){ dStart(e.touches[0].clientX); },{passive:true});
+    carTrack.addEventListener('touchmove', function(e){ dMove(e.touches[0].clientX); },{passive:true});
+    carTrack.addEventListener('touchend', function(e){ dEnd(e.changedTouches[0].clientX); });
+
+    // thumb tıklama → carousel'i senkronize et
+    window.hbSetImg = function(el, src){
+      document.querySelectorAll('.hb-thumb').forEach(function(t){ t.classList.remove('on'); });
+      if(el) el.classList.add('on');
+      var idx = carImgs.indexOf(src);
+      if(idx >= 0){ goTo(idx); }
+      else {
+        carImgs[0]=src;
+        var fi=carTrack.querySelector('.pz-car-slide:first-child img');
+        if(fi){ fi.src=src; fi.setAttribute('data-src',src); }
+        goTo(0);
+      }
+    };
+
+    // varyasyon resim değişikliği hook
+    pzCarouselGoTo = function(src){
+      var idx = carImgs.indexOf(src);
+      if(idx >= 0){ goTo(idx); }
+      else {
+        carImgs[0]=src;
+        var fi=carTrack.querySelector('.pz-car-slide:first-child img');
+        if(fi){ fi.src=src; fi.setAttribute('data-src',src); }
+        goTo(0);
+      }
+    };
+
+    goTo(0, false);
+  }
+
+  // ── Galeri Lightbox (tüm resimler, kaydırılabilir) ──
+  function pzOpenGalleryLb(imgs, startIdx){
+    var lb = document.getElementById('pzGalleryLb');
+    if(!lb) lb = pzBuildGalleryLb(imgs);
+    lb._goTo(startIdx, false);
+    lb.classList.add('on');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function pzBuildGalleryLb(imgs){
+    var N = imgs.length;
+    var lbIdx = 0;
+
+    var lb = document.createElement('div');
+    lb.id = 'pzGalleryLb'; lb.className = 'pz-glb';
+
+    var tHtml = '';
+    imgs.forEach(function(src){ tHtml += '<div class="pz-glb-slide"><img data-src="'+src.replace(/"/g,'&quot;')+'" alt=""></div>'; });
+    var dHtml = '';
+    if(N>1) imgs.forEach(function(_,i){ dHtml += '<button type="button" class="pz-glb-dot'+(i===0?' on':'')+'"></button>'; });
+
+    lb.innerHTML =
+      '<button class="pz-glb-close" type="button" aria-label="Kapat">&#10005;</button>'+
+      (N>1 ? '<button class="pz-glb-btn pz-glb-prev" type="button" aria-label="Önceki">&#8249;</button><button class="pz-glb-btn pz-glb-next" type="button" aria-label="Sonraki">&#8250;</button>' : '')+
+      '<div class="pz-glb-stage"><div class="pz-glb-track">'+tHtml+'</div></div>'+
+      '<div class="pz-glb-foot"><span class="pz-glb-counter">1 / '+N+'</span></div>'+
+      (N>1 ? '<div class="pz-glb-dots">'+dHtml+'</div>' : '');
+
+    document.body.appendChild(lb);
+
+    var lbTrack = lb.querySelector('.pz-glb-track');
+    var lbSX=0, lbDrag=false, lbDx=0;
+
+    function closeLb(){ lb.classList.remove('on'); document.body.style.overflow=''; }
+
+    function goToLb(idx, anim){
+      lbIdx = ((idx%N)+N)%N;
+      lbTrack.querySelectorAll('.pz-glb-slide img').forEach(function(im, i){
+        if(Math.abs(i-lbIdx)<=1){
+          var ds=im.getAttribute('data-src');
+          if(ds && !im.src) im.src=ds;
+        }
+      });
+      lbTrack.style.transition = anim===false ? 'none' : 'transform .35s cubic-bezier(.22,.61,.36,1)';
+      lbTrack.style.transform = 'translateX(-'+(lbIdx*100)+'%)';
+      lb.querySelectorAll('.pz-glb-dot').forEach(function(dt,i){ dt.classList.toggle('on',i===lbIdx); });
+      var cnt=lb.querySelector('.pz-glb-counter');
+      if(cnt) cnt.textContent=(lbIdx+1)+' / '+N;
+    }
+
+    lb._goTo = goToLb;
+    lb.querySelector('.pz-glb-close').addEventListener('click', closeLb);
+    lb.addEventListener('click', function(e){ if(e.target===lb) closeLb(); });
+    document.addEventListener('keydown', function(e){
+      if(!lb.classList.contains('on')) return;
+      if(e.key==='Escape') closeLb();
+      if(e.key==='ArrowLeft' && N>1) goToLb(lbIdx-1,true);
+      if(e.key==='ArrowRight' && N>1) goToLb(lbIdx+1,true);
+    });
+    var pB=lb.querySelector('.pz-glb-prev'), nB=lb.querySelector('.pz-glb-next');
+    if(pB) pB.addEventListener('click', function(e){ e.stopPropagation(); goToLb(lbIdx-1,true); });
+    if(nB) nB.addEventListener('click', function(e){ e.stopPropagation(); goToLb(lbIdx+1,true); });
+    lb.querySelectorAll('.pz-glb-dot').forEach(function(dt,i){ dt.addEventListener('click', function(e){ e.stopPropagation(); goToLb(i,true); }); });
+
+    var stage=lb.querySelector('.pz-glb-stage');
+    function lbDS(x){ lbSX=x; lbDrag=true; lbDx=0; lbTrack.style.transition='none'; }
+    function lbDM(x){ if(!lbDrag) return; lbDx=x-lbSX; lbTrack.style.transform='translateX(calc(-'+(lbIdx*100)+'% + '+lbDx+'px))'; }
+    function lbDE(x){ if(!lbDrag) return; lbDrag=false; lbDx=x-lbSX; lbTrack.style.transition='transform .35s cubic-bezier(.22,.61,.36,1)'; if(lbDx<-50) goToLb(lbIdx+1,true); else if(lbDx>50) goToLb(lbIdx-1,true); else goToLb(lbIdx,true); }
+    stage.addEventListener('touchstart', function(e){ lbDS(e.touches[0].clientX); },{passive:true});
+    stage.addEventListener('touchmove', function(e){ lbDM(e.touches[0].clientX); },{passive:true});
+    stage.addEventListener('touchend', function(e){ lbDE(e.changedTouches[0].clientX); });
+    stage.addEventListener('mousedown', function(e){ if(e.button) return; e.preventDefault(); lbDS(e.clientX); stage.style.cursor='grabbing'; });
+    document.addEventListener('mousemove', function(e){ lbDM(e.clientX); });
+    document.addEventListener('mouseup', function(e){ if(lbDrag){ lbDE(e.clientX); stage.style.cursor='grab'; } });
+
+    return lb;
   }
 
   function pzInitSelected(){
