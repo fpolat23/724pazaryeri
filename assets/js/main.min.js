@@ -466,6 +466,20 @@ if(typeof revFilter==='function')window.revFilter=revFilter;
 if(typeof showToast==='function')window.showToast=showToast;
 if(typeof toggleWishRow==='function')window.toggleWishRow=toggleWishRow;
 })();
+
+function pzCopyLink(url){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){
+      if(typeof showToast==='function')showToast('🔗 Bağlantı kopyalandı!');
+    });
+  } else {
+    var ta=document.createElement('textarea');
+    ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');if(typeof showToast==='function')showToast('🔗 Bağlantı kopyalandı!');}catch(e){}
+    document.body.removeChild(ta);
+  }
+}
 /* ═══ HEPSIBURADA ÜRÜN DETAY GALERİ ═══ */
 /* eski hbSetImg kaldırıldı; yeni window.hbSetImg kullanılıyor */
 
