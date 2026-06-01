@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.75' );
+define( 'PAZARYERI_VERSION', '9.9.76' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
