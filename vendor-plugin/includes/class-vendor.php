@@ -21,6 +21,8 @@ class PZV_Vendor {
             'tc_or_tax'    => get_user_meta( $vendor_id, 'pzv_tc_or_tax', true ),
             'approved_at'  => get_user_meta( $vendor_id, 'pzv_approved_at', true ),
             'commission_override' => get_user_meta( $vendor_id, 'pzv_commission_override', true ),
+            'logo'                => (int) get_user_meta( $vendor_id, 'pzv_logo', true ),
+            'banner'              => (int) get_user_meta( $vendor_id, 'pzv_banner', true ),
         );
     }
 

@@ -32,6 +32,7 @@ class PZV_Admin {
         add_submenu_page( 'pzv-vendors', 'Onay Bekleyen Ürünler', 'Onay Bekleyen' . $pending_badge, 'manage_woocommerce', 'pzv-pending', array( $this, 'page_pending_products' ) );
         add_submenu_page( 'pzv-vendors', 'Bekleyen Ödemeler', 'Bekleyen Ödemeler', 'manage_woocommerce', 'pzv-payouts', array( $this, 'page_payouts' ) );
         add_submenu_page( 'pzv-vendors', 'Ayarlar', 'Ayarlar', 'manage_woocommerce', 'pzv-settings', array( $this, 'page_settings' ) );
+        add_submenu_page( 'pzv-vendors', 'Dokan Aktarımı', '↩ Dokan Aktar', 'manage_woocommerce', 'pzv-dokan-migrate', array( $this, 'page_dokan_migrate' ) );
         if ( PZV_Roles::is_vendor() ) {
             add_menu_page( 'Mağaza Bilgilerim', '🏪 Mağazam', 'read', 'pzv-vendor-info', array( $this, 'page_vendor_info' ), 'dashicons-store', 3 );
         }
@@ -45,6 +46,9 @@ class PZV_Admin {
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'nonce'    => wp_create_nonce( 'pzv_nonce' ),
         ) );
+        if ( isset( $_GET['page'] ) && $_GET['page'] === 'pzv-vendor-info' ) {
+            wp_enqueue_media();
+        }
     }
 
     public function restrict_products_to_vendor( $query ) {
@@ -195,6 +199,8 @@ class PZV_Admin {
             if ( ! empty( $_POST['store_slug'] ) ) {
                 update_user_meta( $uid, 'pzv_store_slug', sanitize_title( $_POST['store_slug'] ) );
             }
+            update_user_meta( $uid, 'pzv_logo',   (int) ( $_POST['logo']   ?? 0 ) );
+            update_user_meta( $uid, 'pzv_banner', (int) ( $_POST['banner'] ?? 0 ) );
             echo '<div class="notice notice-success"><p>Kaydedildi.</p></div>';
         }
         $v = PZV_Vendor::get( $uid );
@@ -211,9 +217,56 @@ class PZV_Admin {
                     <tr><th>Adres</th><td><textarea name="address" rows="3" class="large-text"><?php echo esc_textarea( $v['address'] ); ?></textarea></td></tr>
                     <tr><th>Açıklama</th><td><textarea name="description" rows="4" class="large-text"><?php echo esc_textarea( $v['description'] ); ?></textarea></td></tr>
                     <tr><th>IBAN</th><td><input type="text" name="iban" value="<?php echo esc_attr( $v['iban'] ); ?>" class="regular-text"></td></tr>
+                    <tr>
+                        <th>Mağaza Logosu</th>
+                        <td>
+                            <input type="hidden" name="logo" id="pzv_logo_id" value="<?php echo (int) ( $v['logo'] ?? 0 ); ?>">
+                            <img id="pzv-logo-preview" src="<?php echo ! empty( $v['logo'] ) ? esc_url( wp_get_attachment_image_url( $v['logo'], 'thumbnail' ) ) : ''; ?>" style="max-width:150px;max-height:80px;border:1px solid #ddd;margin-bottom:8px;<?php echo empty( $v['logo'] ) ? 'display:none;' : 'display:block;'; ?>">
+                            <button type="button" id="pzv-logo-btn" class="button">📷 Logo Seç</button>
+                            <button type="button" id="pzv-logo-remove" class="button" style="<?php echo empty( $v['logo'] ) ? 'display:none;' : ''; ?>">✕ Kaldır</button>
+                            <p class="description">Kare format önerilir — örn: 200×200 px</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Mağaza Bannerı</th>
+                        <td>
+                            <input type="hidden" name="banner" id="pzv_banner_id" value="<?php echo (int) ( $v['banner'] ?? 0 ); ?>">
+                            <img id="pzv-banner-preview" src="<?php echo ! empty( $v['banner'] ) ? esc_url( wp_get_attachment_image_url( $v['banner'], 'medium' ) ) : ''; ?>" style="max-width:480px;max-height:140px;border:1px solid #ddd;margin-bottom:8px;<?php echo empty( $v['banner'] ) ? 'display:none;' : 'display:block;'; ?>">
+                            <button type="button" id="pzv-banner-btn" class="button">📷 Banner Seç</button>
+                            <button type="button" id="pzv-banner-remove" class="button" style="<?php echo empty( $v['banner'] ) ? 'display:none;' : ''; ?>">✕ Kaldır</button>
+                            <p class="description">Önerilen boyut: 1200×300 px</p>
+                        </td>
+                    </tr>
                 </table>
                 <p><button type="submit" name="pzv_save_info" class="button button-primary">💾 Kaydet</button></p>
             </form>
+            <script>
+            jQuery(function($){
+                function pzvMedia(btnId, removeId, inputId, previewId, title){
+                    var frame;
+                    $('#'+btnId).on('click',function(e){
+                        e.preventDefault();
+                        if(frame){frame.open();return;}
+                        frame=wp.media({title:title,button:{text:'Seç'},multiple:false});
+                        frame.on('select',function(){
+                            var a=frame.state().get('selection').first().toJSON();
+                            $('#'+inputId).val(a.id);
+                            $('#'+previewId).attr('src',a.url).show();
+                            $('#'+removeId).show();
+                        });
+                        frame.open();
+                    });
+                    $('#'+removeId).on('click',function(e){
+                        e.preventDefault();
+                        $('#'+inputId).val('');
+                        $('#'+previewId).attr('src','').hide();
+                        $(this).hide();
+                    });
+                }
+                pzvMedia('pzv-logo-btn','pzv-logo-remove','pzv_logo_id','pzv-logo-preview','Mağaza Logosu Seç');
+                pzvMedia('pzv-banner-btn','pzv-banner-remove','pzv_banner_id','pzv-banner-preview','Mağaza Bannerı Seç');
+            });
+            </script>
         </div>
         <?php
     }
@@ -612,6 +665,173 @@ class PZV_Admin {
             wp_update_post( array( 'ID' => $post_id, 'post_author' => $new_author ) );
             add_action( 'save_post_product', array( $this, 'save_vendor_meta_box' ), 10, 2 );
         }
+    }
+
+    /** ─── SAYFA: Dokan → PZV Aktarımı ─── */
+    public function page_dokan_migrate() {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) return;
+        $sellers = get_users( array( 'role' => 'seller', 'number' => -1, 'fields' => array( 'ID', 'display_name', 'user_email' ) ) );
+        $already_migrated = array();
+        $to_migrate       = array();
+        foreach ( $sellers as $u ) {
+            if ( PZV_Roles::is_pure_vendor( $u->ID ) ) {
+                $already_migrated[] = $u;
+            } else {
+                $to_migrate[] = $u;
+            }
+        }
+        ?>
+        <div class="wrap pzv-wrap">
+            <h1>↩ Dokan → PazarYeri Vendor Aktarımı</h1>
+            <p>Bu araç Dokan eklentisindeki satıcıları (<code>seller</code> rolü) PazarYeri Vendor sistemine (<code>pzv_vendor</code>) aktarır.</p>
+            <p><strong>Aktarılan bilgiler:</strong> Mağaza adı, logo, banner, telefon, şehir, adres, açıklama, IBAN</p>
+            <p><strong>Ürünler:</strong> Ürünler zaten satıcıların üzerine kayıtlı olduğundan ayrıca aktarım gerekmez.</p>
+
+            <table class="wp-list-table widefat striped" style="margin-bottom:20px;">
+                <thead><tr><th>Satıcı</th><th>E-posta</th><th>Durum</th></tr></thead>
+                <tbody>
+                <?php if ( empty( $sellers ) ) : ?>
+                    <tr><td colspan="3">Hiç Dokan satıcısı (<code>seller</code> rolü) bulunamadı.</td></tr>
+                <?php else : ?>
+                    <?php foreach ( $to_migrate as $u ) : ?>
+                        <tr>
+                            <td><strong><?php echo esc_html( $u->display_name ); ?></strong> (ID: <?php echo (int) $u->ID; ?>)</td>
+                            <td><?php echo esc_html( $u->user_email ); ?></td>
+                            <td><span style="color:#d9822b;">⏳ Aktarılacak</span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php foreach ( $already_migrated as $u ) : ?>
+                        <tr style="opacity:.6;">
+                            <td><strong><?php echo esc_html( $u->display_name ); ?></strong> (ID: <?php echo (int) $u->ID; ?>)</td>
+                            <td><?php echo esc_html( $u->user_email ); ?></td>
+                            <td><span style="color:#1a7a4a;">✓ Zaten PZV vendor</span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+
+            <?php if ( ! empty( $to_migrate ) ) : ?>
+            <p>
+                <button id="pzv-migrate-btn" class="button button-primary button-large">
+                    🚀 <?php echo count( $to_migrate ); ?> satıcıyı aktar
+                </button>
+            </p>
+            <?php else : ?>
+            <p style="color:#1a7a4a;font-weight:600;">🎉 Aktarılacak Dokan satıcısı yok.</p>
+            <?php endif; ?>
+
+            <div id="pzv-migrate-result" style="display:none;margin-top:20px;padding:16px;background:#fff;border:1px solid #ddd;border-radius:4px;">
+                <h3 id="pzv-migrate-summary"></h3>
+                <ul id="pzv-migrate-log" style="font-family:monospace;font-size:13px;line-height:1.8;"></ul>
+            </div>
+        </div>
+        <script>
+        jQuery(function($){
+            $('#pzv-migrate-btn').on('click', function(){
+                var btn = $(this);
+                btn.prop('disabled', true).text('⏳ Aktarılıyor...');
+                $.post(pzv.ajax_url, {
+                    action: 'pzv_dokan_migrate',
+                    nonce:  pzv.nonce
+                }, function(res){
+                    btn.prop('disabled', false).text('✓ Tamamlandı');
+                    if (!res.success) {
+                        alert('Hata: ' + (res.data ? res.data.message : 'Bilinmeyen hata'));
+                        btn.prop('disabled', false).text('🚀 Tekrar Dene');
+                        return;
+                    }
+                    var d = res.data;
+                    $('#pzv-migrate-summary').html(
+                        '✅ Aktarıldı: <strong>' + d.migrated + '</strong> &nbsp;|&nbsp; ⏭ Atlandı: <strong>' + d.skipped + '</strong> &nbsp;|&nbsp; Toplam: <strong>' + d.total + '</strong>'
+                    );
+                    var ul = $('#pzv-migrate-log').empty();
+                    $.each(d.log, function(i, line){ ul.append('<li>' + line + '</li>'); });
+                    $('#pzv-migrate-result').show();
+                    if (d.migrated > 0) btn.hide();
+                }).fail(function(){
+                    btn.prop('disabled', false).text('🚀 Tekrar Dene');
+                    alert('AJAX isteği başarısız oldu.');
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /** AJAX: Dokan satıcılarını PZV'ye aktar */
+    public static function ajax_dokan_migrate() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+        }
+
+        $sellers = get_users( array( 'role' => 'seller', 'number' => -1 ) );
+        if ( empty( $sellers ) ) {
+            wp_send_json_success( array( 'migrated' => 0, 'skipped' => 0, 'total' => 0, 'log' => array( 'Dokan satıcısı bulunamadı.' ) ) );
+        }
+
+        $migrated = 0;
+        $skipped  = 0;
+        $log      = array();
+
+        foreach ( $sellers as $user ) {
+            $uid = $user->ID;
+
+            if ( PZV_Roles::is_pure_vendor( $uid ) ) {
+                $skipped++;
+                $log[] = '⏭ ' . $user->display_name . ' (#' . $uid . ') zaten PZV vendor — atlandı.';
+                continue;
+            }
+
+            $dokan = get_user_meta( $uid, 'dokan_profile_settings', true );
+            if ( ! is_array( $dokan ) ) $dokan = array();
+
+            $store_name  = sanitize_text_field( ! empty( $dokan['store_name'] ) ? $dokan['store_name'] : $user->display_name );
+            $store_slug  = sanitize_title( ! empty( $dokan['store_name'] ) ? $dokan['store_name'] : $user->user_login );
+            $phone       = sanitize_text_field( $dokan['phone'] ?? '' );
+            $banner_id   = (int) ( $dokan['banner'] ?? 0 );
+            $logo_id     = (int) ( $dokan['gravatar'] ?? 0 );
+            $description = sanitize_textarea_field( $dokan['dokan_store_description'] ?? get_user_meta( $uid, 'dokan_store_description', true ) );
+
+            $addr_arr   = is_array( $dokan['address'] ?? null ) ? $dokan['address'] : array();
+            $city       = sanitize_text_field( $addr_arr['city'] ?? '' );
+            $addr_parts = array_filter( array(
+                $addr_arr['street_1'] ?? '',
+                $addr_arr['street_2'] ?? '',
+                trim( ( $addr_arr['zip'] ?? '' ) . ' ' . ( $addr_arr['city'] ?? '' ) ),
+                $addr_arr['state']   ?? '',
+                $addr_arr['country'] ?? '',
+            ) );
+            $address = sanitize_textarea_field( implode( ', ', $addr_parts ) );
+
+            $payment = is_array( $dokan['payment'] ?? null ) ? $dokan['payment'] : array();
+            $bank    = is_array( $payment['bank'] ?? null ) ? $payment['bank'] : array();
+            $iban    = sanitize_text_field( $bank['iban'] ?? '' );
+
+            PZV_Roles::make_vendor( $uid, array(
+                'store_name'  => $store_name,
+                'store_slug'  => $store_slug,
+                'phone'       => $phone,
+                'city'        => $city,
+                'address'     => $address,
+                'description' => $description,
+                'iban'        => $iban,
+                'logo'        => $logo_id,
+                'banner'      => $banner_id,
+            ) );
+
+            $migrated++;
+            $product_count = count( PZV_Vendor::get_product_ids( $uid ) );
+            $log[] = '✓ ' . $user->display_name . ' (#' . $uid . ') → Mağaza: "' . $store_name . '" — ' . $product_count . ' ürün';
+        }
+
+        wp_send_json_success( array(
+            'migrated' => $migrated,
+            'skipped'  => $skipped,
+            'total'    => count( $sellers ),
+            'log'      => $log,
+        ) );
     }
 
 }

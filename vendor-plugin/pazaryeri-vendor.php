@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PazarYeri Vendor System
  * Description: Hafif WooCommerce çoklu satıcı sistemi. Dokan alternatifi. Kategori bazlı komisyon, frontend dashboard, sipariş yönetimi.
- * Version:     1.1.3
+ * Version:     1.2.0
  * Author:      724PazarYeri
  * Requires PHP: 7.2
  * Requires at least: 5.6
@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PZV_VERSION', '1.1.3' );
+define( 'PZV_VERSION', '1.2.0' );
 define( 'PZV_FILE', __FILE__ );
 define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
@@ -106,4 +106,5 @@ add_action( 'wp_ajax_pzv_search_products', array( 'PZV_Dashboard', 'ajax_search_
 add_action( 'wp_ajax_pzv_clone_product',   array( 'PZV_Dashboard', 'ajax_clone_product' ) );
 add_action( 'wp_ajax_pzv_update_my_product', array( 'PZV_Dashboard', 'ajax_update_my_product' ) );
 add_action( 'wp_ajax_pzv_update_order',    array( 'PZV_Dashboard', 'ajax_update_order' ) );
-add_action( 'wp_ajax_pzv_approve_product', array( 'PZV_Admin', 'ajax_approve_product' ) );
+add_action( 'wp_ajax_pzv_approve_product',  array( 'PZV_Admin', 'ajax_approve_product' ) );
+add_action( 'wp_ajax_pzv_dokan_migrate',   array( 'PZV_Admin', 'ajax_dokan_migrate' ) );
