@@ -3,6 +3,16 @@ defined( 'ABSPATH' ) || exit;
 
 class TWS_WC_Product_Importer {
 
+    private int $vendor_id;
+
+    /**
+     * @param int $vendor_id Ürünün atanacağı vendor kullanıcı ID'si.
+     *                       0 ise global ayar kullanılır (geriye dönük uyumluluk).
+     */
+    public function __construct( int $vendor_id = 0 ) {
+        $this->vendor_id = $vendor_id;
+    }
+
     /**
      * Trendyol ürününü WooCommerce'e aktarır veya günceller.
      *
@@ -168,14 +178,15 @@ class TWS_WC_Product_Importer {
     }
 
     /**
-     * Fiyata ayarlardaki yüzde marjını uygular.
+     * Vendor config'inden fiyat marjını okuyarak uygular.
      */
     private function apply_markup( float $price ): float {
         if ( $price <= 0 ) {
             return $price;
         }
 
-        $markup = (float) get_option( 'tws_price_markup', 0 );
+        $config = TWS_Vendor_Manager::get_vendor_config( $this->vendor_id );
+        $markup = (float) $config['price_markup'];
         if ( $markup === 0.0 ) {
             return $price;
         }
@@ -184,18 +195,17 @@ class TWS_WC_Product_Importer {
     }
 
     /**
-     * Ürünü ayarlardaki vendor kullanıcısına atar.
-     * Dokan, WC Vendors ve WCFM ile uyumludur (post_author üzerinden).
+     * Ürünü vendor'a atar (post_author).
+     * Dokan, WC Vendors ve WCFM ile uyumludur.
      */
     private function assign_vendor( int $product_id ): void {
-        $vendor_id = (int) get_option( 'tws_vendor_id', 0 );
-        if ( $vendor_id <= 0 ) {
+        if ( $this->vendor_id <= 0 ) {
             return;
         }
 
         wp_update_post( [
             'ID'          => $product_id,
-            'post_author' => $vendor_id,
+            'post_author' => $this->vendor_id,
         ] );
     }
 

@@ -29,24 +29,57 @@
     }
 
     // ================================================================
-    // Bağlantı testi
+    // API Ayarları Formu (#tws-my-config-form) — vendor ve admin
+    // ================================================================
+
+    $('#tws-my-config-form').on('submit', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var $btn  = $form.find('[type=submit]');
+        var $res  = $('#tws-save-result');
+
+        var data = {
+            vendor_id:     $form.find('[name=vendor_id]').val(),
+            supplier_id:   $form.find('[name=supplier_id]').val(),
+            api_key:       $form.find('[name=api_key]').val(),
+            api_secret:    $form.find('[name=api_secret]').val(),
+            price_markup:  $form.find('[name=price_markup]').val(),
+            sync_interval: $form.find('[name=sync_interval]').val(),
+            auto_sync:     $form.find('[name=auto_sync]').is(':checked') ? 1 : '',
+        };
+
+        $btn.prop('disabled', true).text('Kaydediliyor…');
+        $res.hide().removeClass('is-error is-success');
+
+        post('tws_save_vendor_config', data)
+        .done(function (r) {
+            if (r.success) { showNotice($res, 'success', '✓ ' + r.data.message); }
+            else { showNotice($res, 'error', '✗ ' + (r.data && r.data.message ? r.data.message : 'Hata')); }
+        })
+        .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
+        .always(function () { $btn.prop('disabled', false).text('Kaydet'); });
+    });
+
+    // ================================================================
+    // Bağlantı testi (kendi API'si)
     // ================================================================
 
     $('#tws-test-btn').on('click', function () {
         var $btn = $(this), $res = $('#tws-test-result');
         $btn.prop('disabled', true).text('Test ediliyor…');
         $res.hide().removeClass('is-error is-success');
-        post('tws_test_connection', {})
+        post('tws_test_connection', { vendor_id: twsData.activeVendorId })
         .done(function (r) {
             showNotice($res, r.success ? 'success' : 'error',
-                (r.success ? '✓ ' : '✗ ') + (r.success ? r.data.message : (r.data && r.data.message ? r.data.message : 'Hata')));
+                (r.success ? '✓ ' : '✗ ') +
+                (r.success ? r.data.message : (r.data && r.data.message ? r.data.message : 'Hata')));
         })
         .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
         .always(function () { $btn.prop('disabled', false).text('Bağlantıyı Test Et'); });
     });
 
     // ================================================================
-    // Canlı senkronizasyon paneli (polling)
+    // Canlı senkronizasyon paneli (polling — kendi entegrasyonu)
     // ================================================================
 
     var syncPollTimer = null;
@@ -66,13 +99,12 @@
     }
 
     function pollSyncStatus() {
-        post('tws_sync_status', {})
+        post('tws_sync_status', { vendor_id: twsData.activeVendorId })
         .done(function (r) {
             if (!r.success) { return; }
             var d = r.data;
 
             updateEngineBadge(d.has_as);
-
             $('#tws-last-sync').text(d.last_sync || '—');
             $('#tws-next-sync').text(d.next_sync || '—');
 
@@ -83,14 +115,12 @@
                     'İşleniyor: ' + (d.stats.processed || 0) + ' / ' + d.stats.total +
                     '  •  Yeni: ' + (d.stats.imported || 0) +
                     '  Güncellenen: ' + (d.stats.updated || 0) +
-                    '  Hatalı: ' + (d.stats.failed || 0)
+                    '  Hatlı: ' + (d.stats.failed || 0)
                 );
-                // Devam ediyor, 3 sn sonra tekrar kontrol et
                 syncPollTimer = setTimeout(pollSyncStatus, 3000);
             } else {
                 $('#tws-live-progress').hide();
                 if (syncPollTimer) {
-                    // Az önce bitti, log'u güncelle
                     clearTimeout(syncPollTimer);
                     syncPollTimer = null;
                     location.reload();
@@ -99,7 +129,6 @@
         });
     }
 
-    // Sayfa açıldığında durum al
     if ($('#tws-engine-badge').length) {
         pollSyncStatus();
     }
@@ -110,12 +139,11 @@
         $sp.show();
         $res.hide().removeClass('is-error is-success');
 
-        post('tws_manual_sync', {})
+        post('tws_manual_sync', { vendor_id: twsData.activeVendorId })
         .done(function (r) {
             if (r.success) {
                 if (r.data.background) {
                     showNotice($res, 'success', '✓ ' + r.data.message + ' İlerleme aşağıda gösterilecek.');
-                    // polling başlat
                     if (syncPollTimer) { clearTimeout(syncPollTimer); }
                     syncPollTimer = setTimeout(pollSyncStatus, 2000);
                 } else {
@@ -134,7 +162,6 @@
     // Sistem Cron UI
     // ================================================================
 
-    // Sekme geçişi (curl / wget / wpcli)
     $(document).on('click', '.tws-cron-tab-btn', function () {
         var show = $(this).data('show');
         $('.tws-cron-tab-btn').removeClass('active');
@@ -143,7 +170,6 @@
         $('#tws-cron-' + show).show();
     });
 
-    // Kopyala butonu
     $(document).on('click', '.tws-copy-btn', function () {
         var $target = $('#' + $(this).data('target'));
         var text = $target.find('code').text();
@@ -160,7 +186,7 @@
     });
 
     // ================================================================
-    // Kategori eşleştirme (Import sekmesi)
+    // Kategori eşleştirme
     // ================================================================
 
     function buildCatSelect(selId) {
@@ -218,19 +244,255 @@
     });
 
     // ================================================================
+    // Vendor Yönetimi (admin)
+    // ================================================================
+
+    var allVendors          = [];
+    var vendorPollTimer     = null;
+    var activeVendorModalId = 0;
+
+    function vendorConfigBadge(configured) {
+        return configured
+            ? '<span class="tws-badge tws-badge-success">✓ Yapılandırılmış</span>'
+            : '<span class="tws-badge tws-badge-error">✗ Yapılandırılmamış</span>';
+    }
+
+    function vendorStatusBadge(status) {
+        var map = {
+            idle:    ['tws-badge-info',    'Hazır'],
+            running: ['tws-badge-warning', 'Çalışıyor'],
+            error:   ['tws-badge-error',   'Hata'],
+        };
+        var s = map[status] || map['idle'];
+        return '<span class="tws-badge ' + s[0] + '">' + s[1] + '</span>';
+    }
+
+    function renderVendorRow(v) {
+        var roles = (v.roles || []).join(', ');
+        $('#tws-vendor-tbody').append(
+            '<tr data-vendor-id="' + v.id + '">' +
+            '<td>' + v.id + '</td>' +
+            '<td><strong>' + escHtml(v.name) + '</strong><br><small>' + escHtml(v.email) + '</small></td>' +
+            '<td><code>' + escHtml(roles) + '</code></td>' +
+            '<td>' + vendorConfigBadge(v.configured) + '</td>' +
+            '<td>' + escHtml(v.stats ? (v.stats.last_sync || '—') : '—') + '</td>' +
+            '<td>' + (v.stats ? v.stats.product_count : 0) + '</td>' +
+            '<td>' + vendorStatusBadge(v.stats ? v.stats.status : 'idle') + '</td>' +
+            '<td><button class="button tws-vendor-edit-btn" data-vendor-id="' + v.id + '">Äzarla</button></td>' +
+            '</tr>'
+        );
+    }
+
+    function loadVendors() {
+        if (!$('#tws-vendor-tbody').length) { return; }
+        post('tws_get_vendors', {})
+        .done(function (r) {
+            if (!r.success) { return; }
+            allVendors = r.data;
+            filterVendors($('#tws-vendor-search').val() || '');
+        })
+        .fail(function () {
+            $('#tws-vendor-tbody').html('<tr><td colspan="8">Yükleme hatası.</td></tr>');
+        });
+    }
+
+    function filterVendors(query) {
+        var $tbody = $('#tws-vendor-tbody');
+        $tbody.empty();
+        var q = query.toLowerCase();
+        var filtered = allVendors.filter(function (v) {
+            return !q || v.name.toLowerCase().indexOf(q) >= 0 || v.email.toLowerCase().indexOf(q) >= 0;
+        });
+        if (!filtered.length) {
+            $tbody.html('<tr><td colspan="8">Vendor bulunamadı.</td></tr>');
+            return;
+        }
+        filtered.forEach(renderVendorRow);
+    }
+
+    if ($('#tws-vendor-table').length) {
+        loadVendors();
+    }
+
+    $('#tws-vendor-search').on('input', function () {
+        filterVendors($(this).val());
+    });
+
+    // Vendor modal aç
+    $(document).on('click', '.tws-vendor-edit-btn', function () {
+        var vid    = parseInt($(this).data('vendor-id'), 10);
+        var vendor = null;
+        allVendors.forEach(function (v) { if (v.id === vid) { vendor = v; } });
+        if (!vendor) { return; }
+
+        activeVendorModalId = vid;
+        $('#tws-vm-title').text(vendor.name + ' — Ayarlar');
+        $('#vm_vendor_id').val(vid);
+
+        var c = vendor.config || {};
+        $('#vm_supplier_id').val(c.supplier_id || '');
+        $('#vm_api_key').val(c.api_key || '');
+        $('#vm_api_secret').val(c.api_secret || '');
+        $('#vm_price_markup').val(typeof c.price_markup !== 'undefined' ? c.price_markup : 0);
+        $('#vm_sync_interval option').prop('selected', false);
+        $('#vm_sync_interval option[value="' + (c.sync_interval || 3600) + '"]').prop('selected', true);
+        $('#vm_auto_sync').prop('checked', !!c.auto_sync);
+
+        $('#tws-vm-result').hide().removeClass('is-error is-success');
+        $('#tws-vm-progress').hide();
+        $('#tws-vm-log-section').hide();
+
+        $('#tws-vendor-modal').show();
+    });
+
+    function closeVendorModal() {
+        $('#tws-vendor-modal').hide();
+        activeVendorModalId = 0;
+        if (vendorPollTimer) { clearTimeout(vendorPollTimer); vendorPollTimer = null; }
+    }
+
+    $('#tws-vendor-modal').on('click', function (e) {
+        if ($(e.target).is('#tws-vendor-modal')) { closeVendorModal(); }
+    });
+
+    // Vendor kaydet
+    $('#tws-vm-save-btn').on('click', function () {
+        var $btn = $(this), $res = $('#tws-vm-result');
+        var vid  = parseInt($('#vm_vendor_id').val(), 10);
+        if (!vid) { return; }
+
+        var data = {
+            vendor_id:     vid,
+            supplier_id:   $('#vm_supplier_id').val(),
+            api_key:       $('#vm_api_key').val(),
+            api_secret:    $('#vm_api_secret').val(),
+            price_markup:  $('#vm_price_markup').val(),
+            sync_interval: $('#vm_sync_interval').val(),
+            auto_sync:     $('#vm_auto_sync').is(':checked') ? 1 : '',
+        };
+
+        $btn.prop('disabled', true).text('Kaydediliyor…');
+        $res.hide().removeClass('is-error is-success');
+
+        post('tws_save_vendor_config', data)
+        .done(function (r) {
+            if (r.success) {
+                showNotice($res, 'success', '✓ ' + r.data.message);
+                allVendors.forEach(function (v) {
+                    if (v.id === vid) {
+                        v.config.supplier_id   = data.supplier_id;
+                        v.config.api_key       = data.api_key;
+                        v.config.api_secret    = data.api_secret;
+                        v.config.price_markup  = parseFloat(data.price_markup);
+                        v.config.sync_interval = parseInt(data.sync_interval, 10);
+                        v.config.auto_sync     = !!data.auto_sync;
+                        v.configured           = !!(data.api_key && data.supplier_id);
+                    }
+                });
+                filterVendors($('#tws-vendor-search').val() || '');
+            } else {
+                showNotice($res, 'error', '✗ ' + (r.data && r.data.message ? r.data.message : 'Hata'));
+            }
+        })
+        .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
+        .always(function () { $btn.prop('disabled', false).text('Kaydet'); });
+    });
+
+    // Vendor bağlantı testi
+    $('#tws-vm-test-btn').on('click', function () {
+        var $btn = $(this), $res = $('#tws-vm-result');
+        var vid  = parseInt($('#vm_vendor_id').val(), 10);
+        if (!vid) { return; }
+
+        $btn.prop('disabled', true).text('Test ediliyor…');
+        $res.hide().removeClass('is-error is-success');
+
+        post('tws_test_vendor_conn', { vendor_id: vid })
+        .done(function (r) {
+            showNotice($res, r.success ? 'success' : 'error',
+                (r.success ? '✓ ' : '✗ ') +
+                (r.success ? r.data.message : (r.data && r.data.message ? r.data.message : 'Hata')));
+        })
+        .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
+        .always(function () { $btn.prop('disabled', false).text('Bağlantı Test Et'); });
+    });
+
+    // Vendor sync başlat
+    $('#tws-vm-sync-btn').on('click', function () {
+        var $btn = $(this), $res = $('#tws-vm-result');
+        var vid  = parseInt($('#vm_vendor_id').val(), 10);
+        if (!vid) { return; }
+
+        $btn.prop('disabled', true).text('Başlatılıyor…');
+        $res.hide().removeClass('is-error is-success');
+
+        post('tws_sync_vendor', { vendor_id: vid })
+        .done(function (r) {
+            if (r.success) {
+                showNotice($res, 'success', '✓ ' + r.data.message);
+                if (r.data.background) {
+                    if (vendorPollTimer) { clearTimeout(vendorPollTimer); }
+                    vendorPollTimer = setTimeout(function () { pollVendorStatus(vid); }, 2000);
+                }
+            } else {
+                showNotice($res, 'error', '✗ ' + (r.data && r.data.message ? r.data.message : 'Hata'));
+            }
+        })
+        .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
+        .always(function () { $btn.prop('disabled', false).text('Şimdi Sync Et'); });
+    });
+
+    function pollVendorStatus(vid) {
+        if (activeVendorModalId !== vid) { return; }
+        post('tws_vendor_sync_status', { vendor_id: vid })
+        .done(function (r) {
+            if (!r.success || activeVendorModalId !== vid) { return; }
+            var d = r.data;
+
+            if (d.in_progress && d.stats && d.stats.total) {
+                $('#tws-vm-progress').show();
+                $('#tws-vm-progress-fill').css('width', (d.progress_pct || 0) + '%');
+                $('#tws-vm-progress-text').text(
+                    'İşleniyor: ' + (d.stats.processed || 0) + ' / ' + d.stats.total +
+                    '  •  Yeni: ' + (d.stats.imported || 0) +
+                    '  Güncellenen: ' + (d.stats.updated || 0) +
+                    '  Hatlı: ' + (d.stats.failed || 0)
+                );
+                vendorPollTimer = setTimeout(function () { pollVendorStatus(vid); }, 3000);
+            } else {
+                $('#tws-vm-progress').hide();
+                if (vendorPollTimer) { clearTimeout(vendorPollTimer); vendorPollTimer = null; }
+                loadVendors();
+            }
+        });
+    }
+
+    // ================================================================
+    // Modal kapat — hem export hem vendor
+    // ================================================================
+
+    $(document).on('click', '.tws-modal-close, .tws-modal-close-btn', function () {
+        if ($(this).closest('#tws-vendor-modal').length) {
+            closeVendorModal();
+        } else {
+            closeModal();
+        }
+    });
+
+    // ================================================================
     // Export sekmesi – Ürün listesi
     // ================================================================
 
-    var exportPage = 1;
+    var exportPage       = 1;
     var currentProductId = 0;
-    var cargoLoaded = false;
+    var cargoLoaded      = false;
 
     function statusBadge(status) {
         var map = {
             none:    ['tws-badge-info',    '—'],
             pending: ['tws-badge-warning', 'Bekliyor'],
             success: ['tws-badge-success', 'Aktarıldı'],
-            error:   ['tws-badge-error',   'Hatalı'],
+            error:   ['tws-badge-error',   'Hatlı'],
         };
         var s = map[status] || map['none'];
         return '<span class="tws-badge ' + s[0] + '">' + s[1] + '</span>';
@@ -316,13 +578,12 @@
         $('#tws-attributes-table').empty();
         $('#tws-export-modal-result').hide();
 
-        // Önceki kayıtlı config varsa doldur
         if (savedConfig && Object.keys(savedConfig).length) {
-            if (savedConfig.category_id) { $('#tws-cat-id').val(savedConfig.category_id); $('#tws-cat-label').text('ID: ' + savedConfig.category_id); }
-            if (savedConfig.brand_id)    { $('#tws-brand-id').val(savedConfig.brand_id); $('#tws-brand-label').text('ID: ' + savedConfig.brand_id); }
-            if (savedConfig.cargo_company_id) { setTimeout(function () { $('#tws-cargo-id').val(savedConfig.cargo_company_id); }, 500); }
+            if (savedConfig.category_id)        { $('#tws-cat-id').val(savedConfig.category_id); $('#tws-cat-label').text('ID: ' + savedConfig.category_id); }
+            if (savedConfig.brand_id)           { $('#tws-brand-id').val(savedConfig.brand_id); $('#tws-brand-label').text('ID: ' + savedConfig.brand_id); }
+            if (savedConfig.cargo_company_id)   { setTimeout(function () { $('#tws-cargo-id').val(savedConfig.cargo_company_id); }, 500); }
             if (savedConfig.dimensional_weight) { $('#tws-desi').val(savedConfig.dimensional_weight); }
-            if (savedConfig.category_id) { loadCategoryAttributes(savedConfig.category_id, savedConfig.attributes || []); }
+            if (savedConfig.category_id)        { loadCategoryAttributes(savedConfig.category_id, savedConfig.attributes || []); }
         }
 
         $('#tws-export-modal').show();
@@ -341,7 +602,6 @@
         openModal(id, name, config);
     });
 
-    $(document).on('click', '.tws-modal-close, .tws-modal-close-btn', closeModal);
     $('#tws-export-modal').on('click', function (e) { if ($(e.target).is('#tws-export-modal')) { closeModal(); } });
 
     // ================================================================
@@ -362,8 +622,7 @@
         .done(function (r) {
             $dd.empty();
             if (!r.success || !r.data.length) { $dd.html('<div class="tws-ac-item tws-ac-empty">Sonuç bulunamadı.</div>'); return; }
-            var items = r.data.slice(0, 20);
-            items.forEach(function (cat) {
+            r.data.slice(0, 20).forEach(function (cat) {
                 $dd.append('<div class="tws-ac-item" data-id="' + cat.id + '" data-name="' + escHtml(cat.name) + '">' + escHtml(cat.name) + '</div>');
             });
         })
@@ -397,7 +656,9 @@
                 var required = attr.required;
                 var vals     = attr.attributeValues || [];
                 var savedVal = '';
-                savedAttrs.forEach(function (s) { if (s.attributeId === attrId) { savedVal = s.attributeValueId || s.customAttributeValue || ''; } });
+                savedAttrs.forEach(function (s) {
+                    if (s.attributeId === attrId) { savedVal = s.attributeValueId || s.customAttributeValue || ''; }
+                });
 
                 var inputHtml;
                 if (vals.length > 0) {
@@ -454,7 +715,6 @@
         $('#tws-brand-dropdown').hide();
     });
 
-    // Dropdown dışına tıklayınca kapat
     $(document).on('click', function (e) {
         if (!$(e.target).closest('.tws-ac-wrap').length) {
             $('.tws-ac-dropdown').hide();
@@ -498,11 +758,10 @@
             return;
         }
 
-        // Özellikleri topla
         var attributes = [];
         $('.tws-attr-input').each(function () {
-            var attrId  = parseInt($(this).data('attr-id'), 10);
-            var val     = $(this).val();
+            var attrId   = parseInt($(this).data('attr-id'), 10);
+            var val      = $(this).val();
             var isCustom = $(this).data('custom') === 1 || $(this).data('allow-custom') === '1';
             if (!val) { return; }
 
@@ -516,11 +775,11 @@
         });
 
         var config = {
-            category_id:       catId,
-            brand_id:          brandId,
-            cargo_company_id:  cargoId,
+            category_id:        catId,
+            brand_id:           brandId,
+            cargo_company_id:   cargoId,
             dimensional_weight: desi,
-            attributes:        attributes,
+            attributes:         attributes,
         };
 
         $btn.prop('disabled', true).text('Aktarılıyor…');
@@ -529,8 +788,7 @@
         post('tws_export_product', { product_id: currentProductId, config: JSON.stringify(config) })
         .done(function (r) {
             if (r.success) {
-                showNotice($res, 'success', '✓ Trendyol\'a gönderildi. Batch ID: ' + (r.data.batchRequestId || '—'));
-                // Tablodaki satırın durumunu güncelle
+                showNotice($res, 'success', "✓ Trendyol'a gönderildi. Batch ID: " + (r.data.batchRequestId || '—'));
                 $('tr[data-id="' + currentProductId + '"] .tws-status-cell').html(statusBadge('pending'));
                 setTimeout(function () { closeModal(); }, 2000);
             } else {
@@ -538,7 +796,7 @@
             }
         })
         .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
-        .always(function () { $btn.prop('disabled', false).text('Trendyol\'a Aktar'); });
+        .always(function () { $btn.prop('disabled', false).text("Trendyol'a Aktar"); });
     });
 
     // ================================================================

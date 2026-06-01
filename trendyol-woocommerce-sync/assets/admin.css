@@ -222,7 +222,23 @@
 .tws-ac-empty { color: #999; cursor: default; font-style: italic; }
 .tws-selected-label { font-size: 12px; color: #2271b1; margin-left: 6px; }
 
+/* ================================================================
+   Vendor Yönetimi
+   ================================================================ */
+.tws-vendor-table td { vertical-align: middle; }
+.tws-vendor-table tr:hover td { background: #f6f7f7; }
+.tws-vendor-table code { font-size: 11px; background: #f0f0f0; padding: 1px 5px; border-radius: 3px; }
+
+/* Vendor modal — progress ve log */
+#tws-vm-progress { margin-top: 14px; }
+#tws-vm-log-section h3 { font-size: 13px; margin-bottom: 6px; color: #50575e; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+#tws-vm-log-section .tws-log-table { font-size: 12px; }
+
+/* Vendor düzenle butonu */
+.tws-vendor-edit-btn { white-space: nowrap; }
+
 @media (max-width: 900px) {
     .tws-grid { grid-template-columns: 1fr; }
     .tws-modal { padding: 20px 16px; }
+    .tws-vendor-table { font-size: 12px; }
 }
