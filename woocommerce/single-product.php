@@ -411,6 +411,64 @@ while ( have_posts() ) : the_post();
         </button>
       </div>
 
+      <?php
+        // ── DİĞER SATICILAR (Dokan) ──
+        // Aynı isimli/benzer ürünü satan diğer Dokan satıcılarını bul
+        $other_offers = array();
+        if ( function_exists( 'dokan_get_vendor_by_product' ) ) {
+          $current_vendor = dokan_get_vendor_by_product( $product->get_id() );
+          $current_vid = $current_vendor ? $current_vendor->get_id() : 0;
+          // Aynı SKU veya aynı başlıkla diğer ürünleri bul
+          $title = $product->get_name();
+          $similar = new WP_Query( array(
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => 6,
+        'no_found_rows' => true, 'update_post_term_cache' => false,
+            'post__not_in'   => array( $product->get_id() ),
+            's'              => $title,
+            'orderby'        => 'meta_value_num',
+            'meta_key'       => '_price',
+            'order'          => 'ASC',
+          ) );
+          if ( $similar->have_posts() ) {
+            while ( $similar->have_posts() ) { $similar->the_post();
+              $op = wc_get_product( get_the_ID() );
+              if ( ! $op ) continue;
+              $ov = dokan_get_vendor_by_product( get_the_ID() );
+              if ( ! $ov ) continue;
+              $other_offers[] = array(
+                'vendor_name' => $ov->get_shop_name(),
+                'vendor_url'  => $ov->get_shop_url(),
+                'price'       => $op->get_price(),
+                'rating'      => $ov->get_rating(),
+                'product_url' => get_permalink( get_the_ID() ),
+              );
+            }
+            wp_reset_postdata();
+          }
+        }
+        if ( ! empty( $other_offers ) ) :
+      ?>
+      <div class="hb-other-sellers">
+        <div class="hb-os-title">🏪 Bu üründe <?php echo count( $other_offers ); ?> farklı satıcı</div>
+        <?php foreach ( array_slice( $other_offers, 0, 4 ) as $offer ) :
+          $r = $offer['rating'];
+          $rval = is_array($r) && isset($r['rating']) ? (float)$r['rating'] : 5.0; ?>
+          <a class="hb-os-item" href="<?php echo esc_url( $offer['product_url'] ); ?>">
+            <div class="hb-os-info">
+              <span class="hb-os-name"><?php echo esc_html( $offer['vendor_name'] ); ?></span>
+              <span class="hb-os-rating">★ <?php echo esc_html( number_format($rval,1) ); ?></span>
+            </div>
+            <div class="hb-os-price"><?php echo wc_price( $offer['price'] ); ?></div>
+          </a>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+
+    <!-- ═══ GALERİ ALTI: GÜVEN + PAYLAŞ ═══ -->
+    <div class="hb-gallery-extra">
       <!-- Güven rozetleri -->
       <div class="hb-trust">
         <div class="hb-trust-item">
@@ -484,61 +542,6 @@ while ( have_posts() ) : the_post();
           </button>
         </div>
       </div>
-
-      <?php
-        // ── DİĞER SATICILAR (Dokan) ──
-        // Aynı isimli/benzer ürünü satan diğer Dokan satıcılarını bul
-        $other_offers = array();
-        if ( function_exists( 'dokan_get_vendor_by_product' ) ) {
-          $current_vendor = dokan_get_vendor_by_product( $product->get_id() );
-          $current_vid = $current_vendor ? $current_vendor->get_id() : 0;
-          // Aynı SKU veya aynı başlıkla diğer ürünleri bul
-          $title = $product->get_name();
-          $similar = new WP_Query( array(
-            'post_type'      => 'product',
-            'post_status'    => 'publish',
-            'posts_per_page' => 6,
-        'no_found_rows' => true, 'update_post_term_cache' => false,
-            'post__not_in'   => array( $product->get_id() ),
-            's'              => $title,
-            'orderby'        => 'meta_value_num',
-            'meta_key'       => '_price',
-            'order'          => 'ASC',
-          ) );
-          if ( $similar->have_posts() ) {
-            while ( $similar->have_posts() ) { $similar->the_post();
-              $op = wc_get_product( get_the_ID() );
-              if ( ! $op ) continue;
-              $ov = dokan_get_vendor_by_product( get_the_ID() );
-              if ( ! $ov ) continue;
-              $other_offers[] = array(
-                'vendor_name' => $ov->get_shop_name(),
-                'vendor_url'  => $ov->get_shop_url(),
-                'price'       => $op->get_price(),
-                'rating'      => $ov->get_rating(),
-                'product_url' => get_permalink( get_the_ID() ),
-              );
-            }
-            wp_reset_postdata();
-          }
-        }
-        if ( ! empty( $other_offers ) ) :
-      ?>
-      <div class="hb-other-sellers">
-        <div class="hb-os-title">🏪 Bu üründe <?php echo count( $other_offers ); ?> farklı satıcı</div>
-        <?php foreach ( array_slice( $other_offers, 0, 4 ) as $offer ) :
-          $r = $offer['rating'];
-          $rval = is_array($r) && isset($r['rating']) ? (float)$r['rating'] : 5.0; ?>
-          <a class="hb-os-item" href="<?php echo esc_url( $offer['product_url'] ); ?>">
-            <div class="hb-os-info">
-              <span class="hb-os-name"><?php echo esc_html( $offer['vendor_name'] ); ?></span>
-              <span class="hb-os-rating">★ <?php echo esc_html( number_format($rval,1) ); ?></span>
-            </div>
-            <div class="hb-os-price"><?php echo wc_price( $offer['price'] ); ?></div>
-          </a>
-        <?php endforeach; ?>
-      </div>
-      <?php endif; ?>
     </div>
 
   </div>
