@@ -12,7 +12,6 @@ class TWS_WC_Product_Importer {
         $barcode = $trendyol_product['barcode'] ?? '';
         $sku     = $trendyol_product['stockCode'] ?? $barcode;
 
-        // Mevcut ürünü bul
         $existing_id = $this->find_by_meta( '_trendyol_product_id', $trendyol_product['id'] ?? '' );
         if ( ! $existing_id ) {
             $existing_id = wc_get_product_id_by_sku( $sku );
@@ -35,7 +34,6 @@ class TWS_WC_Product_Importer {
 
         $this->set_common_fields( $product, $data );
 
-        // Stok
         $qty = $data['quantity'] ?? ( $data['stockInfo']['quantity'] ?? 0 );
         $product->set_manage_stock( true );
         $product->set_stock_quantity( (int) $qty );
@@ -43,6 +41,7 @@ class TWS_WC_Product_Importer {
 
         $product_id = $product->save();
 
+        $this->assign_vendor( $product_id );
         $this->attach_images( $product_id, $data['images'] ?? [] );
         $this->save_trendyol_meta( $product_id, $data );
 
@@ -57,7 +56,6 @@ class TWS_WC_Product_Importer {
 
         $this->set_common_fields( $product, $data );
 
-        // Varyant özelliklerini topla (renk, beden vb.)
         $attribute_map = [];
         foreach ( $data['variants'] as $variant ) {
             foreach ( $variant['attributes'] ?? [] as $attr ) {
@@ -80,7 +78,6 @@ class TWS_WC_Product_Importer {
 
         $product_id = $product->save();
 
-        // Mevcut varyasyonları sil, yeniden oluştur
         $existing_variations = $product->get_children();
         foreach ( $existing_variations as $var_id ) {
             wp_delete_post( $var_id, true );
@@ -91,6 +88,7 @@ class TWS_WC_Product_Importer {
         }
 
         $product->sync_managed_variation_stock_status();
+        $this->assign_vendor( $product_id );
         $this->attach_images( $product_id, $data['images'] ?? [] );
         $this->save_trendyol_meta( $product_id, $data );
 
@@ -105,10 +103,11 @@ class TWS_WC_Product_Importer {
         $sku     = $variant['stockCode'] ?? $barcode;
         $variation->set_sku( $sku );
 
-        $sale_price = $variant['salePrice'] ?? 0;
-        $list_price = $variant['listPrice'] ?? $sale_price;
+        $sale_price = $this->apply_markup( (float) ( $variant['salePrice'] ?? 0 ) );
+        $list_price = $this->apply_markup( (float) ( $variant['listPrice'] ?? $variant['salePrice'] ?? 0 ) );
+
         $variation->set_regular_price( (string) $list_price );
-        if ( $sale_price < $list_price ) {
+        if ( $sale_price > 0 && $sale_price < $list_price ) {
             $variation->set_sale_price( (string) $sale_price );
         }
 
@@ -119,14 +118,13 @@ class TWS_WC_Product_Importer {
 
         $variation_attrs = [];
         foreach ( $variant['attributes'] ?? [] as $attr ) {
-            $key                  = 'attribute_' . sanitize_title( $attr['attributeName'] );
+            $key                     = 'attribute_' . sanitize_title( $attr['attributeName'] );
             $variation_attrs[ $key ] = $attr['attributeValue'];
         }
         $variation->set_attributes( $variation_attrs );
 
         $var_id = $variation->save();
 
-        // Varyant görselini bağla
         if ( ! empty( $variant['images'][0]['url'] ) ) {
             $image_id = $this->sideload_image( $variant['images'][0]['url'], $var_id );
             if ( $image_id ) {
@@ -139,12 +137,11 @@ class TWS_WC_Product_Importer {
 
     private function set_common_fields( \WC_Product $product, array $data ): void {
         $product->set_name( wp_strip_all_tags( $data['title'] ?? '' ) );
+        $product->set_description( wp_kses_post( $data['description'] ?? '' ) );
 
-        $description = $data['description'] ?? '';
-        $product->set_description( wp_kses_post( $description ) );
+        $sale_price = $this->apply_markup( (float) ( $data['salePrice'] ?? 0 ) );
+        $list_price = $this->apply_markup( (float) ( $data['listPrice'] ?? $data['salePrice'] ?? 0 ) );
 
-        $sale_price = $data['salePrice'] ?? 0;
-        $list_price = $data['listPrice'] ?? $sale_price;
         $product->set_regular_price( (string) $list_price );
         if ( $sale_price > 0 && $sale_price < $list_price ) {
             $product->set_sale_price( (string) $sale_price );
@@ -155,14 +152,12 @@ class TWS_WC_Product_Importer {
             $product->set_sku( $sku );
         }
 
-        // Kategori
         $category_name = $data['categoryName'] ?? '';
         $cat_id = TWS_Category_Mapper::get_or_create( $category_name );
         if ( $cat_id ) {
             $product->set_category_ids( [ $cat_id ] );
         }
 
-        // Marka attribute
         $brand = $data['brand'] ?? '';
         if ( $brand ) {
             $this->set_brand_attribute( $product, $brand );
@@ -170,6 +165,38 @@ class TWS_WC_Product_Importer {
 
         $product->set_status( 'publish' );
         $product->set_catalog_visibility( 'visible' );
+    }
+
+    /**
+     * Fiyata ayarlardaki yüzde marjını uygular.
+     */
+    private function apply_markup( float $price ): float {
+        if ( $price <= 0 ) {
+            return $price;
+        }
+
+        $markup = (float) get_option( 'tws_price_markup', 0 );
+        if ( $markup === 0.0 ) {
+            return $price;
+        }
+
+        return round( $price * ( 1 + $markup / 100 ), 2 );
+    }
+
+    /**
+     * Ürünü ayarlardaki vendor kullanıcısına atar.
+     * Dokan, WC Vendors ve WCFM ile uyumludur (post_author üzerinden).
+     */
+    private function assign_vendor( int $product_id ): void {
+        $vendor_id = (int) get_option( 'tws_vendor_id', 0 );
+        if ( $vendor_id <= 0 ) {
+            return;
+        }
+
+        wp_update_post( [
+            'ID'          => $product_id,
+            'post_author' => $vendor_id,
+        ] );
     }
 
     private function set_brand_attribute( \WC_Product $product, string $brand ): void {
@@ -185,16 +212,13 @@ class TWS_WC_Product_Importer {
         $product->set_attributes( $existing_attrs );
     }
 
-    /**
-     * Trendyol görsellerini WordPress medya kütüphanesine aktarır.
-     */
     private function attach_images( int $product_id, array $images ): void {
         if ( empty( $images ) ) {
             return;
         }
 
-        $gallery_ids   = [];
-        $featured_set  = (bool) get_post_meta( $product_id, '_thumbnail_id', true );
+        $gallery_ids  = [];
+        $featured_set = (bool) get_post_meta( $product_id, '_thumbnail_id', true );
 
         foreach ( $images as $index => $image ) {
             $url = $image['url'] ?? '';
@@ -211,8 +235,10 @@ class TWS_WC_Product_Importer {
 
             if ( $index === 0 && ! $featured_set ) {
                 set_post_thumbnail( $product_id, $image_id );
+                update_post_meta( $image_id, '_trendyol_image_url', $url );
             } else {
                 $gallery_ids[] = $image_id;
+                update_post_meta( $image_id, '_trendyol_image_url', $url );
             }
         }
 
