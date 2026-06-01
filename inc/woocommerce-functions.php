@@ -134,7 +134,8 @@ function bazario_product_card( $product ) {
                 <?php endif; ?>
             </div>
             <button class="pcomp-btn" onclick="event.stopPropagation();pzToggleComp(this)">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+              <svg class="pcomp-ico-cmp" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+              <svg class="pcomp-ico-chk" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none"><polyline points="20 6 9 17 4 12"/></svg>
               <span class="pcomp-lbl">Karşılaştır</span>
             </button>
         </div>

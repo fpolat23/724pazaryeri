@@ -2384,9 +2384,11 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 ═══════════════════════════════════════ */
 
 /* Kart üstündeki Karşılaştır butonu */
-.pazaryeri-wrap .pcomp-btn{width:calc(100% + 22px);margin:10px -11px -11px;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 0;background:#f8f6f2;border:none;border-top:1px solid var(--border);font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;border-radius:0 0 10px 10px;}
-.pazaryeri-wrap .pcomp-btn:hover{background:#fff5f0;color:var(--accent);}
-.pazaryeri-wrap .pcomp-btn.on{background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534;border-top-color:#bbf7d0;font-weight:700;}
+.pazaryeri-wrap .pcomp-btn{width:calc(100% + 22px);margin:10px -11px -11px;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 0;background:#fff;border:none;border-top:1.5px solid var(--border);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .18s;border-radius:0 0 10px 10px;letter-spacing:.1px;}
+.pazaryeri-wrap .pcomp-btn svg{transition:stroke .18s;}
+.pazaryeri-wrap .pcomp-btn:hover{background:var(--accent);color:#fff;border-top-color:var(--accent);}
+.pazaryeri-wrap .pcomp-btn:hover svg{stroke:#fff;}
+.pazaryeri-wrap .pcomp-btn.on{background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#15803d;border-top-color:#86efac;font-weight:700;}
 .pazaryeri-wrap .pcomp-btn.on svg{stroke:#16a34a;}
 
 /* ─── Karşılaştırma Çubuğu ─── */

@@ -482,11 +482,15 @@ function pzToggleComp(btn){
     pzCompItems.splice(idx,1);
     btn.classList.remove('on');
     var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent='Karşılaştır';
+    var ic=btn.querySelector('.pcomp-ico-cmp');if(ic)ic.style.display='';
+    var ck=btn.querySelector('.pcomp-ico-chk');if(ck)ck.style.display='none';
   }else{
     if(pzCompItems.length>=PZ_COMP_MAX){if(typeof showToast==='function')showToast('En fazla '+PZ_COMP_MAX+' ürün karşılaştırabilirsiniz!');return;}
     pzCompItems.push(data);
     btn.classList.add('on');
-    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent='✓ Eklendi';
+    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent='Eklendi';
+    var ic=btn.querySelector('.pcomp-ico-cmp');if(ic)ic.style.display='none';
+    var ck=btn.querySelector('.pcomp-ico-chk');if(ck)ck.style.display='';
   }
   try{localStorage.setItem('pzComp',JSON.stringify(pzCompItems));}catch(e){}
   pzUpdateCompBar();
@@ -519,7 +523,9 @@ function pzSyncCompBtns(){
     var data;try{data=JSON.parse(card.getAttribute('data-pzcomp')||'{}');}catch(e){return;}
     var isIn=pzCompItems.some(function(p){return p.id===data.id;});
     btn.classList.toggle('on',isIn);
-    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent=isIn?'✓ Eklendi':'Karşılaştır';
+    var lbl=btn.querySelector('.pcomp-lbl');if(lbl)lbl.textContent=isIn?'Eklendi':'Karşılaştır';
+    var ic=btn.querySelector('.pcomp-ico-cmp');if(ic)ic.style.display=isIn?'none':'';
+    var ck=btn.querySelector('.pcomp-ico-chk');if(ck)ck.style.display=isIn?'':'none';
   });
 }
 
