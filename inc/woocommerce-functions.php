@@ -63,6 +63,16 @@ function bazario_product_card( $product ) {
 
     // karşılaştırma verisi
     $comp_img  = wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ) ?: wc_placeholder_img_src( 'thumbnail' );
+    // Ürün özellikleri
+    $comp_attrs = array();
+    foreach ( $product->get_attributes() as $akey => $attr ) {
+        if ( ! $attr->get_visible() ) continue;
+        $alabel = wc_attribute_label( $akey, $product );
+        $aval   = $attr->is_taxonomy()
+            ? implode( ', ', wc_get_product_terms( $id, $akey, array( 'fields' => 'names' ) ) )
+            : implode( ', ', $attr->get_options() );
+        if ( $aval ) $comp_attrs[ $alabel ] = $aval;
+    }
     $comp_data = esc_attr( wp_json_encode( array(
         'id'       => $id,
         'url'      => $permalink,
@@ -76,6 +86,7 @@ function bazario_product_card( $product ) {
         'inStock'  => $product->is_in_stock(),
         'freeShip' => ( $product->is_in_stock() && $sale >= 1500 ),
         'seller'   => $seller_name,
+        'attrs'    => $comp_attrs,
     ) ) );
 
     ob_start(); ?>

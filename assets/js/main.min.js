@@ -544,9 +544,28 @@ function pzClearComp(){
 function pzOpenComp(){
   if(pzCompItems.length<2){if(typeof showToast==='function')showToast('⚖️ Karşılaştırmak için en az 2 ürün seçin!');return;}
   var modal=document.getElementById('pzCompModal');if(!modal)return;
-  pzBuildCompTable();
-  modal.classList.add('show');
-  document.body.style.overflow='hidden';
+  // Özellikleri olmayan ürünler için AJAX ile çek
+  var needIds=pzCompItems.filter(function(p){return !p.attrs;}).map(function(p){return p.id;});
+  function _open(){
+    pzBuildCompTable();
+    modal.classList.add('show');
+    document.body.style.overflow='hidden';
+  }
+  if(needIds.length===0){_open();return;}
+  var fd=new FormData();
+  fd.append('action','pz_get_comp_attrs');
+  fd.append('ids',JSON.stringify(needIds));
+  fd.append('nonce',(window.bazario_ajax||{}).nonce||'');
+  fetch(((window.bazario_ajax||{}).url||'/wp-admin/admin-ajax.php'),{method:'POST',body:fd})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.success&&res.data){
+        pzCompItems.forEach(function(p){if(!p.attrs&&res.data[p.id])p.attrs=res.data[p.id];});
+        try{localStorage.setItem('pzComp',JSON.stringify(pzCompItems));}catch(e){}
+      }
+    })
+    .catch(function(){})
+    .finally(function(){_open();});
 }
 
 function pzCloseComp(){
@@ -647,6 +666,26 @@ function pzBuildCompTable(){
     html+='<td class="pz-ct-cell"><div class="pz-ct-main">'+p.seller+'</div></td>';
   });
   html+='</tr>';
+
+  // Ürün Özellikleri bölümü
+  var allAttrKeys={};
+  pzCompItems.forEach(function(p){
+    if(p.attrs&&typeof p.attrs==='object'){
+      Object.keys(p.attrs).forEach(function(k){allAttrKeys[k]=true;});
+    }
+  });
+  var attrKeys=Object.keys(allAttrKeys);
+  if(attrKeys.length>0){
+    html+='<tr class="pz-ct-sect"><td colspan="'+(pzCompItems.length+1)+'">📋 Ürün Özellikleri</td></tr>';
+    attrKeys.forEach(function(key){
+      html+='<tr><td class="pz-ct-lbl">'+key+'</td>';
+      pzCompItems.forEach(function(p){
+        var val=(p.attrs&&p.attrs[key])?p.attrs[key]:'<span class="pz-ct-na">—</span>';
+        html+='<td class="pz-ct-cell"><div class="pz-ct-main pz-ct-attr">'+val+'</div></td>';
+      });
+      html+='</tr>';
+    });
+  }
 
   html+='</tbody>';
   table.innerHTML=html;

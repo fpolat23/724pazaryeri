@@ -360,6 +360,16 @@ while ( have_posts() ) : the_post();
 
       <!-- Hızlı Aksiyonlar -->
       <?php
+        // Ürün özellikleri (karşılaştırma için)
+        $pz_qattrs = array();
+        foreach ( $product->get_attributes() as $akey => $attr ) {
+          if ( ! $attr->get_visible() ) continue;
+          $alabel = wc_attribute_label( $akey, $product );
+          $aval   = $attr->is_taxonomy()
+            ? implode( ', ', wc_get_product_terms( $product->get_id(), $akey, array( 'fields' => 'names' ) ) )
+            : implode( ', ', $attr->get_options() );
+          if ( $aval ) $pz_qattrs[ $alabel ] = $aval;
+        }
         $pz_qcomp = wp_json_encode( array(
           'id'       => $product->get_id(),
           'url'      => get_permalink(),
@@ -373,6 +383,7 @@ while ( have_posts() ) : the_post();
           'inStock'  => $in_stock,
           'freeShip' => ( $price >= 1500 ),
           'seller'   => get_bloginfo('name'),
+          'attrs'    => $pz_qattrs,
         ) );
       ?>
       <div class="hb-quick-actions">

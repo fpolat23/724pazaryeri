@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.68' );
+define( 'PAZARYERI_VERSION', '9.9.69' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -932,3 +932,32 @@ function pz_notify_subscribe_handler() {
 }
 add_action( 'wp_ajax_pz_notify_subscribe',        'pz_notify_subscribe_handler' );
 add_action( 'wp_ajax_nopriv_pz_notify_subscribe', 'pz_notify_subscribe_handler' );
+
+
+/* ──────────────────────────────────────────────
+   Karşılaştırma: Ürün özelliklerini AJAX ile döndür
+────────────────────────────────────────────── */
+function pz_get_comp_attrs_handler() {
+    $ids = json_decode( stripslashes( $_POST['ids'] ?? '[]' ), true );
+    if ( ! is_array( $ids ) ) $ids = array();
+    $ids = array_map( 'absint', $ids );
+    $ids = array_filter( $ids );
+    $result = array();
+    foreach ( $ids as $pid ) {
+        $product = wc_get_product( $pid );
+        if ( ! $product ) continue;
+        $attrs = array();
+        foreach ( $product->get_attributes() as $akey => $attr ) {
+            if ( ! $attr->get_visible() ) continue;
+            $alabel = wc_attribute_label( $akey, $product );
+            $aval   = $attr->is_taxonomy()
+                ? implode( ', ', wc_get_product_terms( $pid, $akey, array( 'fields' => 'names' ) ) )
+                : implode( ', ', $attr->get_options() );
+            if ( $aval ) $attrs[ $alabel ] = $aval;
+        }
+        $result[ $pid ] = $attrs;
+    }
+    wp_send_json_success( $result );
+}
+add_action( 'wp_ajax_pz_get_comp_attrs',        'pz_get_comp_attrs_handler' );
+add_action( 'wp_ajax_nopriv_pz_get_comp_attrs', 'pz_get_comp_attrs_handler' );
