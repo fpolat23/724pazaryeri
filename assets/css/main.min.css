@@ -1953,10 +1953,12 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 /* Mobil logo */
 .pazaryeri-wrap .m-logo{display:flex;align-items:center;justify-content:center;flex:1;min-width:0;padding:0 8px;}
 .pazaryeri-wrap .m-logo-img{height:36px;max-width:170px;width:auto;display:block;object-fit:contain;}
+.pazaryeri-wrap .m-logo-icon{height:38px;width:auto;display:block;object-fit:contain;background:transparent!important;}
 .pazaryeri-wrap .m-logo-txt{display:none!important;}
 
 /* Masaüstü logo */
-.pazaryeri-wrap .logo-wrap{display:flex;align-items:center;}
+.pazaryeri-wrap .logo-wrap{display:flex;align-items:center;padding:4px 6px;border-radius:6px;background:transparent!important;}
+.pazaryeri-wrap .logo-wrap .logo-icon{background:transparent!important;border-radius:0!important;width:auto!important;height:46px!important;display:block;object-fit:contain;}
 .pazaryeri-wrap .logo-img{height:44px;width:auto;display:block;object-fit:contain;}
 .pazaryeri-wrap .logo-text{display:none!important;}
 
