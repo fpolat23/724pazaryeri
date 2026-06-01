@@ -2070,3 +2070,118 @@ window.pzSendVerifyCode = function(btn){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
+
+/* ═══════════════════════════════════════════
+   FAVORİ (localStorage)
+═══════════════════════════════════════════ */
+(function(){
+  var FAV_KEY='pzFavs';
+  function loadFavs(){try{return JSON.parse(localStorage.getItem(FAV_KEY)||'[]');}catch(e){return[];}}
+  function saveFavs(f){try{localStorage.setItem(FAV_KEY,JSON.stringify(f));}catch(e){}}
+
+  window.pzToggleFav=function(btn,id,name,img,url){
+    var favs=loadFavs();
+    var idx=favs.findIndex(function(f){return f.id==id;});
+    var span=btn.querySelector('span');
+    if(idx>-1){
+      favs.splice(idx,1);
+      btn.classList.remove('active');
+      if(span)span.textContent='Favorilerime Ekle';
+    }else{
+      favs.push({id:id,name:name,img:img,url:url});
+      btn.classList.add('active');
+      if(span)span.textContent='Favorilerde ✓';
+    }
+    saveFavs(favs);
+  };
+
+  function initFavBtn(){
+    var btn=document.getElementById('hbFavBtn');
+    if(!btn)return;
+    var pid=btn.getAttribute('data-pid');
+    if(!pid)return;
+    if(loadFavs().some(function(f){return f.id==pid;})){
+      btn.classList.add('active');
+      var span=btn.querySelector('span');
+      if(span)span.textContent='Favorilerde ✓';
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initFavBtn);
+  else initFavBtn();
+})();
+
+/* ═══════════════════════════════════════════
+   BİLDİRİM MODALI (Stok & Fiyat Alarmı)
+═══════════════════════════════════════════ */
+(function(){
+  var _type,_pid;
+
+  window.pzOpenNotify=function(type,pid,name){
+    _type=type;_pid=pid;
+    var modal=document.getElementById('hbNotifyModal');
+    if(!modal)return;
+    var icon =document.getElementById('hbNIcon');
+    var title=document.getElementById('hbNTitle');
+    var desc =document.getElementById('hbNDesc');
+    var email=document.getElementById('hbNEmail');
+    var sub  =document.getElementById('hbNSubmit');
+    if(type==='stock'){
+      if(icon)icon.innerHTML='<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+      if(title)title.textContent='Stoğa Gelince Haber Ver';
+      if(desc)desc.textContent='"'+name+'" stoğa girdiğinde anında e-posta alacaksınız.';
+    }else{
+      if(icon)icon.innerHTML='<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
+      if(title)title.textContent='Fiyat Düşünce Haber Ver';
+      if(desc)desc.textContent='"'+name+'" ürününün fiyatı düştüğünde anında e-posta alacaksınız.';
+    }
+    if(email)email.value='';
+    if(sub){sub.textContent='Beni Haberdar Et';sub.style.background='';sub.disabled=false;}
+    modal.classList.add('open');
+    document.body.style.overflow='hidden';
+    setTimeout(function(){if(email)email.focus();},120);
+  };
+
+  window.pzCloseNotify=function(){
+    var m=document.getElementById('hbNotifyModal');
+    if(m)m.classList.remove('open');
+    document.body.style.overflow='';
+  };
+
+  window.pzSubmitNotify=function(){
+    var email=document.getElementById('hbNEmail');
+    var sub  =document.getElementById('hbNSubmit');
+    if(!email)return;
+    var val=email.value.trim();
+    if(!val||val.indexOf('@')<0){
+      email.style.borderColor='#dc2626';
+      email.focus();
+      setTimeout(function(){email.style.borderColor='';},1500);
+      return;
+    }
+    if(sub){sub.disabled=true;sub.textContent='Gönderiliyor...';}
+    var fd=new FormData();
+    fd.append('action','pz_notify_subscribe');
+    fd.append('type',_type);
+    fd.append('pid',_pid);
+    fd.append('email',val);
+    fd.append('nonce',(window.bazario_ajax||{}).nonce||'');
+    fetch(((window.bazario_ajax||{}).url||'/wp-admin/admin-ajax.php'),{method:'POST',body:fd})
+      .then(function(r){return r.json();})
+      .then(function(){
+        if(sub){sub.textContent='✓ Kaydedildi!';sub.style.background='#16a34a';}
+        setTimeout(function(){window.pzCloseNotify();},1600);
+      })
+      .catch(function(){
+        if(sub){sub.disabled=false;sub.textContent='Beni Haberdar Et';}
+      });
+  };
+
+  document.addEventListener('click',function(e){
+    var m=document.getElementById('hbNotifyModal');
+    if(m&&e.target===m)window.pzCloseNotify();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')window.pzCloseNotify();
+  });
+})();

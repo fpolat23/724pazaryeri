@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.67' );
+define( 'PAZARYERI_VERSION', '9.9.68' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -903,3 +903,32 @@ function pz_ajax_send_email_code() {
         wp_send_json_error( array( 'message' => 'E-posta gönderilemedi. Sistem yöneticisine bildirin.' ) );
     }
 }
+
+
+/* ──────────────────────────────────────────────
+   Bildirim Aboneliği — Stok & Fiyat Alarmı
+────────────────────────────────────────────── */
+function pz_notify_subscribe_handler() {
+    check_ajax_referer( 'pazaryeri_nonce', 'nonce' );
+    $type  = sanitize_text_field( $_POST['type']  ?? '' );
+    $pid   = absint( $_POST['pid']   ?? 0 );
+    $email = sanitize_email( $_POST['email'] ?? '' );
+    if ( ! in_array( $type, array( 'stock', 'price' ), true ) || ! $pid || ! is_email( $email ) ) {
+        wp_send_json_error( array( 'msg' => 'Geçersiz istek.' ) );
+    }
+    $key  = 'pz_notify_' . $type . '_' . $pid;
+    $list = get_option( $key, array() );
+    if ( ! is_array( $list ) ) $list = array();
+    if ( ! in_array( $email, $list, true ) ) {
+        $list[] = $email;
+        update_option( $key, $list, false );
+    }
+    $pname = get_the_title( $pid );
+    $label = $type === 'stock' ? 'stoğa girdiğinde' : 'fiyatı düştüğünde';
+    $subj  = '724PazarYeri — ' . ( $type === 'stock' ? 'Stok Alarmı' : 'Fiyat Alarmı' ) . ' Oluşturuldu';
+    $body  = "Merhaba,\n\n\"$pname\" ürünü $label size e-posta göndereceğiz.\n\nÜrün: " . get_permalink( $pid ) . "\n\n724PazarYeri Ekibi\n" . home_url('/');
+    wp_mail( $email, $subj, $body, array( 'Content-Type: text/plain; charset=UTF-8' ) );
+    wp_send_json_success( array( 'msg' => 'Kayıt başarılı.' ) );
+}
+add_action( 'wp_ajax_pz_notify_subscribe',        'pz_notify_subscribe_handler' );
+add_action( 'wp_ajax_nopriv_pz_notify_subscribe', 'pz_notify_subscribe_handler' );

@@ -358,6 +358,48 @@ while ( have_posts() ) : the_post();
       <?php endif; ?>
       <input type="hidden" id="hbCheckoutUrl" value="<?php echo esc_url( wc_get_checkout_url() ); ?>">
 
+      <!-- Hızlı Aksiyonlar -->
+      <?php
+        $pz_qcomp = wp_json_encode( array(
+          'id'       => $product->get_id(),
+          'url'      => get_permalink(),
+          'title'    => $product->get_name(),
+          'img'      => $main_full,
+          'price'    => $price,
+          'regular'  => $regular,
+          'discount' => $disc,
+          'rating'   => round( (float) $product->get_average_rating(), 1 ),
+          'reviews'  => $product->get_review_count(),
+          'inStock'  => $in_stock,
+          'freeShip' => ( $price >= 1500 ),
+          'seller'   => get_bloginfo('name'),
+        ) );
+      ?>
+      <div class="hb-quick-actions">
+        <button class="hb-qa-btn hb-qa-fav" id="hbFavBtn"
+          data-pid="<?php echo esc_attr( $product->get_id() ); ?>"
+          onclick="pzToggleFav(this,<?php echo $product->get_id(); ?>,'<?php echo esc_js($product->get_name()); ?>','<?php echo esc_js($main_full); ?>','<?php echo esc_js(get_permalink()); ?>')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span>Favorilerime Ekle</span>
+        </button>
+        <button class="hb-qa-btn hb-qa-comp" id="hbCompBtn"
+          onclick="pzToggleComp(this)"
+          data-pzcomp="<?php echo esc_attr( $pz_qcomp ); ?>">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+          <span class="pcomp-lbl">Karşılaştır</span>
+        </button>
+        <?php if ( ! $in_stock ) : ?>
+        <button class="hb-qa-btn hb-qa-notify" onclick="pzOpenNotify('stock',<?php echo $product->get_id(); ?>,'<?php echo esc_js($product->get_name()); ?>')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span>Stoğa Gelince Haber Ver</span>
+        </button>
+        <?php endif; ?>
+        <button class="hb-qa-btn hb-qa-notify" onclick="pzOpenNotify('price',<?php echo $product->get_id(); ?>,'<?php echo esc_js($product->get_name()); ?>')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          <span>Fiyat Düşünce Haber Ver</span>
+        </button>
+      </div>
+
       <!-- Güven rozetleri -->
       <div class="hb-trust">
         <div class="hb-trust-item">
@@ -490,6 +532,18 @@ while ( have_posts() ) : the_post();
 
   </div>
 
+  <!-- Stok & Fiyat Alarm Modalı -->
+  <div class="hb-notify-modal" id="hbNotifyModal">
+    <div class="hb-notify-box">
+      <button class="hb-notify-close" onclick="pzCloseNotify()">×</button>
+      <div class="hb-notify-ico" id="hbNIcon"></div>
+      <h3 id="hbNTitle"></h3>
+      <p id="hbNDesc"></p>
+      <input type="email" id="hbNEmail" placeholder="E-posta adresiniz" autocomplete="email">
+      <button class="hb-notify-submit" id="hbNSubmit" onclick="pzSubmitNotify()">Beni Haberdar Et</button>
+      <p class="hb-notify-fine">Bildirim aldığınızda tek tıkla iptal edebilirsiniz.</p>
+    </div>
+  </div>
 
   <!-- TABS -->
   <div class="pd-tabs">
