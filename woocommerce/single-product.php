@@ -431,10 +431,6 @@ while ( have_posts() ) : the_post();
           </button>
         </div>
       </div>
-            <span>Kopyala</span>
-          </button>
-        </div>
-      </div>
 
       <?php
         // ── DİĞER SATICILAR (Dokan) ──
