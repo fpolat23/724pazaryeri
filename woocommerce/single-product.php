@@ -65,6 +65,8 @@ while ( have_posts() ) : the_post();
       </div>
     </div>
 
+    <!-- ═══ SAĞ KOLON: BİLGİ + SATIN AL ═══ -->
+    <div class="hb-right-col">
     <!-- ═══ ORTA: ÜRÜN BİLGİSİ ═══ -->
     <div class="hb-info">
       <?php
@@ -477,6 +479,7 @@ while ( have_posts() ) : the_post();
       </div>
       <?php endif; ?>
     </div>
+    </div><!-- /hb-right-col -->
 
     <!-- ═══ GALERİ ALTI: GÜVEN + PAYLAŞ ═══ -->
     <div class="hb-gallery-extra">
@@ -922,21 +925,67 @@ while ( have_posts() ) : the_post();
               foreach ( $related_ids as $rid ) :
                 $rp = wc_get_product( $rid );
                 if ( ! $rp ) continue;
-                $r_avg = $rp->get_average_rating();
-                $r_stars = str_repeat('★', round($r_avg)) . str_repeat('☆', 5 - round($r_avg));
+                $r_avg       = $rp->get_average_rating();
+                $r_stars     = str_repeat('★', round($r_avg)) . str_repeat('☆', 5 - round($r_avg));
                 $r_brand_terms = wp_get_post_terms( $rid, 'product_brand' );
-                $r_brand = ( ! empty( $r_brand_terms ) && ! is_wp_error( $r_brand_terms ) ) ? strtoupper( $r_brand_terms[0]->name ) : '';
+                $r_brand     = ( ! empty( $r_brand_terms ) && ! is_wp_error( $r_brand_terms ) ) ? strtoupper( $r_brand_terms[0]->name ) : '';
+                $r_price     = (float) $rp->get_price();
+                $r_regular   = (float) $rp->get_regular_price();
+                $r_disc      = ( $rp->is_on_sale() && $r_regular > 0 && $r_price > 0 ) ? round( (1 - $r_price / $r_regular) * 100 ) : 0;
+                $r_img_id    = $rp->get_image_id();
+                $r_img_url   = $r_img_id ? wp_get_attachment_image_url( $r_img_id, 'woocommerce_thumbnail' ) : wc_placeholder_img_src();
+                $r_comp_data = wp_json_encode( array(
+                  'id'      => $rid,
+                  'url'     => get_permalink( $rid ),
+                  'title'   => $rp->get_name(),
+                  'img'     => $r_img_url,
+                  'price'   => $r_price,
+                  'regular' => $r_regular,
+                  'discount'=> $r_disc,
+                  'rating'  => round( (float) $rp->get_average_rating(), 1 ),
+                  'reviews' => $rp->get_review_count(),
+                  'inStock' => $rp->is_in_stock(),
+                  'freeShip'=> ( $r_price >= 1500 ),
+                  'seller'  => get_bloginfo('name'),
+                  'attrs'   => array(),
+                ) );
           ?>
-            <div class="sim-card" data-href="<?php echo esc_url( get_permalink( $rid ) ); ?>" onclick="window.location.href=this.dataset.href" style="cursor:pointer">
-              <div class="sim-img"><?php echo $rp->get_image( 'woocommerce_thumbnail' ); ?></div>
+            <div class="sim-card pcard"
+              data-href="<?php echo esc_url( get_permalink( $rid ) ); ?>"
+              data-product-id="<?php echo esc_attr( $rid ); ?>"
+              data-pzcomp="<?php echo esc_attr( $r_comp_data ); ?>"
+              onclick="if(!event.target.closest('button,a'))window.location.href=this.dataset.href"
+              style="cursor:pointer">
+              <div class="sim-img">
+                <?php if ( $r_disc > 0 ) : ?><span class="sim-disc-badge">%<?php echo esc_html( $r_disc ); ?></span><?php endif; ?>
+                <?php echo $rp->get_image( 'woocommerce_thumbnail' ); ?>
+                <button class="sim-fav" data-pid="<?php echo esc_attr( $rid ); ?>"
+                  onclick="event.stopPropagation();pzToggleFav(this,<?php echo (int)$rid; ?>,'<?php echo esc_js( $rp->get_name() ); ?>','<?php echo esc_js( $r_img_url ); ?>','<?php echo esc_js( get_permalink( $rid ) ); ?>')">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </button>
+              </div>
               <div class="sim-body">
                 <?php if ( $r_brand ) : ?><div class="sim-br"><?php echo esc_html( $r_brand ); ?></div><?php endif; ?>
                 <div class="sim-n"><?php echo esc_html( $rp->get_name() ); ?></div>
-                <div class="sim-rat"><span class="sim-st"><?php echo $r_stars; ?></span><span class="sim-rn"><?php echo esc_html( $r_avg ); ?></span></div>
-                <div class="sim-pr">
-                  <span class="sim-p"><?php echo wc_price( $rp->get_price() ); ?></span>
-                  <?php if ( $rp->is_on_sale() && $rp->get_regular_price() ) : ?><span class="sim-po"><?php echo wc_price( $rp->get_regular_price() ); ?></span><?php endif; ?>
+                <div class="sim-rat">
+                  <span class="sim-st"><?php echo $r_stars; ?></span>
+                  <span class="sim-rn"><?php echo esc_html( number_format( (float) $r_avg, 1 ) ); ?></span>
+                  <?php if ( $rp->get_review_count() > 0 ) : ?><span class="sim-rc">(<?php echo esc_html( $rp->get_review_count() ); ?>)</span><?php endif; ?>
                 </div>
+                <div class="sim-pr">
+                  <?php if ( $r_disc > 0 ) : ?><span class="sim-po"><?php echo wc_price( $r_regular ); ?></span><?php endif; ?>
+                  <?php if ( $r_price > 0 ) : ?>
+                    <span class="sim-p"><?php echo wc_price( $r_price ); ?></span>
+                  <?php else : ?>
+                    <span class="sim-p-req">Fiyat için sorun</span>
+                  <?php endif; ?>
+                  <?php if ( $r_disc > 0 ) : ?><span class="sim-ds">%<?php echo esc_html( $r_disc ); ?></span><?php endif; ?>
+                </div>
+                <button class="sim-comp pcomp-btn" onclick="event.stopPropagation();pzToggleComp(this)">
+                  <svg class="pcomp-ico-cmp" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+                  <svg class="pcomp-ico-chk" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span class="pcomp-lbl">Karşılaştır</span>
+                </button>
               </div>
             </div>
           <?php endforeach; else : ?>
