@@ -20,6 +20,7 @@ define( 'TWS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 require_once TWS_PLUGIN_DIR . 'includes/class-trendyol-api.php';
 require_once TWS_PLUGIN_DIR . 'includes/class-category-mapper.php';
 require_once TWS_PLUGIN_DIR . 'includes/class-wc-product-importer.php';
+require_once TWS_PLUGIN_DIR . 'includes/class-trendyol-exporter.php';
 require_once TWS_PLUGIN_DIR . 'includes/class-sync-manager.php';
 require_once TWS_PLUGIN_DIR . 'admin/class-admin-page.php';
 
