@@ -5,16 +5,32 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /* ──────────────────────────────────────────────
+   0) Özel endpoint'leri kaydet (favorilerim, karsilastirma)
+────────────────────────────────────────────── */
+add_action( 'init', function () {
+    add_rewrite_endpoint( 'favorilerim',   EP_ROOT | EP_PAGES );
+    add_rewrite_endpoint( 'karsilastirma', EP_ROOT | EP_PAGES );
+} );
+
+// Tema aktive edilince rewrite flush et (bir kerelik)
+add_action( 'after_switch_theme', function () {
+    add_rewrite_endpoint( 'favorilerim',   EP_ROOT | EP_PAGES );
+    add_rewrite_endpoint( 'karsilastirma', EP_ROOT | EP_PAGES );
+    flush_rewrite_rules();
+} );
+
+/* ──────────────────────────────────────────────
    1) Hesap menüsü sekmelerini Türkçeleştir + yeniden sırala
 ────────────────────────────────────────────── */
 add_filter( 'woocommerce_account_menu_items', function ( $items ) {
     $new = array();
     $new['dashboard']       = 'Panelim';
     $new['orders']          = 'Siparişlerim';
+    $new['favorilerim']     = '❤️ Favorilerim';
+    $new['karsilastirma']   = '⚖️ Karşılaştırma Listem';
     $new['downloads']       = 'İndirmelerim';
     $new['edit-address']    = 'Adreslerim';
     $new['edit-account']    = 'Hesap Bilgilerim';
-    // varsa ek sekmeler korunur
     if ( isset( $items['customer-logout'] ) ) {
         $new['customer-logout'] = 'Çıkış Yap';
     }
@@ -58,13 +74,13 @@ add_action( 'woocommerce_account_dashboard', function () {
             <div class="pz-acc-stat-ico" style="background:#e0f2fe">🚚</div>
             <div><div class="pz-acc-stat-n"><?php echo esc_html( $active_orders ); ?></div><div class="pz-acc-stat-l">Aktif Sipariş</div></div>
         </a>
-        <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'edit-address' ) ); ?>" class="pz-acc-stat">
-            <div class="pz-acc-stat-ico" style="background:#dcfce7">📍</div>
-            <div><div class="pz-acc-stat-n">Adres</div><div class="pz-acc-stat-l">Adreslerimi Yönet</div></div>
+        <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'favorilerim' ) ); ?>" class="pz-acc-stat">
+            <div class="pz-acc-stat-ico" style="background:#fce7f3">❤️</div>
+            <div><div class="pz-acc-stat-n pz-acc-fav-cnt">—</div><div class="pz-acc-stat-l">Favorilerim</div></div>
         </a>
-        <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'edit-account' ) ); ?>" class="pz-acc-stat">
-            <div class="pz-acc-stat-ico" style="background:#f3e8ff">⚙️</div>
-            <div><div class="pz-acc-stat-n">Profil</div><div class="pz-acc-stat-l">Bilgilerimi Düzenle</div></div>
+        <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'karsilastirma' ) ); ?>" class="pz-acc-stat">
+            <div class="pz-acc-stat-ico" style="background:#ede9fe">⚖️</div>
+            <div><div class="pz-acc-stat-n pz-acc-comp-cnt">—</div><div class="pz-acc-stat-l">Karşılaştırmalarım</div></div>
         </a>
     </div>
 
@@ -74,6 +90,18 @@ add_action( 'woocommerce_account_dashboard', function () {
             <div class="pz-acc-card-t">Siparişlerim</div>
             <div class="pz-acc-card-s">Geçmiş ve aktif siparişlerini görüntüle, kargo takibi yap, fatura indir.</div>
             <span class="pz-acc-card-link">Siparişlere Git →</span>
+        </a>
+        <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'favorilerim' ) ); ?>" class="pz-acc-card">
+            <div class="pz-acc-card-ico">❤️</div>
+            <div class="pz-acc-card-t">Favorilerim</div>
+            <div class="pz-acc-card-s">Beğendiğin ürünleri kaydet. Kaçırmak istemediğin ürünlere hızla ulaş.</div>
+            <span class="pz-acc-card-link">Favorilerime Git →</span>
+        </a>
+        <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'karsilastirma' ) ); ?>" class="pz-acc-card">
+            <div class="pz-acc-card-ico">⚖️</div>
+            <div class="pz-acc-card-t">Karşılaştırma Listem</div>
+            <div class="pz-acc-card-s">Seçtiğin ürünleri yan yana karşılaştır. Fiyat, özellik ve değerlendirmeleri gör.</div>
+            <span class="pz-acc-card-link">Listemi Gör →</span>
         </a>
         <a href="<?php echo esc_url( wc_get_account_endpoint_url( 'edit-address' ) ); ?>" class="pz-acc-card">
             <div class="pz-acc-card-ico">📍</div>
@@ -345,3 +373,55 @@ add_filter( 'woocommerce_billing_fields', function ( $fields ) {
     if ( isset( $fields['billing_email'] ) )   $fields['billing_email']['label'] = 'E-posta Adresi';
     return $fields;
 }, 99 );
+
+
+/* ──────────────────────────────────────────────
+   FAVORİLERİM endpoint içeriği
+────────────────────────────────────────────── */
+add_action( 'woocommerce_account_favorilerim_endpoint', function () {
+    ?>
+    <div class="pz-acc-page-head">
+        <h2>❤️ Favorilerim</h2>
+        <p>Beğendiğin ürünleri favorilerine ekleyerek kolayca bulabilirsin.</p>
+    </div>
+
+    <div id="pzFavPageList" class="pz-fav-page-grid"></div>
+
+    <div id="pzFavPageEmpty" class="pz-list-empty" style="display:none">
+        <div class="pz-list-empty-ico">❤️</div>
+        <div class="pz-list-empty-t">Henüz favori ürün eklemedin</div>
+        <div class="pz-list-empty-s">Ürün sayfasında <strong>♡ Favorilerime Ekle</strong> butonuna tıklayarak bu listeye ekleyebilirsin.</div>
+        <a href="<?php echo esc_url( wc_get_page_permalink( 'shop' ) ); ?>" class="pz-list-empty-btn">🛍️ Ürünleri Keşfet</a>
+    </div>
+    <?php
+} );
+
+
+/* ──────────────────────────────────────────────
+   KARŞILAŞTIRMA LİSTEM endpoint içeriği
+────────────────────────────────────────────── */
+add_action( 'woocommerce_account_karsilastirma_endpoint', function () {
+    ?>
+    <div class="pz-acc-page-head">
+        <h2>⚖️ Karşılaştırma Listem</h2>
+        <p>Seçtiğin ürünleri yan yana karşılaştır, en iyi seçimi yap.</p>
+    </div>
+
+    <div id="pzCompPageList" class="pz-comp-page-grid"></div>
+
+    <div id="pzCompPageEmpty" class="pz-list-empty" style="display:none">
+        <div class="pz-list-empty-ico">⚖️</div>
+        <div class="pz-list-empty-t">Karşılaştırma listesi boş</div>
+        <div class="pz-list-empty-s">Ürün sayfasında <strong>⇄ Karşılaştır</strong> butonuna tıklayarak ürünleri listeye ekleyebilirsin.</div>
+        <a href="<?php echo esc_url( wc_get_page_permalink( 'shop' ) ); ?>" class="pz-list-empty-btn">🛍️ Ürünlere Git</a>
+    </div>
+
+    <div id="pzCompPageCtaWrap" style="text-align:center;margin-top:20px;display:none">
+        <button class="pz-comp-page-cta" id="pzCompPageCta" onclick="pzOpenComp()">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8L22 12L18 16M6 8L2 12L6 16M14 4L10 20"/></svg>
+            Şimdi Karşılaştır
+        </button>
+        <p style="font-size:11px;color:var(--muted);margin-top:8px">En az 2 ürün seçili olmalıdır</p>
+    </div>
+    <?php
+} );

@@ -2224,3 +2224,117 @@ window.pzSendVerifyCode = function(btn){
     if(e.key==='Escape')window.pzCloseNotify();
   });
 })();
+
+/* ═══════════════════════════════════════════
+   FAVORİLERİM SAYFASI (üye paneli)
+═══════════════════════════════════════════ */
+(function(){
+  function pzFmtPriceLocal(n){
+    if(typeof n!=='number')return '';
+    return n.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₺';
+  }
+
+  function renderFavPage(){
+    var list =document.getElementById('pzFavPageList');
+    var empty=document.getElementById('pzFavPageEmpty');
+    if(!list)return;
+    var favs=[];
+    try{favs=JSON.parse(localStorage.getItem('pzFavs')||'[]');}catch(e){}
+    if(!favs.length){list.style.display='none';if(empty)empty.style.display='flex';return;}
+    var html='';
+    favs.forEach(function(p){
+      html+='<div class="pz-fav-card" data-fav-id="'+p.id+'" style="transition:opacity .3s,transform .3s;">'+
+        '<a href="'+p.url+'" class="pz-fav-card-img"><img src="'+p.img+'" alt="" loading="lazy"></a>'+
+        '<div class="pz-fav-card-body">'+
+          '<a href="'+p.url+'" class="pz-fav-card-name">'+p.name+'</a>'+
+          '<div class="pz-fav-card-foot">'+
+            '<a href="'+p.url+'" class="pz-fav-card-view">Ürünü İncele →</a>'+
+            '<button class="pz-fav-card-rm" onclick="pzFavPageRemove(this,'+p.id+')">✕ Favorilerden Çıkar</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    });
+    list.innerHTML=html;
+    if(empty)empty.style.display='none';
+    list.style.display='';
+  }
+
+  window.pzFavPageRemove=function(btn,id){
+    var favs=[];
+    try{favs=JSON.parse(localStorage.getItem('pzFavs')||'[]');}catch(e){}
+    favs=favs.filter(function(f){return f.id!=id;});
+    try{localStorage.setItem('pzFavs',JSON.stringify(favs));}catch(e){}
+    var card=btn.closest('.pz-fav-card');
+    if(card){card.style.opacity='0';card.style.transform='scale(0.9)';setTimeout(function(){card.remove();if(!document.querySelector('.pz-fav-card')){var list=document.getElementById('pzFavPageList');var empty=document.getElementById('pzFavPageEmpty');if(list)list.style.display='none';if(empty)empty.style.display='flex';}},300);}
+  };
+
+  // Dashboard stat sayaçları
+  function updateDashStats(){
+    var favCnt =document.querySelector('.pz-acc-fav-cnt');
+    var compCnt=document.querySelector('.pz-acc-comp-cnt');
+    if(favCnt){try{var f=JSON.parse(localStorage.getItem('pzFavs')||'[]');favCnt.textContent=f.length;}catch(e){}}
+    if(compCnt){try{var c=JSON.parse(localStorage.getItem('pzComp')||'[]');compCnt.textContent=c.length;}catch(e){}}
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){renderFavPage();updateDashStats();});
+  else{renderFavPage();updateDashStats();}
+})();
+
+/* ═══════════════════════════════════════════
+   KARŞILAŞTIRMA LİSTEM SAYFASI (üye paneli)
+═══════════════════════════════════════════ */
+(function(){
+  function renderCompPage(){
+    var list =document.getElementById('pzCompPageList');
+    var empty=document.getElementById('pzCompPageEmpty');
+    var ctaW =document.getElementById('pzCompPageCtaWrap');
+    if(!list)return;
+    var items=[];
+    try{items=JSON.parse(localStorage.getItem('pzComp')||'[]');}catch(e){}
+    if(!items.length){
+      list.style.display='none';
+      if(empty)empty.style.display='flex';
+      if(ctaW)ctaW.style.display='none';
+      return;
+    }
+    var html='';
+    items.forEach(function(p){
+      var disc=p.discount>0?'<span class="pz-comp-page-disc">%'+p.discount+' İndirim</span>':'';
+      var free=p.freeShip?'<span class="pz-comp-page-free">🚚 Ücretsiz Kargo</span>':'';
+      html+='<div class="pz-comp-page-card" data-comp-id="'+p.id+'" style="transition:opacity .3s,transform .3s;">'+
+        '<div class="pz-comp-page-img"><a href="'+p.url+'"><img src="'+p.img+'" alt="" loading="lazy"></a>'+disc+'</div>'+
+        '<div class="pz-comp-page-body">'+
+          '<a href="'+p.url+'" class="pz-comp-page-name">'+p.title+'</a>'+
+          '<div class="pz-comp-page-price">'+pzFmtPrice(p.price)+'</div>'+
+          free+
+          '<div class="pz-comp-page-foot">'+
+            '<a href="'+p.url+'" class="pz-comp-page-view">İncele</a>'+
+            '<button class="pz-comp-page-rm" onclick="pzCompPageRemove(this,'+p.id+')">✕ Çıkar</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    });
+    list.innerHTML=html;
+    if(empty)empty.style.display='none';
+    list.style.display='';
+    if(ctaW)ctaW.style.display=items.length>=2?'block':'none';
+  }
+
+  window.pzCompPageRemove=function(btn,id){
+    pzRemoveComp(id);
+    var card=btn.closest('.pz-comp-page-card');
+    if(card){
+      card.style.opacity='0';card.style.transform='scale(0.9)';
+      setTimeout(function(){
+        card.remove();
+        var remaining=document.querySelectorAll('.pz-comp-page-card').length;
+        var ctaW=document.getElementById('pzCompPageCtaWrap');
+        if(ctaW)ctaW.style.display=remaining>=2?'block':'none';
+        if(!remaining){var list=document.getElementById('pzCompPageList');var empty=document.getElementById('pzCompPageEmpty');if(list)list.style.display='none';if(empty)empty.style.display='flex';}
+      },300);
+    }
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',renderCompPage);
+  else renderCompPage();
+})();
