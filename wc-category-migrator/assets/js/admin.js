@@ -2,13 +2,16 @@
 (function ($) {
     'use strict';
 
+    var pollTimer = null;
+    var currentJobId = null;
+
     $('#wc-cat-import-form').on('submit', function (e) {
         e.preventDefault();
 
         var $form    = $(this);
         var $btn     = $('#btn-import');
         var $spinner = $form.find('.spinner');
-        var $result  = $('#import-result');
+        var $progress = $('#cat-import-progress');
         var file     = document.getElementById('cat-xml-file');
 
         if (!file.files || !file.files.length) {
@@ -16,19 +19,17 @@
             return;
         }
 
-        $btn.prop('disabled', true).text('İşleniyor…');
+        $btn.prop('disabled', true).text('Yükleniyor…');
         $spinner.addClass('is-active');
-        $result.hide();
+        $progress.hide();
 
         var fd = new FormData($form[0]);
-        fd.append('action', 'wc_cat_import');
+        fd.append('action', 'wc_cat_start_import');
         fd.append('nonce',  wcCatMigrator.nonce);
 
-        // Radio
         fd.delete('update_existing');
         fd.append('update_existing', $form.find('[name="update_existing"]:checked').val() || '1');
 
-        // Checkbox
         fd.delete('download_images');
         if ($form.find('[name="download_images"]').is(':checked')) fd.append('download_images', '1');
 
@@ -38,57 +39,92 @@
             data: fd,
             processData: false,
             contentType: false,
-            timeout: 300000,
+            timeout: 60000,
         })
         .done(function (res) {
-            if (res.success) {
-                showResult(res.data.results, false);
+            $btn.prop('disabled', false).text('⬆ İçe Aktarmayı Başlat');
+            $spinner.removeClass('is-active');
+
+            if (res.success && res.data.job_id) {
+                currentJobId = res.data.job_id;
+                $progress.show();
+                setProgress(0, 0, 0, 'İşlem başlatıldı…');
+                startPolling(currentJobId);
             } else {
-                showResult({ errors: [res.data.message || 'Bilinmeyen hata.'] }, true);
+                alert((res.data && res.data.message) ? res.data.message : 'İçe aktarma başlatılamadı.');
             }
         })
         .fail(function () {
-            showResult({ errors: ['Sunucu bağlantı hatası.'] }, true);
-        })
-        .always(function () {
             $btn.prop('disabled', false).text('⬆ İçe Aktarmayı Başlat');
             $spinner.removeClass('is-active');
+            alert('Sunucu bağlantı hatası.');
         });
     });
 
-    function showResult(r, isError) {
-        var $el = $('#import-result');
-        var html = '<div class="wc-cat-result' + (isError ? ' is-error' : '') + '">';
-
-        if (!isError) {
-            html += '<div class="wc-cat-result-grid">';
-            html += stat(r.created || 0, 'Oluşturuldu', 'is-created');
-            html += stat(r.updated || 0, 'Güncellendi', 'is-updated');
-            html += stat(r.skipped || 0, 'Atlandı', '');
-            html += stat(r.images  || 0, 'Resim',     'is-images');
-            if ((r.errors || []).length) {
-                html += stat(r.errors.length, 'Hata', 'is-error');
-            }
-            html += '</div>';
-        }
-
-        if ((r.errors || []).length) {
-            html += '<div class="wc-cat-errors"><strong>Hatalar:</strong><ul>';
-            r.errors.forEach(function (e) { html += '<li>' + esc(e) + '</li>'; });
-            html += '</ul></div>';
-        } else if (isError) {
-            html += '<p>' + esc(r.errors && r.errors[0] ? r.errors[0] : 'Hata oluştu.') + '</p>';
-        }
-
-        html += '</div>';
-        $el.html(html).show();
+    function startPolling(jobId) {
+        stopPolling();
+        poll(jobId);
+        pollTimer = setInterval(function () { poll(jobId); }, 4000);
     }
 
-    function stat(n, label, cls) {
-        return '<div class="wc-cat-result-item ' + cls + '">' +
-               '<div class="num">' + n + '</div>' +
-               '<div class="lbl">' + label + '</div>' +
-               '</div>';
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function poll(jobId) {
+        $.ajax({
+            url: wcCatMigrator.ajaxUrl,
+            type: 'GET',
+            data: {
+                action:  'wc_cat_job_status',
+                nonce:   wcCatMigrator.nonce,
+                job_id:  jobId,
+            },
+            timeout: 15000,
+        })
+        .done(function (res) {
+            if (!res.success) return;
+
+            var d = res.data;
+            setProgress(d.percent || 0, d.processed || 0, d.total || 0, statusLabel(d.status));
+
+            if (d.errors && d.errors.length) {
+                showErrors(d.errors);
+            }
+
+            if (d.status === 'completed' || d.status === 'failed') {
+                stopPolling();
+                setProgress(
+                    d.status === 'completed' ? 100 : (d.percent || 0),
+                    d.processed || 0,
+                    d.total || 0,
+                    d.status === 'completed' ? 'Tamamlandı ✓' : 'Hatalı ✗'
+                );
+            }
+        });
+    }
+
+    function setProgress(pct, processed, total, statusText) {
+        $('#cat-import-progress .wc-cat-progress-inner').css('width', pct + '%');
+        $('#cat-import-progress .wc-cat-progress-text').text(processed + ' / ' + total);
+        $('#cat-import-progress .wc-cat-progress-status').text(statusText);
+    }
+
+    function showErrors(errors) {
+        var $status = $('#cat-import-progress .wc-cat-progress-status');
+        var html = '<div class="wc-cat-errors"><strong>Hatalar:</strong><ul>';
+        errors.forEach(function (e) { html += '<li>' + esc(e) + '</li>'; });
+        html += '</ul></div>';
+        if (!$('#cat-import-progress .wc-cat-errors').length) {
+            $('#cat-import-progress').append(html);
+        }
+    }
+
+    function statusLabel(s) {
+        return { pending: 'Bekliyor…', processing: 'İşleniyor…', completed: 'Tamamlandı ✓', failed: 'Hatalı ✗' }[s] || s;
     }
 
     function esc(s) {

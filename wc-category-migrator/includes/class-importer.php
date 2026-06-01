@@ -19,6 +19,27 @@ class WC_Cat_Migrator_Importer {
 		$this->update_existing = (bool) ( $options['update_existing'] ?? true );
 	}
 
+	/**
+	 * Tek bir <category> XML string'ini içe aktarır (arka plan batch işlemci için).
+	 * Her çağrıda slug→ID haritasını DB'den taze yükler.
+	 */
+	public function import_single_xml( string $category_xml ): array {
+		$this->results = [ 'created' => 0, 'updated' => 0, 'skipped' => 0, 'images' => 0, 'errors' => [] ];
+		$this->build_slug_map(); // Bu batch çalışmadan önce öncekiler DB'ye yazdı
+
+		libxml_use_internal_errors( true );
+		$dom = new DOMDocument();
+		$dom->loadXML( $category_xml );
+		libxml_clear_errors();
+
+		$nodes = $dom->getElementsByTagName( 'category' );
+		if ( $nodes->length ) {
+			$this->process_node( $nodes->item( 0 ) );
+		}
+
+		return $this->results;
+	}
+
 	public function import( string $xml_content ): array {
 		libxml_use_internal_errors( true );
 		$dom = new DOMDocument();
