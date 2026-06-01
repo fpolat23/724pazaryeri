@@ -26,6 +26,11 @@ class WC_Cat_Background_Importer {
 			'options'   => $options,
 		] );
 
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+			WC_Cat_Job_Manager::fail( $job_id, 'Action Scheduler bulunamadı. WooCommerce\'in güncel olduğundan emin olun.' );
+			throw new \RuntimeException( 'Action Scheduler (as_enqueue_async_action) bu sitede mevcut değil.' );
+		}
+
 		if ( $total === 0 ) {
 			WC_Cat_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
 		} else {

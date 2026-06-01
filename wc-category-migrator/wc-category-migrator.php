@@ -3,7 +3,7 @@
  * Plugin Name: WC Category Migrator
  * Plugin URI:  https://724pazaryeri.com
  * Description: WooCommerce kategori hiyerarşisini ve kategori resimlerini XML ile aktarır/alır. Arka planda çalışır.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      724 Pazaryeri
  * Author URI:  https://724pazaryeri.com
  * Text Domain: wc-category-migrator
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WC_CAT_MIGRATOR_VERSION', '1.1.0' );
+define( 'WC_CAT_MIGRATOR_VERSION', '1.2.0' );
 define( 'WC_CAT_MIGRATOR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WC_CAT_MIGRATOR_URL', plugin_dir_url( __FILE__ ) );
 
