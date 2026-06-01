@@ -142,93 +142,6 @@ while ( have_posts() ) : the_post();
         }
 // YENİ KURAL: GÖRÜNÜR olan TÜM attribute'lar seçim butonu olarak göster (Hepsiburada tarzı)
       ?>
-      <div class="hb-attrs-outer" id="hbAttrsOuter">
-        <div class="hb-attrs-wrap" id="hbAttrsWrap">
-      <?php
-        foreach ( $attributes as $attribute ) :
-          // Sadece "Görünür değil" + "Varyasyon değil" olanları atla
-          if ( ! $attribute->get_visible() && ! $attribute->get_variation() ) continue;
-          $attr_is_tax = $attribute->is_taxonomy();
-          if ( $attr_is_tax ) {
-            $terms = wc_get_product_terms( $product->get_id(), $attribute->get_name(), array( 'fields' => 'all' ) );
-          } else {
-            $raw_opts = $attribute->get_options();
-            // Eğer kullanıcı "|" yerine "," koymuşsa, otomatik patlat (her seçeneğin içinde virgül varsa)
-            $expanded = array();
-            foreach ( $raw_opts as $opt ) {
-              if ( strpos( $opt, ',' ) !== false && strpos( $opt, '|' ) === false ) {
-                foreach ( explode( ',', $opt ) as $piece ) {
-                  $piece = trim( $piece );
-                  if ( $piece !== '' ) $expanded[] = $piece;
-                }
-              } else {
-                $expanded[] = $opt;
-              }
-            }
-            $terms = array_map( function( $v ){ return (object) array( 'name' => $v, 'slug' => sanitize_title( $v ), 'raw' => $v ); }, $expanded );
-          }
-          if ( empty( $terms ) ) continue;
-          $label = pz_attr_label( $attribute->get_name() );
-          $is_color = ( stripos( $label, 'renk' ) !== false || stripos( $attribute->get_name(), 'color' ) !== false );
-          // Bu attribute için varsayılan (ilk stokta) değeri bul
-          $attr_full_key   = 'attribute_' . sanitize_title( $attribute->get_name() );
-          $default_attr_val = isset( $pz_default_attrs[ $attr_full_key ] ) ? $pz_default_attrs[ $attr_full_key ] : null;
-          $default_ti       = 0;
-          $default_name     = isset( $terms[0] ) ? $terms[0]->name : '';
-          if ( $default_attr_val !== null ) {
-            foreach ( $terms as $_ti => $_term ) {
-              $tv = $attr_is_tax ? $_term->slug : sanitize_title( $_term->name );
-              if ( $tv === $default_attr_val || $_term->slug === $default_attr_val ) {
-                $default_ti   = $_ti;
-                $default_name = $_term->name;
-                break;
-              }
-            }
-          }
-      ?>
-        <div class="hb-variant-block">
-          <div class="hb-variant-label"><?php echo esc_html( $label ); ?>: <span id="sel-<?php echo esc_attr( $attribute->get_name() ); ?>"><?php echo esc_html( $default_name ); ?></span></div>
-          <?php if ( $is_color ) : ?>
-            <div class="hb-colors">
-              <?php foreach ( $terms as $ti => $term ) :
-                $sw = isset( $color_map[ $term->slug ] ) ? $color_map[ $term->slug ] : '#ccc'; ?>
-                <button type="button" class="hb-color<?php echo $ti===$default_ti?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')" title="<?php echo esc_attr($term->name); ?>" style="background:<?php echo esc_attr($sw); ?>"></button>
-              <?php endforeach; ?>
-            </div>
-          <?php else : ?>
-            <div class="hb-variants">
-              <?php foreach ( $terms as $ti => $term ) : ?>
-                <button type="button" class="hb-var<?php echo $ti===$default_ti?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')"><?php echo esc_html($term->name); ?></button>
-              <?php endforeach; ?>
-            </div>
-          <?php endif; ?>
-        </div>
-      <?php endforeach; ?>
-        </div><!-- /hb-attrs-wrap -->
-        <div class="hb-attrs-fade"></div>
-      </div><!-- /hb-attrs-outer -->
-      <button class="hb-attrs-more" id="hbAttrsMore" onclick="hbShowSpecs()">
-        <span>Tüm Özellikleri Gör</span>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-
-      <!-- Öne çıkan özellikler (kısa) -->
-      <?php
-        $feat_attrs = array_slice( $attributes, 0, 4, true );
-        if ( ! empty( $feat_attrs ) ) : ?>
-        <div class="hb-quick-specs">
-          <div class="hb-quick-specs-title">Öne Çıkan Özellikler</div>
-          <div class="hb-quick-specs-grid">
-            <?php foreach ( $feat_attrs as $attr ) :
-              $aname = pz_attr_label( $attr->get_name() );
-              $avals = $attr->is_taxonomy() ? wc_get_product_terms( $product->get_id(), $attr->get_name(), array('fields'=>'names') ) : $attr->get_options();
-              if ( empty($avals) ) continue; ?>
-              <div class="hb-qs-item"><span class="hb-qs-k"><?php echo esc_html($aname); ?></span><span class="hb-qs-v"><?php echo esc_html( implode(', ', $avals) ); ?></span></div>
-            <?php endforeach; ?>
-          </div>
-          <a class="hb-all-specs" href="#" onclick="goTab(1);return false;">Tüm özellikleri gör ›</a>
-        </div>
-      <?php endif; ?>
     </div>
 
     <!-- ═══ SAĞ: SATIN ALMA KUTUSU ═══ -->
@@ -483,6 +396,96 @@ while ( have_posts() ) : the_post();
 
     <!-- ═══ GALERİ ALTI: GÜVEN + PAYLAŞ ═══ -->
     <div class="hb-gallery-extra">
+      <!-- Varyasyon seçiciler + Öne Çıkan Özellikler -->
+      <?php if ( ! empty( $attributes ) ) : ?>
+      <div class="hb-gallery-attrs">
+        <div class="hb-attrs-outer" id="hbAttrsOuter">
+          <div class="hb-attrs-wrap" id="hbAttrsWrap">
+        <?php
+          foreach ( $attributes as $attribute ) :
+            if ( ! $attribute->get_visible() && ! $attribute->get_variation() ) continue;
+            $attr_is_tax = $attribute->is_taxonomy();
+            if ( $attr_is_tax ) {
+              $terms = wc_get_product_terms( $product->get_id(), $attribute->get_name(), array( 'fields' => 'all' ) );
+            } else {
+              $raw_opts = $attribute->get_options();
+              $expanded = array();
+              foreach ( $raw_opts as $opt ) {
+                if ( strpos( $opt, ',' ) !== false && strpos( $opt, '|' ) === false ) {
+                  foreach ( explode( ',', $opt ) as $piece ) {
+                    $piece = trim( $piece );
+                    if ( $piece !== '' ) $expanded[] = $piece;
+                  }
+                } else {
+                  $expanded[] = $opt;
+                }
+              }
+              $terms = array_map( function( $v ){ return (object) array( 'name' => $v, 'slug' => sanitize_title( $v ), 'raw' => $v ); }, $expanded );
+            }
+            if ( empty( $terms ) ) continue;
+            $label = pz_attr_label( $attribute->get_name() );
+            $is_color = ( stripos( $label, 'renk' ) !== false || stripos( $attribute->get_name(), 'color' ) !== false );
+            $attr_full_key    = 'attribute_' . sanitize_title( $attribute->get_name() );
+            $default_attr_val = isset( $pz_default_attrs[ $attr_full_key ] ) ? $pz_default_attrs[ $attr_full_key ] : null;
+            $default_ti       = 0;
+            $default_name     = isset( $terms[0] ) ? $terms[0]->name : '';
+            if ( $default_attr_val !== null ) {
+              foreach ( $terms as $_ti => $_term ) {
+                $tv = $attr_is_tax ? $_term->slug : sanitize_title( $_term->name );
+                if ( $tv === $default_attr_val || $_term->slug === $default_attr_val ) {
+                  $default_ti   = $_ti;
+                  $default_name = $_term->name;
+                  break;
+                }
+              }
+            }
+        ?>
+          <div class="hb-variant-block">
+            <div class="hb-variant-label"><?php echo esc_html( $label ); ?>: <span id="sel-<?php echo esc_attr( $attribute->get_name() ); ?>"><?php echo esc_html( $default_name ); ?></span></div>
+            <?php if ( $is_color ) : ?>
+              <div class="hb-colors">
+                <?php foreach ( $terms as $ti => $term ) :
+                  $sw = isset( $color_map[ $term->slug ] ) ? $color_map[ $term->slug ] : '#ccc'; ?>
+                  <button type="button" class="hb-color<?php echo $ti===$default_ti?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')" title="<?php echo esc_attr($term->name); ?>" style="background:<?php echo esc_attr($sw); ?>"></button>
+                <?php endforeach; ?>
+              </div>
+            <?php else : ?>
+              <div class="hb-variants">
+                <?php foreach ( $terms as $ti => $term ) : ?>
+                  <button type="button" class="hb-var<?php echo $ti===$default_ti?' on':''; ?>" data-attr="attribute_<?php echo esc_attr( sanitize_title($attribute->get_name()) ); ?>" data-value="<?php echo esc_attr( $attr_is_tax ? $term->slug : $term->name ); ?>" onclick="pzSelectVar(this,'<?php echo esc_js($term->name); ?>','<?php echo esc_attr($attribute->get_name()); ?>')"><?php echo esc_html($term->name); ?></button>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+          </div><!-- /hb-attrs-wrap -->
+          <div class="hb-attrs-fade"></div>
+        </div><!-- /hb-attrs-outer -->
+        <button class="hb-attrs-more" id="hbAttrsMore" onclick="hbShowSpecs()">
+          <span>Tüm Özellikleri Gör</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+
+        <!-- Öne Çıkan Özellikler -->
+        <?php
+          $feat_attrs = array_slice( $attributes, 0, 4, true );
+          if ( ! empty( $feat_attrs ) ) : ?>
+          <div class="hb-quick-specs">
+            <div class="hb-quick-specs-title">Öne Çıkan Özellikler</div>
+            <div class="hb-quick-specs-grid">
+              <?php foreach ( $feat_attrs as $attr ) :
+                $aname = pz_attr_label( $attr->get_name() );
+                $avals = $attr->is_taxonomy() ? wc_get_product_terms( $product->get_id(), $attr->get_name(), array('fields'=>'names') ) : $attr->get_options();
+                if ( empty($avals) ) continue; ?>
+                <div class="hb-qs-item"><span class="hb-qs-k"><?php echo esc_html($aname); ?></span><span class="hb-qs-v"><?php echo esc_html( implode(', ', $avals) ); ?></span></div>
+              <?php endforeach; ?>
+            </div>
+            <a class="hb-all-specs" href="#" onclick="goTab(1);return false;">Tüm özellikleri gör ›</a>
+          </div>
+        <?php endif; ?>
+      </div><!-- /hb-gallery-attrs -->
+      <?php endif; ?>
+
       <!-- Güven rozetleri -->
       <div class="hb-trust">
         <div class="hb-trust-item">

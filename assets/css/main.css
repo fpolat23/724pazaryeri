@@ -2543,6 +2543,7 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 /* ═══════════════════════════════════════════════
    ÖZELLİK BLOK FADE + "DEVAMINI GÖR" ŞERİDİ
 ═══════════════════════════════════════════════ */
+.pazaryeri-wrap .hb-gallery-attrs{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:18px 16px 14px;margin-bottom:16px;}
 .pazaryeri-wrap .hb-attrs-outer{position:relative;max-height:262px;overflow:hidden;}
 .pazaryeri-wrap .hb-attrs-fade{position:absolute;bottom:0;left:0;right:0;height:90px;background:linear-gradient(to bottom,transparent 0%,#faf9f7 100%);pointer-events:none;}
 .pazaryeri-wrap .hb-attrs-more{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:11px 16px;background:linear-gradient(135deg,#fff8f3,#fff0e6);border:1.5px solid #ffd4a8;border-radius:12px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;transition:all .15s;letter-spacing:.1px;}
