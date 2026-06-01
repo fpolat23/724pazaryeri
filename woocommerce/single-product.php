@@ -139,6 +139,10 @@ while ( have_posts() ) : the_post();
           }
         }
 // YENİ KURAL: GÖRÜNÜR olan TÜM attribute'lar seçim butonu olarak göster (Hepsiburada tarzı)
+      ?>
+      <div class="hb-attrs-outer" id="hbAttrsOuter">
+        <div class="hb-attrs-wrap" id="hbAttrsWrap">
+      <?php
         foreach ( $attributes as $attribute ) :
           // Sadece "Görünür değil" + "Varyasyon değil" olanları atla
           if ( ! $attribute->get_visible() && ! $attribute->get_variation() ) continue;
@@ -198,6 +202,13 @@ while ( have_posts() ) : the_post();
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
+        </div><!-- /hb-attrs-wrap -->
+        <div class="hb-attrs-fade"></div>
+      </div><!-- /hb-attrs-outer -->
+      <button class="hb-attrs-more" id="hbAttrsMore" onclick="hbShowSpecs()">
+        <span>Tüm Özellikleri Gör</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
 
       <!-- Öne çıkan özellikler (kısa) -->
       <?php
@@ -648,31 +659,40 @@ while ( have_posts() ) : the_post();
       </div>
       <!-- SPEC -->
       <div class="tab-pane" id="t-spec">
-        <table class="specs-table">
-          <?php
-            // Ürün nitelikleri (Ürün > Nitelikler sekmesinden gelir)
-            $display_attrs = $product->get_attributes();
-            if ( ! empty( $display_attrs ) ) :
-              foreach ( $display_attrs as $attr ) :
-                $name = pz_attr_label( $attr->get_name() );
-                if ( $attr->is_taxonomy() ) {
-                  $values = wc_get_product_terms( $product->get_id(), $attr->get_name(), array( 'fields' => 'names' ) );
-                } else {
-                  $values = $attr->get_options();
-                }
-                $value_str = implode( ', ', $values );
+        <?php
+          $display_attrs = $product->get_attributes();
+          $has_extra = $product->get_sku() || $product->get_weight() || $product->has_dimensions();
+          if ( ! empty( $display_attrs ) || $has_extra ) :
+        ?>
+        <div class="pz-specs-grid">
+          <?php foreach ( $display_attrs as $attr ) :
+            $name = pz_attr_label( $attr->get_name() );
+            if ( $attr->is_taxonomy() ) {
+              $values = wc_get_product_terms( $product->get_id(), $attr->get_name(), array( 'fields' => 'names' ) );
+            } else {
+              $values = $attr->get_options();
+            }
+            $value_str = implode( ', ', $values );
+            if ( ! $value_str ) continue;
           ?>
-            <tr><td><?php echo esc_html( $name ); ?></td><td><?php echo esc_html( $value_str ); ?></td></tr>
-          <?php endforeach; else : ?>
-            <tr><td colspan="2" style="text-align:center;color:var(--muted)">Bu ürün için teknik özellik girilmemiş.</td></tr>
+            <div class="pz-spec-card">
+              <div class="pz-sc-lbl"><?php echo esc_html( $name ); ?></div>
+              <div class="pz-sc-val"><?php echo esc_html( $value_str ); ?></div>
+            </div>
+          <?php endforeach; ?>
+          <?php if ( $product->get_sku() ) : ?>
+            <div class="pz-spec-card"><div class="pz-sc-lbl">Ürün Kodu (SKU)</div><div class="pz-sc-val"><?php echo esc_html( $product->get_sku() ); ?></div></div>
           <?php endif; ?>
-          <?php
-            // SKU & ağırlık & boyut (WooCommerce gönderim sekmesi)
-            if ( $product->get_sku() ) : ?><tr><td>Ürün Kodu (SKU)</td><td><?php echo esc_html( $product->get_sku() ); ?></td></tr><?php endif;
-            if ( $product->get_weight() ) : ?><tr><td>Ağırlık</td><td><?php echo esc_html( $product->get_weight() ) . ' ' . esc_html( get_option('woocommerce_weight_unit') ); ?></td></tr><?php endif;
-            if ( $product->has_dimensions() ) : ?><tr><td>Boyutlar</td><td><?php echo esc_html( wc_format_dimensions( $product->get_dimensions(false) ) ); ?></td></tr><?php endif;
-          ?>
-        </table>
+          <?php if ( $product->get_weight() ) : ?>
+            <div class="pz-spec-card"><div class="pz-sc-lbl">Ağırlık</div><div class="pz-sc-val"><?php echo esc_html( $product->get_weight() ); ?> <?php echo esc_html( get_option('woocommerce_weight_unit') ); ?></div></div>
+          <?php endif; ?>
+          <?php if ( $product->has_dimensions() ) : ?>
+            <div class="pz-spec-card"><div class="pz-sc-lbl">Boyutlar</div><div class="pz-sc-val"><?php echo esc_html( wc_format_dimensions( $product->get_dimensions(false) ) ); ?></div></div>
+          <?php endif; ?>
+        </div>
+        <?php else : ?>
+          <p style="text-align:center;color:var(--muted);padding:40px 0">Bu ürün için teknik özellik girilmemiş.</p>
+        <?php endif; ?>
       </div>
       <!-- REVIEWS -->
       <div class="tab-pane" id="t-rev">

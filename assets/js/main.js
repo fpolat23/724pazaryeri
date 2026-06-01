@@ -2344,3 +2344,30 @@ window.pzSendVerifyCode = function(btn){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',renderCompPage);
   else renderCompPage();
 })();
+
+/* ── Özellik fade kontrolü + Tüm Özellikleri Gör ── */
+(function(){
+  function initAttrsCollapse(){
+    var outer=document.getElementById('hbAttrsOuter');
+    var moreBtn=document.getElementById('hbAttrsMore');
+    if(!outer||!moreBtn)return;
+    var wrap=document.getElementById('hbAttrsWrap');
+    // İçerik max-height'dan kısaysa butonu gizle
+    if(wrap&&wrap.scrollHeight<=outer.offsetHeight+8){
+      moreBtn.classList.add('hidden');
+      outer.style.maxHeight='none';
+      var fade=outer.querySelector('.hb-attrs-fade');
+      if(fade)fade.style.display='none';
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAttrsCollapse);
+  else initAttrsCollapse();
+
+  window.hbShowSpecs=function(){
+    goTab(1);
+    setTimeout(function(){
+      var tabs=document.querySelector('.pd-tabs');
+      if(tabs)tabs.scrollIntoView({behavior:'smooth',block:'start'});
+    },80);
+  };
+})();
