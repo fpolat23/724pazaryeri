@@ -2427,7 +2427,8 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 /* ─── Karşılaştırma Tablosu ─── */
 .pazaryeri-wrap .pz-comp-table-wrap{overflow:auto;flex:1;}
 .pazaryeri-wrap .pz-comp-table{width:100%;border-collapse:collapse;min-width:560px;}
-.pazaryeri-wrap .pz-ct-lbl{padding:12px 16px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:#fafaf9;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;width:130px;vertical-align:middle;}
+.pazaryeri-wrap .pz-ct-lbl{padding:12px 16px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:#fafaf9;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;width:130px;vertical-align:middle;}
+.pazaryeri-wrap .pz-ct-attr-lbl{text-transform:none;letter-spacing:0;font-size:12px;}
 .pazaryeri-wrap .pz-ct-head{padding:16px 12px;text-align:center;border-bottom:2px solid var(--accent);border-right:1px solid var(--border);background:#fff;vertical-align:top;min-width:180px;}
 .pazaryeri-wrap .pz-ct-img-wrap{width:90px;height:90px;border-radius:12px;background:#f8f6f2;margin:0 auto 8px;overflow:hidden;border:1.5px solid var(--border);}
 .pazaryeri-wrap .pz-ct-img-wrap img{width:100%;height:100%;object-fit:contain;padding:4px;}

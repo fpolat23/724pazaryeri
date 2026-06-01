@@ -67,7 +67,7 @@ function bazario_product_card( $product ) {
     $comp_attrs = array();
     foreach ( $product->get_attributes() as $akey => $attr ) {
         if ( ! $attr->get_visible() ) continue;
-        $alabel = wc_attribute_label( $akey, $product );
+        $alabel = pz_attr_label( $akey );
         $aval   = $attr->is_taxonomy()
             ? implode( ', ', wc_get_product_terms( $id, $akey, array( 'fields' => 'names' ) ) )
             : implode( ', ', $attr->get_options() );

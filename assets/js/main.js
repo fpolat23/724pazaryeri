@@ -678,7 +678,7 @@ function pzBuildCompTable(){
   if(attrKeys.length>0){
     html+='<tr class="pz-ct-sect"><td colspan="'+(pzCompItems.length+1)+'">📋 Ürün Özellikleri</td></tr>';
     attrKeys.forEach(function(key){
-      html+='<tr><td class="pz-ct-lbl">'+key+'</td>';
+      html+='<tr><td class="pz-ct-lbl pz-ct-attr-lbl">'+key+'</td>';
       pzCompItems.forEach(function(p){
         var val=(p.attrs&&p.attrs[key])?p.attrs[key]:'<span class="pz-ct-na">—</span>';
         html+='<td class="pz-ct-cell"><div class="pz-ct-main pz-ct-attr">'+val+'</div></td>';

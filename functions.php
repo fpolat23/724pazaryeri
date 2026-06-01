@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.70' );
+define( 'PAZARYERI_VERSION', '9.9.71' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -949,7 +949,7 @@ function pz_get_comp_attrs_handler() {
         $attrs = array();
         foreach ( $product->get_attributes() as $akey => $attr ) {
             if ( ! $attr->get_visible() ) continue;
-            $alabel = wc_attribute_label( $akey, $product );
+            $alabel = pz_attr_label( $akey );
             $aval   = $attr->is_taxonomy()
                 ? implode( ', ', wc_get_product_terms( $pid, $akey, array( 'fields' => 'names' ) ) )
                 : implode( ', ', $attr->get_options() );
