@@ -312,11 +312,12 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-all-specs{display:inline-block;margin-top:12px;font-size:13px;font-weight:700;color:var(--accent);}
 /* Sağ satın alma kutusu */
 .pazaryeri-wrap .hb-buybox{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:20px;position:sticky;top:16px;box-shadow:0 4px 20px rgba(15,14,13,.05);}
-.pazaryeri-wrap .hb-price-area{padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:14px;}
-.pazaryeri-wrap .hb-price-old{font-size:14px;color:var(--muted);text-decoration:line-through;}
-.pazaryeri-wrap .hb-price-now{font-family:'Archivo',sans-serif;font-size:30px;font-weight:900;color:var(--accent);line-height:1.1;}
-.pazaryeri-wrap .hb-price-kdv{font-size:11px;color:var(--muted);margin-top:2px;}
-.pazaryeri-wrap .hb-save-badge{display:inline-block;margin-top:8px;background:#e8f7ef;color:var(--green);font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px;}
+.pazaryeri-wrap .hb-price-area{background:linear-gradient(135deg,#fff8f3,#fff2e6);border:1.5px solid #ffd4a8;border-radius:14px;padding:16px 18px 16px 22px;margin-bottom:16px;position:relative;overflow:hidden;}
+.pazaryeri-wrap .hb-price-area::before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:4px;background:var(--accent);border-radius:0 4px 4px 0;}
+.pazaryeri-wrap .hb-price-old{font-size:13px;color:var(--muted);text-decoration:line-through;margin-bottom:2px;}
+.pazaryeri-wrap .hb-price-now{font-family:'Archivo',sans-serif;font-size:40px;font-weight:900;color:var(--accent);line-height:1;letter-spacing:-1px;}
+.pazaryeri-wrap .hb-price-kdv{font-size:11px;color:var(--muted);margin-top:3px;font-weight:500;}
+.pazaryeri-wrap .hb-save-badge{display:inline-flex;align-items:center;gap:4px;margin-top:10px;background:#dcfce7;color:#15803d;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;border:1px solid #bbf7d0;}
 .pazaryeri-wrap .hb-installments{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
 .pazaryeri-wrap .hb-inst{display:flex;justify-content:space-between;background:#faf8f5;border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12px;}
 .pazaryeri-wrap .hb-inst-x{color:var(--muted);}
@@ -1252,8 +1253,9 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   /* ── FİYAT/SEPET: ekran altına sabit çubuk (Hepsiburada mobil) ── */
   .pazaryeri-wrap .hb-buybox{position:static!important;width:auto!important;height:auto!important;max-height:none!important;background:#fff;border:none!important;border-top:8px solid var(--paper)!important;border-radius:0!important;box-shadow:none!important;padding:16px 14px!important;display:block!important;margin:0 -14px!important;}
   /* Fiyat solda kompakt */
-  .pazaryeri-wrap .hb-buybox .hb-price-area{display:block!important;margin:0 0 12px!important;padding:0!important;border:none!important;}
-  .pazaryeri-wrap .hb-buybox .hb-price-now{font-size:20px;margin:0;}
+  .pazaryeri-wrap .hb-buybox .hb-price-area{display:block!important;margin:0 0 12px!important;padding:10px 14px 10px 18px!important;border-radius:10px!important;}
+  .pazaryeri-wrap .hb-buybox .hb-price-area::before{top:8px;bottom:8px;}
+  .pazaryeri-wrap .hb-buybox .hb-price-now{font-size:24px;margin:0;}
   .pazaryeri-wrap .hb-buybox .hb-price-old{font-size:12px;margin:0;}
   .pazaryeri-wrap .hb-buybox .hb-price-kdv{display:none;}
   /* Sepet butonu sağda esner ve büyük */
