@@ -13,6 +13,11 @@ class WC_XML_Migrator_Admin {
 		add_action( 'wp_ajax_wc_xml_start_import', [ __CLASS__, 'ajax_start_import' ] );
 		add_action( 'wp_ajax_wc_xml_job_status',   [ __CLASS__, 'ajax_job_status' ] );
 		add_action( 'wp_ajax_wc_xml_jobs_list',    [ __CLASS__, 'ajax_jobs_list' ] );
+
+		add_action( 'wp_ajax_wc_xml_pause_job',  [ __CLASS__, 'ajax_pause_job' ] );
+		add_action( 'wp_ajax_wc_xml_resume_job', [ __CLASS__, 'ajax_resume_job' ] );
+		add_action( 'wp_ajax_wc_xml_cancel_job', [ __CLASS__, 'ajax_cancel_job' ] );
+		add_action( 'wp_ajax_wc_xml_delete_job', [ __CLASS__, 'ajax_delete_job' ] );
 	}
 
 	public static function register_menus(): void {
@@ -82,7 +87,11 @@ class WC_XML_Migrator_Admin {
 				'completed'   => __( 'Tamamlandı', 'wc-xml-migrator' ),
 				'failed'      => __( 'Hata oluştu', 'wc-xml-migrator' ),
 				'download'    => __( 'XML İndir', 'wc-xml-migrator' ),
-				'bgNote'      => __( 'İşlem arka planda devam ediyor. Sayfayı kapatabilirsiniz.', 'wc-xml-migrator' ),
+				'bgNote'        => __( 'İşlem arka planda devam ediyor. Sayfayı kapatabilirsiniz.', 'wc-xml-migrator' ),
+				'paused'        => __( 'Duraklatıldı', 'wc-xml-migrator' ),
+				'cancelled'     => __( 'İptal Edildi', 'wc-xml-migrator' ),
+				'confirmCancel' => __( 'Bu işlemi iptal etmek istediğinizden emin misiniz?', 'wc-xml-migrator' ),
+				'confirmDelete' => __( 'Bu kaydı kalıcı olarak silmek istediğinizden emin misiniz?', 'wc-xml-migrator' ),
 			],
 		] );
 	}
@@ -264,6 +273,7 @@ class WC_XML_Migrator_Admin {
 							<th><?php esc_html_e( 'İlerleme', 'wc-xml-migrator' ); ?></th>
 							<th><?php esc_html_e( 'Tarih', 'wc-xml-migrator' ); ?></th>
 							<th><?php esc_html_e( 'Dosya', 'wc-xml-migrator' ); ?></th>
+							<th><?php esc_html_e( 'İşlemler', 'wc-xml-migrator' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -316,6 +326,17 @@ class WC_XML_Migrator_Admin {
 									—
 								<?php endif; ?>
 							</td>
+							<td class="wc-xml-job-actions">
+								<?php if ( $job->status === 'processing' ) : ?>
+									<button class="button button-small js-job-pause" data-job-id="<?php echo esc_attr( $job->id ); ?>">⏸ Duraklat</button>
+									<button class="button button-small js-job-cancel" data-job-id="<?php echo esc_attr( $job->id ); ?>" style="color:#dc3232">✕ İptal</button>
+								<?php elseif ( $job->status === 'paused' ) : ?>
+									<button class="button button-primary button-small js-job-resume" data-job-id="<?php echo esc_attr( $job->id ); ?>">▶ Devam Et</button>
+									<button class="button button-small js-job-cancel" data-job-id="<?php echo esc_attr( $job->id ); ?>" style="color:#dc3232">✕ İptal</button>
+								<?php else : ?>
+									<button class="button button-small js-job-delete" data-job-id="<?php echo esc_attr( $job->id ); ?>">🗑 Sil</button>
+								<?php endif; ?>
+							</td>
 						</tr>
 						<?php endforeach; ?>
 					</tbody>
@@ -329,6 +350,8 @@ class WC_XML_Migrator_Admin {
 		$map = [
 			'pending'    => 'Bekliyor',
 			'processing' => 'İşleniyor',
+			'paused'     => 'Duraklatıldı',
+			'cancelled'  => 'İptal Edildi',
 			'completed'  => 'Tamamlandı',
 			'failed'     => 'Hatalı',
 		];
@@ -456,5 +479,112 @@ class WC_XML_Migrator_Admin {
 		}, $jobs );
 
 		wp_send_json_success( $data );
+	}
+
+	// ---------------------------------------------------------------
+	// İş kontrol AJAX handler'ları
+	// ---------------------------------------------------------------
+
+	public static function ajax_pause_job(): void {
+		check_ajax_referer( 'wc_xml_migrator', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( [], 403 );
+
+		$job_id = (int) ( $_POST['job_id'] ?? 0 );
+		$job    = WC_XML_Job_Manager::get( $job_id );
+
+		if ( ! $job || $job->status !== 'processing' ) {
+			wp_send_json_error( [ 'message' => 'İş bulunamadı veya işleniyor durumda değil.' ] );
+		}
+
+		WC_XML_Job_Manager::update( $job_id, [ 'status' => 'paused' ] );
+		wp_send_json_success();
+	}
+
+	public static function ajax_resume_job(): void {
+		check_ajax_referer( 'wc_xml_migrator', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( [], 403 );
+
+		$job_id = (int) ( $_POST['job_id'] ?? 0 );
+		$job    = WC_XML_Job_Manager::get( $job_id );
+
+		if ( ! $job || $job->status !== 'paused' ) {
+			wp_send_json_error( [ 'message' => 'İş bulunamadı veya duraklatılmamış.' ] );
+		}
+
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+			wp_send_json_error( [ 'message' => 'Action Scheduler mevcut değil.' ] );
+		}
+
+		WC_XML_Job_Manager::update( $job_id, [ 'status' => 'processing' ] );
+
+		if ( $job->job_type === 'import' ) {
+			if ( (int) $job->processed < (int) $job->total_items ) {
+				as_enqueue_async_action(
+					WC_XML_Background_Importer::HOOK_BATCH,
+					[ 'job_id' => $job_id, 'offset' => (int) $job->processed ],
+					WC_XML_Background_Importer::GROUP
+				);
+			} else {
+				as_enqueue_async_action(
+					WC_XML_Background_Importer::HOOK_TERM_IMAGES,
+					[ 'job_id' => $job_id ],
+					WC_XML_Background_Importer::GROUP
+				);
+			}
+		} else {
+			if ( (int) $job->processed < (int) $job->total_items ) {
+				as_enqueue_async_action(
+					WC_XML_Background_Exporter::HOOK_BATCH,
+					[ 'job_id' => $job_id, 'offset' => (int) $job->processed ],
+					WC_XML_Background_Exporter::GROUP
+				);
+			} else {
+				as_enqueue_async_action(
+					WC_XML_Background_Exporter::HOOK_FINALIZE,
+					[ 'job_id' => $job_id ],
+					WC_XML_Background_Exporter::GROUP
+				);
+			}
+		}
+
+		wp_send_json_success();
+	}
+
+	public static function ajax_cancel_job(): void {
+		check_ajax_referer( 'wc_xml_migrator', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( [], 403 );
+
+		$job_id = (int) ( $_POST['job_id'] ?? 0 );
+		$job    = WC_XML_Job_Manager::get( $job_id );
+
+		if ( ! $job ) {
+			wp_send_json_error( [ 'message' => 'İş bulunamadı.' ] );
+		}
+
+		if ( in_array( $job->status, [ 'completed', 'cancelled' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'Bu işlem zaten tamamlanmış veya iptal edilmiş.' ] );
+		}
+
+		WC_XML_Job_Manager::update( $job_id, [ 'status' => 'cancelled' ] );
+		wp_send_json_success();
+	}
+
+	public static function ajax_delete_job(): void {
+		check_ajax_referer( 'wc_xml_migrator', 'nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( [], 403 );
+
+		$job_id = (int) ( $_POST['job_id'] ?? 0 );
+		$job    = WC_XML_Job_Manager::get( $job_id );
+
+		if ( ! $job ) {
+			wp_send_json_error( [ 'message' => 'İş bulunamadı.' ] );
+		}
+
+		if ( $job->status === 'processing' ) {
+			wp_send_json_error( [ 'message' => 'İşlenmekte olan bir iş silinemez. Önce duraklatın veya iptal edin.' ] );
+		}
+
+		WC_XML_Job_Manager::delete( $job_id );
+		wp_send_json_success();
 	}
 }

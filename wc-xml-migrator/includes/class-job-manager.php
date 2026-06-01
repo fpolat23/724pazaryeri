@@ -102,4 +102,17 @@ class WC_XML_Job_Manager {
 			'errors' => [ $message ],
 		] );
 	}
+
+	public static function delete( int $id ): void {
+		global $wpdb;
+		$job = self::get( $id );
+		if ( $job ) {
+			foreach ( [ $job->file_path, str_replace( '.tmp', '.xml', (string) $job->file_path ) ] as $f ) {
+				if ( $f && file_exists( $f ) ) {
+					@unlink( $f ); // phpcs:ignore
+				}
+			}
+		}
+		$wpdb->delete( self::table(), [ 'id' => $id ] );
+	}
 }

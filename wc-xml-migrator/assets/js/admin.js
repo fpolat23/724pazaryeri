@@ -2,7 +2,7 @@
 (function ($) {
     'use strict';
 
-    var POLL_INTERVAL = 4000; // ms
+    var POLL_INTERVAL = 4000;
 
     // ---- Yardımcılar ----
 
@@ -15,9 +15,9 @@
     function startPolling(jobId, $progressWrap, onComplete) {
         var timer = setInterval(function () {
             $.get(wcXmlMigrator.ajaxUrl, {
-                action:   'wc_xml_job_status',
-                job_id:   jobId,
-                nonce:    wcXmlMigrator.nonce,
+                action:  'wc_xml_job_status',
+                job_id:  jobId,
+                nonce:   wcXmlMigrator.nonce,
             })
             .done(function (res) {
                 if (!res.success) return;
@@ -25,7 +25,8 @@
 
                 updateProgress($progressWrap, d.percent, d.processed, d.total, d.status);
 
-                if (d.status === 'completed' || d.status === 'failed') {
+                if (d.status === 'completed' || d.status === 'failed' ||
+                    d.status === 'paused'    || d.status === 'cancelled') {
                     clearInterval(timer);
                     onComplete(d);
                 }
@@ -36,11 +37,15 @@
     function updateProgress($wrap, pct, processed, total, status) {
         $wrap.find('.wc-xml-progress-bar-inner').css('width', pct + '%');
         $wrap.find('.wc-xml-progress-text').text(processed + ' / ' + total + '  (' + pct + '%)');
-        $wrap.find('.wc-xml-progress-status').text(
-            status === 'completed' ? wcXmlMigrator.i18n.completed :
-            status === 'failed'    ? wcXmlMigrator.i18n.failed    :
-                                     wcXmlMigrator.i18n.processing + '…'
-        );
+
+        var label;
+        if      (status === 'completed') label = wcXmlMigrator.i18n.completed;
+        else if (status === 'failed')    label = wcXmlMigrator.i18n.failed;
+        else if (status === 'paused')    label = wcXmlMigrator.i18n.paused;
+        else if (status === 'cancelled') label = wcXmlMigrator.i18n.cancelled;
+        else                             label = wcXmlMigrator.i18n.processing + '…';
+
+        $wrap.find('.wc-xml-progress-status').text(label);
     }
 
     function showErrors($wrap, errors) {
@@ -85,17 +90,11 @@
 
         $.ajax({ url: wcXmlMigrator.ajaxUrl, type: 'POST', data: formData, processData: false, contentType: false })
         .done(function (res) {
-            if (!res.success) {
-                alert('Hata: ' + res.data.message);
-                setBtn($btn, $spinner, false);
-                $btn.text('Dışa Aktarmayı Başlat');
-                return;
-            }
-
             setBtn($btn, $spinner, false);
             $btn.text('Dışa Aktarmayı Başlat');
-            $prog.show();
+            if (!res.success) { alert('Hata: ' + res.data.message); return; }
 
+            $prog.show();
             startPolling(res.data.job_id, $prog, function (d) {
                 if (d.status === 'completed' && d.file_url) {
                     $prog.find('.wc-xml-progress-status').after(
@@ -107,9 +106,9 @@
             });
         })
         .fail(function () {
-            alert('Sunucu hatası.');
             setBtn($btn, $spinner, false);
             $btn.text('Dışa Aktarmayı Başlat');
+            alert('Sunucu hatası.');
         });
     });
 
@@ -118,10 +117,10 @@
     $('#wc-xml-import-form').on('submit', function (e) {
         e.preventDefault();
 
-        var $form    = $(this);
-        var $btn     = $('#btn-import');
-        var $spinner = $form.find('.spinner');
-        var $prog    = $('#import-progress');
+        var $form     = $(this);
+        var $btn      = $('#btn-import');
+        var $spinner  = $form.find('.spinner');
+        var $prog     = $('#import-progress');
         var fileInput = document.getElementById('xml-file');
 
         if (!fileInput.files || !fileInput.files.length) {
@@ -141,26 +140,64 @@
 
         $.ajax({ url: wcXmlMigrator.ajaxUrl, type: 'POST', data: formData, processData: false, contentType: false })
         .done(function (res) {
-            if (!res.success) {
-                alert('Hata: ' + res.data.message);
-                setBtn($btn, $spinner, false);
-                $btn.text('İçe Aktarmayı Başlat');
-                return;
-            }
-
             setBtn($btn, $spinner, false);
             $btn.text('İçe Aktarmayı Başlat');
-            $prog.show();
+            if (!res.success) { alert('Hata: ' + res.data.message); return; }
 
+            $prog.show();
             startPolling(res.data.job_id, $prog, function (d) {
                 if (d.status === 'failed') showErrors($prog, d.errors);
             });
         })
         .fail(function () {
-            alert('Sunucu hatası.');
             setBtn($btn, $spinner, false);
             $btn.text('İçe Aktarmayı Başlat');
+            alert('Sunucu hatası.');
         });
     });
+
+    // ---- İş Yönetimi (Geçmiş sekmesi) ----
+
+    $(document).on('click', '.js-job-pause', function () {
+        jobAction($(this), 'pause');
+    });
+
+    $(document).on('click', '.js-job-resume', function () {
+        jobAction($(this), 'resume');
+    });
+
+    $(document).on('click', '.js-job-cancel', function () {
+        if (!confirm(wcXmlMigrator.i18n.confirmCancel)) return;
+        jobAction($(this), 'cancel');
+    });
+
+    $(document).on('click', '.js-job-delete', function () {
+        if (!confirm(wcXmlMigrator.i18n.confirmDelete)) return;
+        jobAction($(this), 'delete');
+    });
+
+    function jobAction($btn, action) {
+        var jobId = $btn.data('job-id');
+        var $row  = $btn.closest('tr');
+        $row.find('button').prop('disabled', true);
+
+        $.post(wcXmlMigrator.ajaxUrl, {
+            action:  'wc_xml_' + action + '_job',
+            job_id:  jobId,
+            nonce:   wcXmlMigrator.nonce,
+        })
+        .done(function (res) {
+            if (res.success) {
+                window.location.reload();
+            } else {
+                alert((res.data && res.data.message) ? res.data.message : 'İşlem başarısız.');
+                $row.find('button').prop('disabled', false);
+            }
+        })
+        .fail(function () {
+            alert('Sunucu hatası.');
+            $row.find('button').prop('disabled', false);
+        });
+    }
 
 }(jQuery));

@@ -81,7 +81,7 @@ class WC_XML_Background_Importer {
 	 */
 	public static function process_term_images( int $job_id ): void {
 		$job = WC_XML_Job_Manager::get( $job_id );
-		if ( ! $job ) return;
+		if ( ! $job || $job->status !== 'processing' ) return;
 
 		$options  = json_decode( $job->options, true ) ?: [];
 		$importer = new WC_XML_Importer( $options );

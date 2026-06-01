@@ -89,6 +89,8 @@
 .wc-xml-status-completed  { background: #d4edda; color: #155724; }
 .wc-xml-status-processing { background: #d1ecf1; color: #0c5460; }
 .wc-xml-status-pending    { background: #fff3cd; color: #856404; }
+.wc-xml-status-paused     { background: #e8e0f7; color: #4a2d9b; }
+.wc-xml-status-cancelled  { background: #f5f5f5; color: #555; }
 .wc-xml-status-failed     { background: #f8d7da; color: #721c24; }
 .wc-xml-type-export       { background: #e8f4fd; color: #005177; }
 .wc-xml-type-import       { background: #fef3e2; color: #7a4100; }
@@ -107,3 +109,8 @@
     background: #0073aa;
     border-radius: 3px;
 }
+
+/* İş kontrol butonları */
+.wc-xml-job-actions { white-space: nowrap; }
+.wc-xml-job-actions .button { margin-right: 4px; }
+.wc-xml-job-actions .button:last-child { margin-right: 0; }
