@@ -32,7 +32,7 @@ class PZV_Admin {
         add_submenu_page( 'pzv-vendors', 'Onay Bekleyen Ürünler', 'Onay Bekleyen' . $pending_badge, 'manage_woocommerce', 'pzv-pending', array( $this, 'page_pending_products' ) );
         add_submenu_page( 'pzv-vendors', 'Bekleyen Ödemeler', 'Bekleyen Ödemeler', 'manage_woocommerce', 'pzv-payouts', array( $this, 'page_payouts' ) );
         add_submenu_page( 'pzv-vendors', 'Ayarlar', 'Ayarlar', 'manage_woocommerce', 'pzv-settings', array( $this, 'page_settings' ) );
-        add_submenu_page( 'pzv-vendors', 'Dokan Aktarımı', '↩ Dokan Aktar', 'manage_woocommerce', 'pzv-dokan-migrate', array( $this, 'page_dokan_migrate' ) );
+        add_submenu_page( 'pzv-vendors', 'Dokan Aktarimi', 'Dokan Aktar', 'manage_woocommerce', 'pzv-dokan-migrate', array( $this, 'page_dokan_migrate' ) );
         if ( PZV_Roles::is_vendor() ) {
             add_menu_page( 'Mağaza Bilgilerim', '🏪 Mağazam', 'read', 'pzv-vendor-info', array( $this, 'page_vendor_info' ), 'dashicons-store', 3 );
         }
