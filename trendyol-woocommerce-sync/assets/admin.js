@@ -29,7 +29,7 @@
     }
 
     // ================================================================
-    // SEKMESİZ ORTAK: Bağlantı testi & import sync
+    // Bağlantı testi
     // ================================================================
 
     $('#tws-test-btn').on('click', function () {
@@ -45,24 +45,118 @@
         .always(function () { $btn.prop('disabled', false).text('Bağlantıyı Test Et'); });
     });
 
+    // ================================================================
+    // Canlı senkronizasyon paneli (polling)
+    // ================================================================
+
+    var syncPollTimer = null;
+
+    function updateEngineBadge(hasAS) {
+        var $b = $('#tws-engine-badge');
+        if (hasAS === undefined) { return; }
+        if (hasAS) {
+            $b.removeClass('tws-engine-checking tws-engine-wp')
+              .addClass('tws-engine-as')
+              .html('✓ <strong>Action Scheduler</strong> aktif — tarayıcı kapalıyken de çalışır');
+        } else {
+            $b.removeClass('tws-engine-checking tws-engine-as')
+              .addClass('tws-engine-wp')
+              .html('⚠ <strong>WP-Cron</strong> kullanılıyor — sistem cron kurmanız önerilir');
+        }
+    }
+
+    function pollSyncStatus() {
+        post('tws_sync_status', {})
+        .done(function (r) {
+            if (!r.success) { return; }
+            var d = r.data;
+
+            updateEngineBadge(d.has_as);
+
+            $('#tws-last-sync').text(d.last_sync || '—');
+            $('#tws-next-sync').text(d.next_sync || '—');
+
+            if (d.in_progress && d.stats && d.stats.total) {
+                $('#tws-live-progress').show();
+                $('#tws-progress-fill').css('width', (d.progress_pct || 0) + '%');
+                $('#tws-progress-text').text(
+                    'İşleniyor: ' + (d.stats.processed || 0) + ' / ' + d.stats.total +
+                    '  •  Yeni: ' + (d.stats.imported || 0) +
+                    '  Güncellenen: ' + (d.stats.updated || 0) +
+                    '  Hatalı: ' + (d.stats.failed || 0)
+                );
+                // Devam ediyor, 3 sn sonra tekrar kontrol et
+                syncPollTimer = setTimeout(pollSyncStatus, 3000);
+            } else {
+                $('#tws-live-progress').hide();
+                if (syncPollTimer) {
+                    // Az önce bitti, log'u güncelle
+                    clearTimeout(syncPollTimer);
+                    syncPollTimer = null;
+                    location.reload();
+                }
+            }
+        });
+    }
+
+    // Sayfa açıldığında durum al
+    if ($('#tws-engine-badge').length) {
+        pollSyncStatus();
+    }
+
     $('#tws-sync-btn').on('click', function () {
-        var $btn = $(this), $prog = $('#tws-sync-progress'), $res = $('#tws-sync-result');
-        $btn.prop('disabled', true).text('Senkronize ediliyor…');
+        var $btn = $(this), $res = $('#tws-sync-result'), $sp = $('#tws-sync-spinner');
+        $btn.prop('disabled', true);
+        $sp.show();
         $res.hide().removeClass('is-error is-success');
-        $prog.show();
+
         post('tws_manual_sync', {})
         .done(function (r) {
-            $prog.hide();
             if (r.success) {
-                showNotice($res, 'success', '✓ ' + r.data.message);
-                $('#tws-last-sync').text(new Date().toLocaleString('tr-TR'));
+                if (r.data.background) {
+                    showNotice($res, 'success', '✓ ' + r.data.message + ' İlerleme aşağıda gösterilecek.');
+                    // polling başlat
+                    if (syncPollTimer) { clearTimeout(syncPollTimer); }
+                    syncPollTimer = setTimeout(pollSyncStatus, 2000);
+                } else {
+                    showNotice($res, 'success', '✓ ' + r.data.message);
+                    setTimeout(function () { location.reload(); }, 1500);
+                }
             } else {
                 showNotice($res, 'error', '✗ ' + (r.data && r.data.message ? r.data.message : 'Hata'));
             }
-            location.reload();
         })
-        .fail(function () { $prog.hide(); showNotice($res, 'error', 'Sunucu hatası.'); })
-        .always(function () { $btn.prop('disabled', false).text('Manuel Senkronize Et'); });
+        .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
+        .always(function () { $btn.prop('disabled', false); $sp.hide(); });
+    });
+
+    // ================================================================
+    // Sistem Cron UI
+    // ================================================================
+
+    // Sekme geçişi (curl / wget / wpcli)
+    $(document).on('click', '.tws-cron-tab-btn', function () {
+        var show = $(this).data('show');
+        $('.tws-cron-tab-btn').removeClass('active');
+        $(this).addClass('active');
+        $('#tws-cron-curl, #tws-cron-wget, #tws-cron-wpcli').hide();
+        $('#tws-cron-' + show).show();
+    });
+
+    // Kopyala butonu
+    $(document).on('click', '.tws-copy-btn', function () {
+        var $target = $('#' + $(this).data('target'));
+        var text = $target.find('code').text();
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+        } else {
+            var $tmp = $('<textarea>').val(text).appendTo('body').select();
+            document.execCommand('copy');
+            $tmp.remove();
+        }
+        var $btn = $(this);
+        $btn.text('Kopyalandı!');
+        setTimeout(function () { $btn.text('Kopyala'); }, 2000);
     });
 
     // ================================================================

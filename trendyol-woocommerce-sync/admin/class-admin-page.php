@@ -11,6 +11,7 @@ class TWS_Admin_Page {
         // Import AJAX
         add_action( 'wp_ajax_tws_save_category_map',   [ __CLASS__, 'ajax_save_category_map' ] );
         add_action( 'wp_ajax_tws_get_wc_categories',   [ __CLASS__, 'ajax_get_wc_categories' ] );
+        add_action( 'wp_ajax_tws_sync_status',         [ 'TWS_Sync_Manager', 'ajax_sync_status' ] );
 
         // Export AJAX
         add_action( 'wp_ajax_tws_get_wc_products',           [ __CLASS__, 'ajax_get_wc_products' ] );
@@ -35,20 +36,20 @@ class TWS_Admin_Page {
 
     public static function register_settings(): void {
         $fields = [
-            'tws_api_key'       => 'sanitize_text_field',
-            'tws_api_secret'    => 'sanitize_text_field',
-            'tws_supplier_id'   => 'sanitize_text_field',
-            'tws_sync_interval' => 'sanitize_text_field',
-            'tws_price_markup'  => [ __CLASS__, 'sanitize_markup' ],
-            'tws_vendor_id'     => 'absint',
+            'tws_api_key'                => 'sanitize_text_field',
+            'tws_api_secret'             => 'sanitize_text_field',
+            'tws_supplier_id'            => 'sanitize_text_field',
+            'tws_sync_interval_seconds'  => 'absint',
+            'tws_price_markup'           => [ __CLASS__, 'sanitize_markup' ],
+            'tws_vendor_id'              => 'absint',
         ];
 
         foreach ( $fields as $option => $sanitize ) {
             register_setting( 'tws_settings', $option, [ 'sanitize_callback' => $sanitize ] );
         }
 
-        add_action( 'update_option_tws_sync_interval', function ( $old, $new ) {
-            TWS_Sync_Manager::reschedule( $new );
+        add_action( 'update_option_tws_sync_interval_seconds', function ( $old, $new ) {
+            TWS_Sync_Manager::reschedule( (int) $new );
         }, 10, 2 );
     }
 

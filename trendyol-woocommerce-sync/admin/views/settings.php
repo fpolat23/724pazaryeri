@@ -6,32 +6,29 @@ $vendor_roles = [ 'seller', 'vendor', 'wcfm_vendor', 'wc_product_vendors_admin_v
 $vendor_users = get_users( [ 'role__in' => $vendor_roles, 'orderby' => 'display_name', 'number' => 200 ] );
 $saved_vendor = (int) get_option( 'tws_vendor_id', 0 );
 $saved_markup = get_option( 'tws_price_markup', 0 );
-
-$active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'import';
+$active_tab   = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'import';
+$wp_cron_disabled = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
 ?>
 <div class="wrap tws-wrap">
     <h1>🔄 Trendyol WooCommerce Sync</h1>
 
-    <!-- Sekmeler -->
     <nav class="tws-tabs">
         <a href="?page=trendyol-wc-sync&tws_tab=import"
-           class="tws-tab <?php echo $active_tab === 'import' ? 'active' : ''; ?>">
-            ⬇ Trendyol → WooCommerce
-        </a>
+           class="tws-tab <?php echo $active_tab === 'import' ? 'active' : ''; ?>">⬇ Trendyol → WooCommerce</a>
         <a href="?page=trendyol-wc-sync&tws_tab=export"
-           class="tws-tab <?php echo $active_tab === 'export' ? 'active' : ''; ?>">
-            ⬆ WooCommerce → Trendyol
-        </a>
+           class="tws-tab <?php echo $active_tab === 'export' ? 'active' : ''; ?>">⬆ WooCommerce → Trendyol</a>
     </nav>
 
-    <?php if ( $active_tab === 'import' ) : ?>
+<?php if ( $active_tab === 'import' ) : ?>
 
-    <!-- ============================================================ -->
-    <!-- SEKME 1: İçe Aktarma (Trendyol → WooCommerce) -->
-    <!-- ============================================================ -->
+    <!-- ============================================================
+         SEKMESİ 1: İçe Aktarma
+         ============================================================ -->
     <div class="tws-grid">
+
+        <!-- API & Ayarlar -->
         <div class="tws-card">
-            <h2>API Ayarları</h2>
+            <h2>API & Senkronizasyon Ayarları</h2>
             <form method="post" action="options.php">
                 <?php settings_fields( 'tws_settings' ); ?>
                 <table class="form-table">
@@ -61,17 +58,26 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="tws_sync_interval">Otomatik Senkronizasyon</label></th>
+                        <th><label for="tws_sync_interval_seconds">Senkronizasyon Sıklığı</label></th>
                         <td>
-                            <select id="tws_sync_interval" name="tws_sync_interval">
+                            <select id="tws_sync_interval_seconds" name="tws_sync_interval_seconds">
                                 <?php
-                                $intervals = [ 'hourly' => 'Her saat', 'twicedaily' => 'Günde 2 kez', 'daily' => 'Günde 1 kez' ];
-                                $current   = get_option( 'tws_sync_interval', 'hourly' );
-                                foreach ( $intervals as $val => $lbl ) {
-                                    printf( '<option value="%s"%s>%s</option>', esc_attr( $val ), selected( $current, $val, false ), esc_html( $lbl ) );
+                                $intervals = [
+                                    900   => 'Her 15 dakika',
+                                    1800  => 'Her 30 dakika',
+                                    3600  => 'Her saat',
+                                    7200  => 'Her 2 saat',
+                                    21600 => 'Her 6 saat',
+                                    43200 => 'Her 12 saat',
+                                    86400 => 'Günde 1 kez',
+                                ];
+                                $current = (int) get_option( 'tws_sync_interval_seconds', 3600 );
+                                foreach ( $intervals as $secs => $lbl ) {
+                                    printf( '<option value="%d"%s>%s</option>', $secs, selected( $current, $secs, false ), esc_html( $lbl ) );
                                 }
                                 ?>
                             </select>
+                            <p class="description">Tarayıcı kapalı olsa bile arka planda çalışır.</p>
                         </td>
                     </tr>
                     <tr>
@@ -93,8 +99,7 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
                                 <select id="tws_vendor_id" name="tws_vendor_id">
                                     <option value="0">— Atama yapma —</option>
                                     <?php foreach ( $vendor_users as $user ) : ?>
-                                        <option value="<?php echo esc_attr( $user->ID ); ?>"
-                                            <?php selected( $saved_vendor, $user->ID ); ?>>
+                                        <option value="<?php echo esc_attr( $user->ID ); ?>" <?php selected( $saved_vendor, $user->ID ); ?>>
                                             <?php echo esc_html( $user->display_name . ' (' . implode( ', ', $user->roles ) . ')' ); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -116,28 +121,106 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
             </form>
         </div>
 
+        <!-- Canlı Senkronizasyon Paneli -->
         <div class="tws-card">
-            <h2>Senkronizasyon</h2>
-            <div class="tws-status-box">
+            <h2>Senkronizasyon Durumu</h2>
+
+            <div id="tws-engine-badge" class="tws-engine-badge tws-engine-checking">Motor kontrol ediliyor…</div>
+
+            <div class="tws-status-box" style="margin-top:14px;">
                 <div class="tws-stat">
-                    <span class="tws-stat-label">Son Senkronizasyon</span>
-                    <span class="tws-stat-value" id="tws-last-sync"><?php echo esc_html( get_option( 'tws_last_sync', '—' ) ); ?></span>
+                    <span class="tws-stat-label">Son Çalışma</span>
+                    <span class="tws-stat-value" id="tws-last-sync" style="font-size:14px; line-height:1.5;"><?php echo esc_html( get_option( 'tws_last_sync', '—' ) ); ?></span>
                 </div>
                 <div class="tws-stat">
-                    <span class="tws-stat-label">Aktarılan Ürün</span>
+                    <span class="tws-stat-label">Sonraki Çalışma</span>
+                    <span class="tws-stat-value" id="tws-next-sync" style="font-size:14px; line-height:1.5;">—</span>
+                </div>
+                <div class="tws-stat">
+                    <span class="tws-stat-label">WC'deki Ürün</span>
                     <span class="tws-stat-value">
                         <?php echo (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_trendyol_product_id'" ); ?>
                     </span>
                 </div>
             </div>
-            <div class="tws-actions">
-                <button type="button" id="tws-sync-btn" class="button button-primary button-hero">Manuel Senkronize Et</button>
+
+            <!-- Canlı ilerleme çubuğu (arka plan işlemi sırasında) -->
+            <div id="tws-live-progress" style="display:none; margin:14px 0;">
+                <div class="tws-progress-track">
+                    <div class="tws-progress-fill" id="tws-progress-fill" style="width:0%"></div>
+                </div>
+                <p id="tws-progress-text" class="tws-progress-text">Arka planda işleniyor…</p>
             </div>
-            <div id="tws-sync-progress" style="display:none;">
-                <div class="tws-progress-bar"><div class="tws-progress-fill"></div></div>
-                <p id="tws-sync-message">Trendyol'dan ürünler alınıyor…</p>
+
+            <div class="tws-actions">
+                <button type="button" id="tws-sync-btn" class="button button-primary">Şimdi Senkronize Et</button>
+                <span id="tws-sync-spinner" class="spinner" style="float:none; margin-top:0; display:none;"></span>
             </div>
             <div id="tws-sync-result" class="tws-notice" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         Sistem Cron Kurulumu
+         ============================================================ -->
+    <div class="tws-card tws-card-full">
+        <h2>⚙ Sistem Cron Kurulumu</h2>
+        <p>
+            Eklenti <strong>Action Scheduler</strong> kullanır (WooCommerce'in yerleşik görev kuyruğu).
+            Ancak Action Scheduler WordPress ziyareti olmadan tetiklenmez.
+            Gerçek bir sunucu cron job'u ekleyerek zamanlı görevlerin
+            <strong>tarayıcıdan bağımsız</strong> çalışmasını sağlayın.
+        </p>
+
+        <div class="tws-cron-steps">
+
+            <div class="tws-cron-step">
+                <div class="tws-step-num">1</div>
+                <div class="tws-step-body">
+                    <strong><code>wp-config.php</code> dosyasına şu satırı ekleyin</strong>
+                    <div class="tws-code-block">
+                        <code>define( 'DISABLE_WP_CRON', true );</code>
+                        <?php if ( $wp_cron_disabled ) : ?>
+                            <span class="tws-inline-badge tws-badge-success">✓ Zaten tanımlı</span>
+                        <?php else : ?>
+                            <span class="tws-inline-badge tws-badge-warning">Henüz eklenmedi</span>
+                        <?php endif; ?>
+                    </div>
+                    <p class="description">Bu satır WordPress'in yavaş sayfa tetiklemeli cron'unu devre dışı bırakır.</p>
+                </div>
+            </div>
+
+            <div class="tws-cron-step">
+                <div class="tws-step-num">2</div>
+                <div class="tws-step-body">
+                    <strong>Hosting cPanel (Cron Jobs) veya sunucu crontab'a ekleyin</strong>
+                    <p class="description">Her 5 dakikada bir çalıştırın — Action Scheduler kendi planladığı işleri yönetir.</p>
+
+                    <div class="tws-cron-tabs">
+                        <button type="button" class="tws-cron-tab-btn active" data-show="curl">cURL (önerilen)</button>
+                        <button type="button" class="tws-cron-tab-btn" data-show="wget">wget</button>
+                        <button type="button" class="tws-cron-tab-btn" data-show="wpcli">WP-CLI</button>
+                    </div>
+
+                    <div class="tws-code-block" id="tws-cron-curl">
+                        <code>*/5 * * * * curl -s "<?php echo esc_url( site_url( '/wp-cron.php?doing_wp_cron' ) ); ?>" > /dev/null 2>&1</code>
+                        <button type="button" class="tws-copy-btn" data-target="tws-cron-curl">Kopyala</button>
+                    </div>
+                    <div class="tws-code-block" id="tws-cron-wget" style="display:none;">
+                        <code>*/5 * * * * wget -q -O - "<?php echo esc_url( site_url( '/wp-cron.php?doing_wp_cron' ) ); ?>" > /dev/null 2>&1</code>
+                        <button type="button" class="tws-copy-btn" data-target="tws-cron-wget">Kopyala</button>
+                    </div>
+                    <div class="tws-code-block" id="tws-cron-wpcli" style="display:none;">
+                        <code>*/5 * * * * cd <?php echo esc_html( ABSPATH ); ?> && wp cron event run --due-now --allow-root > /dev/null 2>&1</code>
+                        <button type="button" class="tws-copy-btn" data-target="tws-cron-wpcli">Kopyala</button>
+                    </div>
+
+                    <p class="description" style="margin-top:10px;">
+                        <strong>cPanel:</strong> Hosting → Cron Jobs → Add a New Cron Job → "Every 5 minutes" seçin, komutu yapıştırın.
+                    </p>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -158,7 +241,7 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
         </div>
         <?php endif; ?>
         <table class="widefat tws-map-table">
-            <thead><tr><th style="width:45%">Trendyol</th><th style="width:45%">WooCommerce</th><th style="width:10%"></th></tr></thead>
+            <thead><tr><th style="width:45%">Trendyol</th><th style="width:45%">WooCommerce</th><th></th></tr></thead>
             <tbody id="tws-cat-map-body"></tbody>
         </table>
         <div class="tws-actions" style="margin-top:14px;">
@@ -192,11 +275,11 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
         </table>
     </div>
 
-    <?php else : ?>
+<?php else : ?>
 
-    <!-- ============================================================ -->
-    <!-- SEKME 2: Dışa Aktarma (WooCommerce → Trendyol) -->
-    <!-- ============================================================ -->
+    <!-- ============================================================
+         SEKMESİ 2: Dışa Aktarma (WooCommerce → Trendyol)
+         ============================================================ -->
     <div class="tws-card tws-card-full">
         <h2>WooCommerce Ürünlerini Trendyol'a Aktar</h2>
         <p class="description">Ürün seçin, Trendyol kategori/marka/özelliklerini yapılandırın ve aktarın.</p>
@@ -206,23 +289,18 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
             <button type="button" id="tws-product-search-btn" class="button">Ara</button>
         </div>
 
-        <table class="widefat striped tws-export-table" id="tws-export-table">
+        <table class="widefat striped tws-export-table">
             <thead>
                 <tr>
                     <th style="width:52px"></th>
-                    <th>Ürün</th>
-                    <th>SKU</th>
-                    <th>Fiyat</th>
-                    <th>Stok</th>
-                    <th>Trendyol Durumu</th>
-                    <th>İşlem</th>
+                    <th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th>
+                    <th>Trendyol Durumu</th><th>İşlem</th>
                 </tr>
             </thead>
             <tbody id="tws-export-tbody">
                 <tr><td colspan="7" class="tws-loading">Ürünler yükleniyor…</td></tr>
             </tbody>
         </table>
-
         <div class="tws-pagination" id="tws-export-pagination"></div>
     </div>
 
@@ -231,10 +309,8 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
         <div class="tws-modal">
             <button type="button" class="tws-modal-close">✕</button>
             <h2 id="tws-modal-title">Ürünü Trendyol'a Aktar</h2>
-
             <div id="tws-modal-body">
                 <table class="form-table tws-modal-form">
-                    <!-- Kategori -->
                     <tr>
                         <th><label>Trendyol Kategorisi <span class="tws-req">*</span></label></th>
                         <td>
@@ -246,7 +322,6 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
                             <span class="tws-selected-label" id="tws-cat-label"></span>
                         </td>
                     </tr>
-                    <!-- Marka -->
                     <tr>
                         <th><label>Marka <span class="tws-req">*</span></label></th>
                         <td>
@@ -258,33 +333,21 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
                             <span class="tws-selected-label" id="tws-brand-label"></span>
                         </td>
                     </tr>
-                    <!-- Kargo -->
                     <tr>
                         <th><label>Kargo Şirketi <span class="tws-req">*</span></label></th>
-                        <td>
-                            <select id="tws-cargo-id" class="regular-text">
-                                <option value="">Yükleniyor…</option>
-                            </select>
-                        </td>
+                        <td><select id="tws-cargo-id" class="regular-text"><option value="">Yükleniyor…</option></select></td>
                     </tr>
-                    <!-- Desi -->
                     <tr>
                         <th><label>Boyutsal Ağırlık (Desi)</label></th>
-                        <td>
-                            <input type="number" id="tws-desi" class="small-text" value="1" min="0.1" step="0.1" />
-                        </td>
+                        <td><input type="number" id="tws-desi" class="small-text" value="1" min="0.1" step="0.1" /></td>
                     </tr>
                 </table>
-
-                <!-- Kategori Özellikleri -->
                 <div id="tws-attributes-section" style="display:none;">
                     <h3>Kategori Özellikleri</h3>
                     <table class="form-table" id="tws-attributes-table"></table>
                 </div>
-
                 <div id="tws-export-modal-result" class="tws-notice" style="display:none;"></div>
             </div>
-
             <div class="tws-modal-footer">
                 <button type="button" id="tws-do-export" class="button button-primary button-large">Trendyol'a Aktar</button>
                 <button type="button" class="button tws-modal-close-btn">İptal</button>
@@ -292,5 +355,5 @@ $active_tab = isset( $_GET['tws_tab'] ) ? sanitize_key( $_GET['tws_tab'] ) : 'im
         </div>
     </div>
 
-    <?php endif; ?>
+<?php endif; ?>
 </div>
