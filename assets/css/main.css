@@ -2016,22 +2016,22 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .m-logo-img{height:28px;max-width:130px;}
 }
 
-/* ═══ YENİ LOGO: İKON + TEXT (724 + PazarYeri.com) ═══ */
+/* ═══ LOGO: İKON + TEXT (724 + PazarYeri.com) ═══ */
 /* Mobil */
 .pazaryeri-wrap .m-logo{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:0 6px;justify-content:center;text-decoration:none;}
-.pazaryeri-wrap .m-logo-icon{height:32px;width:32px;flex-shrink:0;display:block;object-fit:contain;}
-.pazaryeri-wrap .m-logo-txt{display:inline-flex!important;align-items:baseline;gap:0;font-family:'Archivo',sans-serif;font-weight:900;font-size:19px;letter-spacing:-0.5px;line-height:1;white-space:nowrap;}
-.pazaryeri-wrap .m-logo-txt .m-lg-724{color:#fff;}
-.pazaryeri-wrap .m-logo-txt .m-lg-pz{color:var(--accent2);}
-.pazaryeri-wrap .m-logo-txt .m-lg-com{color:rgba(255,255,255,.45);font-size:12px;font-weight:600;margin-left:1px;align-self:flex-end;padding-bottom:1px;}
+.pazaryeri-wrap .m-logo-icon{height:34px;width:34px;flex-shrink:0;display:block;object-fit:contain;filter:drop-shadow(0 1px 6px rgba(0,0,0,.4));}
+.pazaryeri-wrap .m-logo-txt{display:inline-flex!important;align-items:baseline;gap:0;font-family:'Archivo',sans-serif;font-weight:900;font-size:20px;letter-spacing:-0.5px;line-height:1;white-space:nowrap;}
+.pazaryeri-wrap .m-logo-txt .m-lg-724{color:#ff6a00;text-shadow:0 0 18px rgba(255,106,0,.5);}
+.pazaryeri-wrap .m-logo-txt .m-lg-pz{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.25);}
+.pazaryeri-wrap .m-logo-txt .m-lg-com{color:rgba(255,255,255,.72);font-size:12px;font-weight:700;margin-left:1px;align-self:flex-end;padding-bottom:1px;}
 
 /* Masaüstü */
 .pazaryeri-wrap .logo-wrap{display:flex;align-items:center;gap:10px;text-decoration:none;}
-.pazaryeri-wrap .logo-icon{height:44px;width:44px;flex-shrink:0;display:block;object-fit:contain;}
-.pazaryeri-wrap .logo-text{display:inline-flex!important;align-items:baseline;font-family:'Archivo',sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.4px;line-height:1;white-space:nowrap;}
-.pazaryeri-wrap .logo-text .lg-724{color:var(--accent);}
-.pazaryeri-wrap .logo-text .lg-pz{color:#fff;}
-.pazaryeri-wrap .logo-text .lg-com{color:rgba(255,255,255,.55);font-size:16px;font-weight:600;margin-left:2px;}
+.pazaryeri-wrap .logo-icon{height:46px;width:46px;flex-shrink:0;display:block;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.06);}
+.pazaryeri-wrap .logo-text{display:inline-flex!important;align-items:baseline;font-family:'Archivo',sans-serif;font-weight:900;font-size:24px;letter-spacing:-0.5px;line-height:1;white-space:nowrap;}
+.pazaryeri-wrap .logo-text .lg-724{color:#ff6a00;text-shadow:0 0 22px rgba(255,106,0,.45);}
+.pazaryeri-wrap .logo-text .lg-pz{color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.3);}
+.pazaryeri-wrap .logo-text .lg-com{color:rgba(255,255,255,.72);font-size:16px;font-weight:700;margin-left:2px;}
 
 /* Mobilde küçük ekran ayarı */
 @media(max-width:380px){
