@@ -85,40 +85,167 @@ class PZV_Admin {
 
     /** ─── SAYFA: Satıcı Listesi ─── */
     public function page_vendors() {
-        $vendors = PZV_Vendor::get_all();
+        $all_vendors      = PZV_Vendor::get_all();
+        $filter_status    = isset( $_GET['vstatus'] ) ? sanitize_key( $_GET['vstatus'] ) : '';
+
+        // Aktif / pasif sayıları
+        $count_active   = 0;
+        $count_inactive = 0;
+        foreach ( $all_vendors as $u ) {
+            if ( get_user_meta( $u->ID, 'pzv_status', true ) === 'inactive' ) $count_inactive++;
+            else $count_active++;
+        }
+
+        // Seçilen filtre
+        $vendors = array_filter( $all_vendors, function( $u ) use ( $filter_status ) {
+            $is_inactive = get_user_meta( $u->ID, 'pzv_status', true ) === 'inactive';
+            if ( $filter_status === 'active'   ) return ! $is_inactive;
+            if ( $filter_status === 'inactive' ) return   $is_inactive;
+            return true;
+        } );
+
+        $base = admin_url( 'admin.php?page=pzv-vendors' );
         ?>
         <div class="wrap pzv-wrap">
-            <h1>🏪 Satıcılar (<?php echo count( $vendors ); ?>)</h1>
+            <h1>🏪 Satıcılar (<?php echo count( $all_vendors ); ?>)</h1>
             <p>Onay bekleyen başvurular: <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=seller_apply' ) ); ?>">Satıcı Başvuruları</a></p>
-            <table class="wp-list-table widefat striped">
+
+            <!-- Filtre sekmeleri -->
+            <ul class="subsubsub">
+                <li><a href="<?php echo esc_url( $base ); ?>" <?php echo ! $filter_status ? 'class="current"' : ''; ?>>Tümü <span class="count">(<?php echo count( $all_vendors ); ?>)</span></a> |</li>
+                <li><a href="<?php echo esc_url( add_query_arg( 'vstatus', 'active', $base ) ); ?>" <?php echo $filter_status === 'active' ? 'class="current"' : ''; ?>>Aktif <span class="count">(<?php echo $count_active; ?>)</span></a> |</li>
+                <li><a href="<?php echo esc_url( add_query_arg( 'vstatus', 'inactive', $base ) ); ?>" <?php echo $filter_status === 'inactive' ? 'class="current"' : ''; ?>>Pasif <span class="count">(<?php echo $count_inactive; ?>)</span></a></li>
+            </ul>
+
+            <table class="wp-list-table widefat striped" style="margin-top:8px;">
                 <thead><tr>
                     <th>ID</th><th>Mağaza</th><th>Ad Soyad</th><th>E-posta</th><th>Şehir</th>
-                    <th>Komisyon %</th><th>Toplam Satış</th><th>Bekleyen</th><th>İşlem</th>
+                    <th>Komisyon %</th><th>Toplam Satış</th><th>Bekleyen</th><th>Durum</th><th>İşlem</th>
                 </tr></thead>
                 <tbody>
                 <?php if ( empty( $vendors ) ) : ?>
-                    <tr><td colspan="9">Henüz onaylı satıcı yok.</td></tr>
+                    <tr><td colspan="10">Satıcı bulunamadı.</td></tr>
                 <?php else : foreach ( $vendors as $u ) :
                     $v = PZV_Vendor::get( $u->ID ); if ( ! $v ) continue;
+                    $is_active  = get_user_meta( $v['id'], 'pzv_status', true ) !== 'inactive';
+                    $row_class  = $is_active ? '' : ' style="opacity:.6;"';
                     ?>
-                    <tr>
+                    <tr id="pzv-vendor-row-<?php echo (int) $v['id']; ?>"<?php echo $row_class; ?>>
                         <td><?php echo (int) $v['id']; ?></td>
-                        <td><strong><?php echo esc_html( $v['store_name'] ); ?></strong></td>
+                        <td>
+                            <strong><?php echo esc_html( $v['store_name'] ); ?></strong><br>
+                            <a href="<?php echo esc_url( PZV_Vendor::store_url( $v['id'] ) ); ?>" target="_blank" style="font-size:11px;color:#888;">↗ Mağazayı Gör</a>
+                        </td>
                         <td><?php echo esc_html( $v['display_name'] ); ?></td>
                         <td><a href="mailto:<?php echo esc_attr( $v['email'] ); ?>"><?php echo esc_html( $v['email'] ); ?></a></td>
                         <td><?php echo esc_html( $v['city'] ?: '-' ); ?></td>
                         <td>
-                            <input type="number" step="0.5" min="0" max="100" class="pzv-commission-input small-text" data-vendor="<?php echo (int) $v['id']; ?>" value="<?php echo esc_attr( $v['commission_override'] ); ?>" placeholder="Default">
+                            <input type="number" step="0.5" min="0" max="100"
+                                class="pzv-commission-input small-text"
+                                data-vendor="<?php echo (int) $v['id']; ?>"
+                                value="<?php echo esc_attr( $v['commission_override'] ); ?>"
+                                placeholder="Default">
                         </td>
                         <td><?php echo wc_price( PZV_Commission::vendor_total_sales( $u->ID ) ); ?></td>
                         <td><strong><?php echo wc_price( PZV_Commission::vendor_pending( $u->ID ) ); ?></strong></td>
-                        <td><a class="button button-small" href="<?php echo esc_url( get_edit_user_link( $v['id'] ) ); ?>">Düzenle</a></td>
+                        <td>
+                            <button type="button"
+                                class="button button-small pzv-toggle-vendor-status"
+                                data-vendor="<?php echo (int) $v['id']; ?>"
+                                data-active="<?php echo $is_active ? '1' : '0'; ?>"
+                                style="<?php echo $is_active ? 'color:#1a7a4a;border-color:#a7f3d0;' : 'color:#dc2626;border-color:#fca5a5;'; ?>">
+                                <?php echo $is_active ? '● Aktif' : '○ Pasif'; ?>
+                            </button>
+                        </td>
+                        <td style="white-space:nowrap;">
+                            <a class="button button-small" href="<?php echo esc_url( get_edit_user_link( $v['id'] ) ); ?>">Düzenle</a>
+                            <button type="button"
+                                class="button button-small pzv-delete-vendor"
+                                data-vendor="<?php echo (int) $v['id']; ?>"
+                                data-name="<?php echo esc_attr( $v['store_name'] ); ?>"
+                                style="color:#dc2626;border-color:#fca5a5;margin-left:4px;">
+                                Sil
+                            </button>
+                        </td>
                     </tr>
                 <?php endforeach; endif; ?>
                 </tbody>
             </table>
         </div>
         <?php
+    }
+
+    /** AJAX: Satıcı aktif ↔ pasif toggle */
+    public static function ajax_toggle_vendor_status() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+
+        $vid = (int) ( $_POST['vendor_id'] ?? 0 );
+        if ( ! $vid ) wp_send_json_error( array( 'message' => 'Vendor ID eksik' ) );
+
+        $currently_inactive = get_user_meta( $vid, 'pzv_status', true ) === 'inactive';
+        if ( $currently_inactive ) {
+            // Aktif yap
+            delete_user_meta( $vid, 'pzv_status' );
+            $new_active = true;
+        } else {
+            // Pasif yap — ürünleri gizlemek için meta kullan (ürünlere dokunmuyoruz)
+            update_user_meta( $vid, 'pzv_status', 'inactive' );
+            $new_active = false;
+        }
+
+        wp_send_json_success( array(
+            'active'  => $new_active,
+            'message' => $new_active ? 'Satıcı aktif edildi.' : 'Satıcı pasife alındı. Ürünleri sitede gizlendi.',
+        ) );
+    }
+
+    /** AJAX: Satıcıyı sil (rol kaldır + meta temizle + ürünler taslağa çek) */
+    public static function ajax_delete_vendor() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+
+        $vid = (int) ( $_POST['vendor_id'] ?? 0 );
+        if ( ! $vid ) wp_send_json_error( array( 'message' => 'Vendor ID eksik' ) );
+
+        $user = get_userdata( $vid );
+        if ( ! $user ) wp_send_json_error( array( 'message' => 'Kullanıcı bulunamadı' ) );
+
+        // pzv_vendor rolünü kaldır, customer rolü ver
+        $user->remove_role( PZV_ROLE );
+        if ( ! $user->roles ) {
+            $user->add_role( 'customer' );
+        }
+
+        // Tüm pzv_ önekli meta temizle
+        $meta_keys = array(
+            'pzv_store_name','pzv_store_slug','pzv_phone','pzv_city','pzv_address',
+            'pzv_description','pzv_iban','pzv_logo','pzv_banner',
+            'pzv_commission_override','pzv_status','pzv_tc_or_tax',
+        );
+        foreach ( $meta_keys as $key ) {
+            delete_user_meta( $vid, $key );
+        }
+
+        // Satıcının ürünlerini taslağa çek
+        $product_ids = get_posts( array(
+            'post_type'      => 'product',
+            'author'         => $vid,
+            'post_status'    => array( 'publish', 'pending', 'private' ),
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+        ) );
+        $product_count = count( $product_ids );
+        foreach ( $product_ids as $pid ) {
+            wp_update_post( array( 'ID' => $pid, 'post_status' => 'draft' ) );
+        }
+
+        wp_send_json_success( array(
+            'vendor_id'     => $vid,
+            'product_count' => $product_count,
+            'message'       => esc_html( $user->display_name ) . ' satıcı listesinden kaldırıldı. ' . $product_count . ' ürün taslağa alındı.',
+        ) );
     }
 
     /** ─── SAYFA: Bekleyen Ödemeler ─── */
