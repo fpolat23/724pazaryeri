@@ -49,6 +49,15 @@ if ( ! $v ) {
     exit;
 }
 
+// Pasif satıcı → 404
+if ( get_user_meta( $store_id, 'pzv_status', true ) === 'inactive' ) {
+    global $wp_query;
+    $wp_query->set_404();
+    status_header( 404 );
+    get_template_part( '404' );
+    exit;
+}
+
 // ── Mağaza verileri ──
 $store_name    = $v['store_name'];
 $store_base    = PZV_Vendor::store_url( $store_id );

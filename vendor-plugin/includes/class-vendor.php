@@ -66,4 +66,27 @@ class PZV_Vendor {
     public static function get_all() {
         return get_users( array( 'role' => PZV_ROLE, 'orderby' => 'registered', 'order' => 'DESC' ) );
     }
+
+    /** Sadece aktif (pasife alınmamış) satıcılar */
+    public static function get_active() {
+        return get_users( array(
+            'role'       => PZV_ROLE,
+            'orderby'    => 'registered',
+            'order'      => 'DESC',
+            'meta_query' => array(
+                'relation' => 'OR',
+                array( 'key' => 'pzv_status', 'compare' => 'NOT EXISTS' ),
+                array( 'key' => 'pzv_status', 'value' => 'inactive', 'compare' => '!=' ),
+            ),
+        ) );
+    }
+
+    /** Doğrudan DB'den ürün sayısı (Dokan gibi hook'lar atlanır) */
+    public static function product_count( $vendor_id, $status = 'publish' ) {
+        global $wpdb;
+        return (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = %s AND post_author = %d",
+            $status, $vendor_id
+        ) );
+    }
 }

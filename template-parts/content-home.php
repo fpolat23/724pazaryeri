@@ -10,7 +10,7 @@ if ( false === $pz_stats ) {
     if ( isset( $counts->publish ) ) $prod_count = (int) $counts->publish;
 
     // Satıcı (PZV vendor) sayısı
-    $seller_count = class_exists('PZV_Vendor') ? count( PZV_Vendor::get_all() ) : 0;
+    $seller_count = class_exists('PZV_Vendor') ? count( PZV_Vendor::get_active() ) : 0;
 
     // Kullanıcı (toplam üye) sayısı
     $user_count = 0;
@@ -538,9 +538,9 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
     </div>
     <div class="sgrid">
       <?php
-        // PZV vendor mağazalarını listele
-        $pzv_vendors = class_exists('PZV_Vendor') ? PZV_Vendor::get_all() : array();
-        $pzv_vendors = array_slice( $pzv_vendors, 0, 8 ); // en fazla 8 çek, ürünlü 4 göster
+        // PZV vendor mağazalarını listele — sadece aktif satıcılar
+        $pzv_vendors = class_exists('PZV_Vendor') ? PZV_Vendor::get_active() : array();
+        $pzv_vendors = array_slice( $pzv_vendors, 0, 16 ); // ürünlü 4'ü bulmak için fazladan çek
         $avatars = array('🏪','🛍️','📦','🎁','🧶','🎧','💎','👜');
         $shown = 0;
         ob_start();
@@ -549,25 +549,23 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
           $v = PZV_Vendor::get( $vu->ID );
           if ( ! $v ) continue;
 
-          // Ürün sayısı (yayınlanmış)
-          $pcount_q = new WP_Query( array(
-            'post_type'      => 'product',
-            'post_status'    => 'publish',
-            'author'         => $v['id'],
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
-          ) );
-          $product_count = count( $pcount_q->posts );
+          // Ürün sayısı — Dokan/diğer hook'ları atlayarak doğrudan DB'den
+          $product_count = PZV_Vendor::product_count( $v['id'] );
+          if ( $product_count < 1 ) continue; // Ürünsüz satıcıyı gösterme
 
           // Logo
           $logo_url = ! empty( $v['logo'] ) ? wp_get_attachment_image_url( $v['logo'], 'thumbnail' ) : '';
           $avatar   = $avatars[ $shown % count($avatars) ];
 
-          // Ana kategori (ilk ürünün kategorisi)
+          // Ana kategori (ilk ürünün kategorisi — doğrudan DB)
+          global $wpdb;
+          $first_pid = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type='product' AND post_status='publish' AND post_author=%d ORDER BY post_date DESC LIMIT 1",
+            $v['id']
+          ) );
           $main_cat = '';
-          if ( ! empty( $pcount_q->posts ) ) {
-            $cats_q = wp_get_post_terms( $pcount_q->posts[0], 'product_cat', array('fields'=>'names') );
+          if ( $first_pid ) {
+            $cats_q = wp_get_post_terms( $first_pid, 'product_cat', array('fields'=>'names') );
             if ( ! is_wp_error($cats_q) && ! empty($cats_q) ) $main_cat = $cats_q[0];
           }
           if ( ! $main_cat ) $main_cat = $v['city'] ? $v['city'] : 'Mağaza';

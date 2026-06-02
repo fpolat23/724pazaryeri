@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PZV_VERSION', '1.3.4' );
+define( 'PZV_VERSION', '1.3.5' );
 define( 'PZV_FILE', __FILE__ );
 define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
@@ -113,6 +113,7 @@ add_action( 'wp_ajax_pzv_save_product_data',    array( 'PZV_Dashboard','ajax_sav
 add_action( 'wp_ajax_pzv_save_vendor_profile',  array( 'PZV_Dashboard','ajax_save_vendor_profile' ) );
 add_action( 'wp_ajax_pzv_toggle_vendor_status', array( 'PZV_Admin',    'ajax_toggle_vendor_status' ) );
 add_action( 'wp_ajax_pzv_delete_vendor',        array( 'PZV_Admin',    'ajax_delete_vendor' ) );
+add_action( 'wp_ajax_pzv_fix_product_authors',  array( 'PZV_Admin',    'ajax_fix_product_authors' ) );
 
 // ─── Frontend: pasif satıcıların ürünlerini gizle ─── //
 add_action( 'pre_get_posts', function ( $query ) {

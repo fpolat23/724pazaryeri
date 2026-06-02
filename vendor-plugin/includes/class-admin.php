@@ -807,30 +807,51 @@ class PZV_Admin {
                 $to_migrate[] = $u;
             }
         }
+
+        // Dokan aktif mi?
+        $dokan_active = class_exists( 'WeDevs_Dokan' ) || class_exists( 'Dokan_Pro' ) || defined( 'DOKAN_FILE' );
+
+        // PZV vendor listesi + ürün sayıları (doğrudan DB)
+        global $wpdb;
+        $pzv_vendors = PZV_Vendor::get_all();
         ?>
         <div class="wrap pzv-wrap">
             <h1>↩ Dokan → PazarYeri Vendor Aktarımı</h1>
-            <p>Bu araç Dokan eklentisindeki satıcıları (<code>seller</code> rolü) PazarYeri Vendor sistemine (<code>pzv_vendor</code>) aktarır.</p>
-            <p><strong>Aktarılan bilgiler:</strong> Mağaza adı, logo, banner, telefon, şehir, adres, açıklama, IBAN</p>
-            <p><strong>Ürünler:</strong> Ürünler zaten satıcıların üzerine kayıtlı olduğundan ayrıca aktarım gerekmez.</p>
 
-            <table class="wp-list-table widefat striped" style="margin-bottom:20px;">
-                <thead><tr><th>Satıcı</th><th>E-posta</th><th>Durum</th></tr></thead>
+            <?php if ( $dokan_active ) : ?>
+            <div class="notice notice-warning" style="margin:12px 0;">
+                <p><strong>⚠ Dokan hâlâ aktif!</strong> Aktarım tamamlandıktan sonra Dokan eklentisini <strong>devre dışı bırakın ve silin</strong>. Dokan aktifken ürün sayacı ve mağaza sorguları yanlış çalışabilir.</p>
+            </div>
+            <?php endif; ?>
+
+            <h2>1️⃣ Satıcı Aktarımı</h2>
+            <p>Dokan eklentisindeki satıcıları (<code>seller</code> rolü) PazarYeri Vendor sistemine (<code>pzv_vendor</code>) aktarır.</p>
+            <p><strong>Aktarılan bilgiler:</strong> Mağaza adı, logo, banner, telefon, şehir, adres, açıklama, IBAN</p>
+            <p><strong>Ürünler:</strong> Satıcı User ID değişmediğinden post_author zaten doğru. Sorun olduğunda Adım 2'yi kullanın.</p>
+
+            <table class="wp-list-table widefat striped" style="margin-bottom:16px;">
+                <thead><tr><th>Satıcı</th><th>E-posta</th><th>Ürün (yayınlı)</th><th>Durum</th></tr></thead>
                 <tbody>
                 <?php if ( empty( $sellers ) ) : ?>
-                    <tr><td colspan="3">Hiç Dokan satıcısı (<code>seller</code> rolü) bulunamadı.</td></tr>
+                    <tr><td colspan="4">Hiç Dokan satıcısı (<code>seller</code> rolü) bulunamadı.</td></tr>
                 <?php else : ?>
-                    <?php foreach ( $to_migrate as $u ) : ?>
+                    <?php foreach ( $to_migrate as $u ) :
+                        $cnt = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type='product' AND post_status='publish' AND post_author=%d", $u->ID ) );
+                    ?>
                         <tr>
                             <td><strong><?php echo esc_html( $u->display_name ); ?></strong> (ID: <?php echo (int) $u->ID; ?>)</td>
                             <td><?php echo esc_html( $u->user_email ); ?></td>
+                            <td><?php echo $cnt; ?></td>
                             <td><span style="color:#d9822b;">⏳ Aktarılacak</span></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php foreach ( $already_migrated as $u ) : ?>
+                    <?php foreach ( $already_migrated as $u ) :
+                        $cnt = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type='product' AND post_status='publish' AND post_author=%d", $u->ID ) );
+                    ?>
                         <tr style="opacity:.6;">
                             <td><strong><?php echo esc_html( $u->display_name ); ?></strong> (ID: <?php echo (int) $u->ID; ?>)</td>
                             <td><?php echo esc_html( $u->user_email ); ?></td>
+                            <td><?php echo $cnt; ?></td>
                             <td><span style="color:#1a7a4a;">✓ Zaten PZV vendor</span></td>
                         </tr>
                     <?php endforeach; ?>
@@ -852,23 +873,72 @@ class PZV_Admin {
                 <h3 id="pzv-migrate-summary"></h3>
                 <ul id="pzv-migrate-log" style="font-family:monospace;font-size:13px;line-height:1.8;"></ul>
             </div>
+
+            <hr style="margin:32px 0 24px;">
+
+            <h2>2️⃣ Ürün Sahipliklerini Düzelt</h2>
+            <p>Admin tarafından oluşturulmuş ürünlerde <code>post_author</code> admin olarak kayıtlıdır; bu araç Dokan meta verilerinden gerçek satıcıyı bulup düzeltir.</p>
+            <p><strong>Taranır:</strong> Tüm ürünler &nbsp;|&nbsp; <strong>Düzeltilir:</strong> Sadece post_author'u vendor olmayan ürünler</p>
+            <?php
+                $non_vendor_cnt = (int) $wpdb->get_var(
+                    "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p
+                     LEFT JOIN {$wpdb->usermeta} um
+                        ON p.post_author = um.user_id
+                       AND um.meta_key = '{$wpdb->prefix}capabilities'
+                       AND (um.meta_value LIKE '%pzv_vendor%' OR um.meta_value LIKE '%\"seller\"%')
+                     WHERE p.post_type = 'product' AND p.post_status NOT IN ('trash','auto-draft')
+                       AND um.user_id IS NULL"
+                );
+            ?>
+            <p>Şu an <strong><?php echo $non_vendor_cnt; ?></strong> ürünün post_author'u vendor değil.</p>
+            <button id="pzv-fix-authors-btn" class="button button-secondary button-large"
+                <?php echo $non_vendor_cnt === 0 ? 'disabled' : ''; ?>>
+                🔧 Ürün sahipliklerini düzelt
+            </button>
+
+            <div id="pzv-fix-result" style="display:none;margin-top:20px;padding:16px;background:#fff;border:1px solid #ddd;border-radius:4px;">
+                <h3 id="pzv-fix-summary"></h3>
+                <ul id="pzv-fix-log" style="font-family:monospace;font-size:13px;line-height:1.8;"></ul>
+            </div>
+
+            <?php if ( ! empty( $pzv_vendors ) ) : ?>
+            <hr style="margin:32px 0 24px;">
+            <h2>📊 Mevcut PZV Satıcılar ve Ürün Sayıları</h2>
+            <table class="wp-list-table widefat striped">
+                <thead><tr><th>Mağaza</th><th>Kullanıcı</th><th>Yayınlı Ürün</th><th>Bekleyen</th><th>Durum</th></tr></thead>
+                <tbody>
+                <?php foreach ( $pzv_vendors as $u ) :
+                    $v = PZV_Vendor::get( $u->ID ); if ( ! $v ) continue;
+                    $pub  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type='product' AND post_status='publish' AND post_author=%d", $u->ID ) );
+                    $pend = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type='product' AND post_status='pending' AND post_author=%d", $u->ID ) );
+                    $is_active = get_user_meta( $u->ID, 'pzv_status', true ) !== 'inactive';
+                ?>
+                    <tr>
+                        <td><strong><?php echo esc_html( $v['store_name'] ); ?></strong></td>
+                        <td><?php echo esc_html( $v['display_name'] ); ?> (ID: <?php echo (int) $v['id']; ?>)</td>
+                        <td><?php echo $pub > 0 ? '<strong style="color:#1a7a4a">' . $pub . '</strong>' : '<span style="color:#999">0</span>'; ?></td>
+                        <td><?php echo $pend > 0 ? '<span style="color:#d9822b">' . $pend . '</span>' : '0'; ?></td>
+                        <td><?php echo $is_active ? '<span style="color:#1a7a4a">● Aktif</span>' : '<span style="color:#dc2626">○ Pasif</span>'; ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
         </div>
         <script>
         jQuery(function($){
             $('#pzv-migrate-btn').on('click', function(){
                 var btn = $(this);
                 btn.prop('disabled', true).text('⏳ Aktarılıyor...');
-                $.post(pzv.ajax_url, {
-                    action: 'pzv_dokan_migrate',
-                    nonce:  pzv.nonce
-                }, function(res){
-                    btn.prop('disabled', false).text('✓ Tamamlandı');
+                $.post(pzv.ajax_url, { action: 'pzv_dokan_migrate', nonce: pzv.nonce }, function(res){
+                    btn.prop('disabled', false);
                     if (!res.success) {
                         alert('Hata: ' + (res.data ? res.data.message : 'Bilinmeyen hata'));
-                        btn.prop('disabled', false).text('🚀 Tekrar Dene');
+                        btn.text('🚀 Tekrar Dene');
                         return;
                     }
                     var d = res.data;
+                    btn.text('✓ Tamamlandı');
                     $('#pzv-migrate-summary').html(
                         '✅ Aktarıldı: <strong>' + d.migrated + '</strong> &nbsp;|&nbsp; ⏭ Atlandı: <strong>' + d.skipped + '</strong> &nbsp;|&nbsp; Toplam: <strong>' + d.total + '</strong>'
                     );
@@ -878,6 +948,34 @@ class PZV_Admin {
                     if (d.migrated > 0) btn.hide();
                 }).fail(function(){
                     btn.prop('disabled', false).text('🚀 Tekrar Dene');
+                    alert('AJAX isteği başarısız oldu.');
+                });
+            });
+
+            $('#pzv-fix-authors-btn').on('click', function(){
+                var btn = $(this);
+                if ( ! confirm('Tüm ürünler taranacak. Büyük veritabanlarında biraz sürebilir. Devam edilsin mi?') ) return;
+                btn.prop('disabled', true).text('⏳ Taranıyor...');
+                $.post(pzv.ajax_url, { action: 'pzv_fix_product_authors', nonce: pzv.nonce }, function(res){
+                    btn.prop('disabled', false);
+                    if (!res.success) {
+                        alert('Hata: ' + (res.data ? res.data.message : 'Bilinmeyen hata'));
+                        btn.text('🔧 Tekrar Dene');
+                        return;
+                    }
+                    var d = res.data;
+                    btn.text('✓ Tamamlandı');
+                    $('#pzv-fix-summary').html(
+                        '🔧 Taranan: <strong>' + d.scanned + '</strong> &nbsp;|&nbsp; ✅ Düzeltilen: <strong>' + d.fixed + '</strong>'
+                    );
+                    if (d.fixed === 0) {
+                        $('#pzv-fix-summary').append(' — <span style="color:#1a7a4a">Düzeltilecek ürün bulunamadı. Sahiplikler zaten doğru.</span>');
+                    }
+                    var ul = $('#pzv-fix-log').empty();
+                    $.each(d.log, function(i, line){ ul.append('<li>' + line + '</li>'); });
+                    $('#pzv-fix-result').show();
+                }).fail(function(){
+                    btn.prop('disabled', false).text('🔧 Tekrar Dene');
                     alert('AJAX isteği başarısız oldu.');
                 });
             });
@@ -953,11 +1051,116 @@ class PZV_Admin {
             $log[] = '✓ ' . $user->display_name . ' (#' . $uid . ') → Mağaza: "' . $store_name . '" — ' . $product_count . ' ürün';
         }
 
+        // Stats transient'ini sil — anasayfa yenilensin
+        delete_transient( 'pazaryeri_home_stats' );
+
         wp_send_json_success( array(
             'migrated' => $migrated,
             'skipped'  => $skipped,
             'total'    => count( $sellers ),
             'log'      => $log,
+        ) );
+    }
+
+    /**
+     * AJAX: Ürün post_author'larını Dokan verisinden düzelt
+     * Dokan'ın meta alanlarını okuyarak admin tarafından oluşturulan ürünlerin
+     * post_author'ını doğru satıcıya günceller.
+     */
+    public static function ajax_fix_product_authors() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+        }
+
+        global $wpdb;
+
+        // Tüm PZV vendor ve Dokan seller user ID'lerini al
+        $all_vendor_ids = array_map( 'intval', $wpdb->get_col(
+            "SELECT DISTINCT u.ID FROM {$wpdb->users} u
+             INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id
+             WHERE um.meta_key = '{$wpdb->prefix}capabilities'
+               AND (um.meta_value LIKE '%pzv_vendor%' OR um.meta_value LIKE '%\"seller\"%')"
+        ) );
+
+        if ( empty( $all_vendor_ids ) ) {
+            wp_send_json_success( array( 'fixed' => 0, 'scanned' => 0, 'log' => array( 'Vendor bulunamadı.' ) ) );
+        }
+
+        // Dokan'ın ürünlere yazdığı vendor meta anahtarları (sürüme göre değişir)
+        $dokan_meta_keys = array(
+            '_dokan_vendor_id',
+            'dokan_author_id',
+            '_dokan_product_vendor',
+            'dokan_product_author_override',
+        );
+
+        $fixed   = 0;
+        $scanned = 0;
+        $log     = array();
+        $offset  = 0;
+        $batch   = 200;
+
+        do {
+            $product_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts}
+                 WHERE post_type = 'product'
+                   AND post_status IN ('publish','pending','draft','private')
+                 ORDER BY ID ASC
+                 LIMIT %d OFFSET %d",
+                $batch, $offset
+            ) );
+
+            foreach ( $product_ids as $pid ) {
+                $pid = (int) $pid;
+                $scanned++;
+                $current_author = (int) get_post_field( 'post_author', $pid );
+
+                // Mevcut yazar zaten bilinen bir vendor ise atla
+                if ( in_array( $current_author, $all_vendor_ids, true ) ) continue;
+
+                // Dokan meta'sından vendor bul
+                $new_vendor_id = 0;
+                foreach ( $dokan_meta_keys as $meta_key ) {
+                    $meta_val = (int) get_post_meta( $pid, $meta_key, true );
+                    if ( $meta_val && in_array( $meta_val, $all_vendor_ids, true ) ) {
+                        $new_vendor_id = $meta_val;
+                        break;
+                    }
+                }
+
+                if ( ! $new_vendor_id ) continue;
+
+                $wpdb->update(
+                    $wpdb->posts,
+                    array( 'post_author' => $new_vendor_id ),
+                    array( 'ID' => $pid ),
+                    array( '%d' ),
+                    array( '%d' )
+                );
+                clean_post_cache( $pid );
+                $fixed++;
+
+                if ( $fixed <= 50 ) {
+                    $title = get_the_title( $pid );
+                    $v_name = get_user_meta( $new_vendor_id, 'pzv_store_name', true ) ?: "Vendor #{$new_vendor_id}";
+                    $log[] = "✓ Ürün #{$pid} ({$title}): author {$current_author} → {$v_name} (#{$new_vendor_id})";
+                }
+            }
+
+            $offset += $batch;
+        } while ( count( $product_ids ) === $batch );
+
+        delete_transient( 'pazaryeri_home_stats' );
+
+        if ( $fixed > 50 ) {
+            $log[] = "... ve " . ( $fixed - 50 ) . " ürün daha düzeltildi.";
+        }
+
+        wp_send_json_success( array(
+            'fixed'   => $fixed,
+            'scanned' => $scanned,
+            'log'     => $log,
         ) );
     }
 
