@@ -112,6 +112,23 @@ add_action( 'wp_ajax_pzv_new_product',          array( 'PZV_Dashboard',  'ajax_n
 add_action( 'wp_ajax_pzv_save_product_data',    array( 'PZV_Dashboard',  'ajax_save_product_data' ) );
 add_action( 'wp_ajax_pzv_save_vendor_profile',  array( 'PZV_Dashboard',  'ajax_save_vendor_profile' ) );
 
+// ─── Mağaza URL rewrite: /magaza/{slug}/ ─── //
+add_action( 'init', function () {
+    add_rewrite_rule( '^magaza/([^/]+)/?$', 'index.php?pzv_store=$matches[1]', 'top' );
+    add_rewrite_endpoint( 'satici-paneli', EP_ROOT | EP_PAGES );
+} );
+
+add_filter( 'query_vars', function ( $vars ) {
+    $vars[] = 'pzv_store';
+    return $vars;
+} );
+
+add_filter( 'template_include', function ( $template ) {
+    if ( ! get_query_var( 'pzv_store' ) ) return $template;
+    $theme_tpl = locate_template( 'magaza.php' );
+    return $theme_tpl ? $theme_tpl : $template;
+} );
+
 // ─── WooCommerce My Account entegrasyonu ─── //
 add_action( 'init', function () {
     add_rewrite_endpoint( 'satici-paneli', EP_ROOT | EP_PAGES );
