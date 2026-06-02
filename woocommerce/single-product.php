@@ -97,6 +97,7 @@ while ( have_posts() ) : the_post();
               'price'         => $wc_prod ? (float) $wc_prod->get_price() : 0,
               'prod_url'      => $wc_prod ? get_permalink( $wc_prod->get_id() ) : '',
               'dispatch_days' => $dispatch,
+              'in_stock'      => $wc_prod ? $wc_prod->is_in_stock() : true,
             );
           };
           $pz_main_dispatch = 1; // Varsayılan; mevcut satıcı verisi alındıktan sonra güncellenir
@@ -155,10 +156,14 @@ while ( have_posts() ) : the_post();
               <?php if ( $pz_s['price'] > 0 ) : ?>
               <span class="pzv-sr-price"><?php echo esc_html( number_format( $pz_s['price'], 0, ',', '.' ) ); ?> ₺</span>
               <?php endif; ?>
+              <?php if ( ! empty( $pz_s['in_stock'] ) ) : ?>
               <span class="pzv-sr-del pship-txt"><?php
                 $dd = (int) $pz_s['dispatch_days'];
                 echo $dd === 0 ? 'Aynı gün kargo' : $dd . ' iş günü';
               ?></span>
+              <?php else : ?>
+              <span class="pzv-sr-del pzv-sr-stokta-yok">Stokta Yok</span>
+              <?php endif; ?>
             </div>
             <span class="pzv-sr-arr">›</span>
           </a>

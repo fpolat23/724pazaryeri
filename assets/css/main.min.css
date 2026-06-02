@@ -324,6 +324,7 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .pzv-sr-right{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0;text-align:right;}
 .pazaryeri-wrap .pzv-sr-price{font-size:14px;font-weight:800;color:var(--accent);line-height:1.2;}
 .pazaryeri-wrap .pzv-sr-del{font-size:10px;color:var(--muted);white-space:nowrap;}
+.pazaryeri-wrap .pzv-sr-stokta-yok{font-size:10px;font-weight:700;color:#e53e3e;white-space:nowrap;}
 .pazaryeri-wrap .pzv-sr-arr{font-size:18px;color:var(--border);flex-shrink:0;line-height:1;transition:transform 140ms cubic-bezier(0.23,1,0.32,1),color 140ms ease;}
 .pazaryeri-wrap .pzv-seller-row:hover .pzv-sr-arr{transform:translateX(3px);color:var(--accent);}
 .pazaryeri-wrap .hb-variant-block{margin-bottom:16px;}
