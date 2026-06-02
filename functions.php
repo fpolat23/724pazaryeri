@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.95' );
+define( 'PAZARYERI_VERSION', '9.9.96' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -288,79 +288,7 @@ add_filter( 'rocket_exclude_js', function ( $excluded ) {
 add_filter( 'rocket_defer_inline_exclusions', function ( $ex ) { return $ex; } );
 
 
-/* ═══════════════════════════════════════════════
-   SON GEZİLEN ÜRÜNLER
-═══════════════════════════════════════════════ */
-
-/**
- * AJAX: ID listesinden ürün kartları döndürür.
- * JS: action=pz_recent_products, ids[]=1&ids[]=2...
- */
-function pz_recent_products_ajax() {
-    $raw = isset( $_POST['ids'] ) ? (array) $_POST['ids'] : array();
-    $ids = array_values( array_filter( array_map( 'intval', $raw ) ) );
-    if ( empty( $ids ) ) {
-        wp_send_json_error( array( 'msg' => 'no ids' ) );
-    }
-    $ids = array_slice( $ids, 0, 12 );
-
-    $q = new WP_Query( array(
-        'post_type'              => 'product',
-        'post_status'            => 'publish',
-        'post__in'               => $ids,
-        'orderby'                => 'post__in',
-        'posts_per_page'         => count( $ids ),
-        'no_found_rows'          => true,
-        'update_post_term_cache' => true,
-    ) );
-
-    if ( ! $q->have_posts() ) {
-        wp_send_json_error( array( 'msg' => 'no products' ) );
-    }
-
-    ob_start();
-    while ( $q->have_posts() ) {
-        $q->the_post();
-        $p = wc_get_product( get_the_ID() );
-        if ( $p ) {
-            echo bazario_product_card( $p );
-        }
-    }
-    wp_reset_postdata();
-    $html = ob_get_clean();
-
-    wp_send_json_success( array( 'html' => $html ) );
-}
-add_action( 'wp_ajax_pz_recent_products',        'pz_recent_products_ajax' );
-add_action( 'wp_ajax_nopriv_pz_recent_products', 'pz_recent_products_ajax' );
-
-/**
- * PHP bloğu: anasayfa/sepet vb. için placeholder div.
- * İçeriği JS (loadAndRender) doldurur.
- */
-function pz_recently_viewed_block( $title = '🕐 Son Gezdiklerim', $show_clear = true ) {
-    static $block_n = 0;
-    $block_n++;
-    $wrap_id = 'pz-rv-wrap-' . $block_n;
-    $row_id  = 'pz-rv-row-' . $block_n;
-    ob_start();
-    ?>
-    <div class="cw" id="<?php echo esc_attr( $wrap_id ); ?>" data-rv-wrap="1" data-rv-exclude="0" style="display:none;">
-      <div class="recent-products">
-        <div class="recent-products-head">
-          <h2 class="recent-products-title"><?php echo esc_html( $title ); ?></h2>
-          <?php if ( $show_clear ) : ?>
-            <button type="button" class="recent-clear" onclick="pzClearRecent()" aria-label="Temizle">Temizle</button>
-          <?php endif; ?>
-        </div>
-        <div class="recent-products-row" id="<?php echo esc_attr( $row_id ); ?>" data-rv-row="1"></div>
-      </div>
-    </div>
-    <?php
-    return ob_get_clean();
-}
-
-/* Sepet sayfası altına ekle */
+/* Sepet sayfası altına son gezilen ürünler */
 add_action( 'woocommerce_after_cart', function() {
     echo pz_recently_viewed_block( '🕐 Belki Bunları da İstersin', false );
 }, 20 );
