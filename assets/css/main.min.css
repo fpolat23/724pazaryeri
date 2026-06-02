@@ -2026,12 +2026,12 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .m-logo-txt .m-lg-com{color:rgba(255,255,255,.72);font-size:12px;font-weight:700;margin-left:1px;align-self:flex-end;padding-bottom:1px;}
 
 /* Masaüstü */
-.pazaryeri-wrap .logo-wrap{display:flex;align-items:center;gap:10px;text-decoration:none;}
-.pazaryeri-wrap .logo-icon{height:46px;width:46px;flex-shrink:0;display:block;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4)) brightness(1.06);}
-.pazaryeri-wrap .logo-text{display:inline-flex!important;align-items:baseline;font-family:'Archivo',sans-serif;font-weight:900;font-size:24px;letter-spacing:-0.5px;line-height:1;white-space:nowrap;}
-.pazaryeri-wrap .logo-text .lg-724{color:#ff6a00;text-shadow:0 0 22px rgba(255,106,0,.45);}
-.pazaryeri-wrap .logo-text .lg-pz{color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.3);}
-.pazaryeri-wrap .logo-text .lg-com{color:rgba(255,255,255,.72);font-size:16px;font-weight:700;margin-left:2px;}
+.pazaryeri-wrap .logo-wrap{display:flex;align-items:center;gap:11px;text-decoration:none;}
+.pazaryeri-wrap .logo-icon{height:50px;width:50px;flex-shrink:0;display:block;object-fit:contain;filter:brightness(1.15) drop-shadow(0 2px 8px rgba(0,0,0,.5));}
+.pazaryeri-wrap .logo-text{display:inline-flex!important;align-items:baseline;font-family:'Archivo',sans-serif;font-weight:900;font-size:26px;letter-spacing:-0.6px;line-height:1;white-space:nowrap;}
+.pazaryeri-wrap .logo-text .lg-724{background:linear-gradient(130deg,#ff6a00 0%,#ffb000 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 1px 10px rgba(255,106,0,.55));}
+.pazaryeri-wrap .logo-text .lg-pz{color:#fff;letter-spacing:-0.4px;}
+.pazaryeri-wrap .logo-text .lg-com{color:rgba(255,255,255,.75);font-size:15px;font-weight:700;margin-left:2px;letter-spacing:0;}
 
 /* Mobilde küçük ekran ayarı */
 @media(max-width:380px){
