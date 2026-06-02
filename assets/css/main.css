@@ -907,8 +907,8 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .pz-store{max-width:var(--max-w);margin:0 auto;padding:0 16px 40px;}
 
 /* Mağaza üst başlık */
-.pazaryeri-wrap .pz-store-header{background:#fff;border:1.5px solid var(--border);border-radius:16px;overflow:hidden;margin:16px 0 22px;box-shadow:0 2px 12px rgba(0,0,0,.04);}
-.pazaryeri-wrap .pz-store-banner{position:relative;width:100%;aspect-ratio:4/1;max-height:300px;min-height:150px;background:#f0eee9;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.pazaryeri-wrap .pz-store-header{background:#fff;border:1.5px solid var(--border);border-radius:16px;overflow:visible;margin:16px 0 22px;box-shadow:0 2px 12px rgba(0,0,0,.04);}
+.pazaryeri-wrap .pz-store-banner{position:relative;width:100%;aspect-ratio:4/1;max-height:300px;min-height:150px;background:#f0eee9;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:14px 14px 0 0;}
 
 .pazaryeri-wrap .pz-store-banner-img{display:block;width:100%;height:100%;object-fit:contain;object-position:center center;margin:0 auto;}
 .pazaryeri-wrap .pz-store-banner-default{background:linear-gradient(120deg,var(--accent),var(--accent2));}
@@ -958,6 +958,23 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .pz-store-layout{margin-top:0;}
 .pazaryeri-wrap .pz-store-products-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .pazaryeri-wrap .pz-store-count{font-size:13px;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;}
+/* ── Mağaza hiyerarşik kategori ağacı ── */
+.pazaryeri-wrap .pzv-cat-tree,.pazaryeri-wrap .pzv-cat-sub{list-style:none;margin:0;padding:0;}
+.pazaryeri-wrap .pzv-cat-tree{max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#ccc transparent;}
+.pazaryeri-wrap .pzv-cat-tree::-webkit-scrollbar{width:4px;}
+.pazaryeri-wrap .pzv-cat-tree::-webkit-scrollbar-thumb{background:#d0d0d0;border-radius:2px;}
+.pazaryeri-wrap .pzv-cat-li{position:relative;}
+.pazaryeri-wrap .pzv-cat-row{display:flex;align-items:center;}
+.pazaryeri-wrap .pzv-cat-lnk{flex:1;display:block;padding:7px 8px 7px 4px;border-radius:7px;font-size:13px;color:#444;text-decoration:none;transition:background .12s,color .12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pazaryeri-wrap .pzv-cat-lnk:hover{background:#fff5ec;color:var(--accent);}
+.pazaryeri-wrap .pzv-cat-on>.pzv-cat-lnk,.pazaryeri-wrap .pzv-cat-on>.pzv-cat-row>.pzv-cat-lnk{background:#fff5ec;color:var(--accent);font-weight:700;}
+.pazaryeri-wrap .pzv-cat-tog{background:none;border:none;cursor:pointer;padding:3px 6px;color:#aaa;border-radius:5px;display:flex;align-items:center;flex-shrink:0;transition:transform .22s,color .12s;}
+.pazaryeri-wrap .pzv-cat-tog svg{display:block;}
+.pazaryeri-wrap .pzv-cat-tog:hover{color:var(--accent);background:#fff5ec;}
+.pazaryeri-wrap .pzv-cat-li.pzv-cat-open>.pzv-cat-row>.pzv-cat-tog{transform:rotate(90deg);}
+.pazaryeri-wrap .pzv-cat-sub{border-left:2px solid #f0ece7;margin-left:10px;padding-left:2px;margin-top:2px;margin-bottom:2px;}
+.pazaryeri-wrap .pzv-cat-showall{color:var(--accent)!important;font-size:11.5px!important;font-style:italic;opacity:.85;}
+.pazaryeri-wrap .pzv-cat-showall:hover{opacity:1!important;}
 /* Mağaza ürün grid'i sidebar yanında 5 kolon (dar alan) */
 .pazaryeri-wrap .pz-store-layout .pz-store-grid{grid-template-columns:repeat(5,1fr);}
 @media(max-width:1280px){ .pazaryeri-wrap .pz-store-layout .pz-store-grid{grid-template-columns:repeat(4,1fr);} }

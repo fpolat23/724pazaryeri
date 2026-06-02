@@ -222,26 +222,94 @@ get_header();
       </div>
 
       <?php
-        $cat_terms = ! empty( $store_cats )
-            ? get_terms( array( 'taxonomy' => 'product_cat', 'include' => $store_cats, 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ) )
+        // ── Hiyerarşik kategori ağacı ──
+        $all_cat_objs = ! empty( $store_cats )
+            ? get_terms( array( 'taxonomy' => 'product_cat', 'include' => $store_cats,
+                                'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ) )
             : array();
-        if ( ! empty( $cat_terms ) && ! is_wp_error( $cat_terms ) ) {
-            $cat_terms = array_filter( $cat_terms, function ( $t ) { return (int) $t->parent === 0; } );
+
+        $cat_map      = array(); // term_id => WP_Term
+        $cat_children = array(); // parent_id => [term_id, ...]
+
+        if ( ! empty( $all_cat_objs ) && ! is_wp_error( $all_cat_objs ) ) {
+            foreach ( $all_cat_objs as $_ct ) {
+                if ( $_ct->slug === 'uncategorized' ) continue;
+                $cat_map[ $_ct->term_id ] = $_ct;
+            }
+            foreach ( $cat_map as $_tid => $_term ) {
+                $cat_children[ (int) $_term->parent ][] = $_tid;
+            }
         }
-        if ( ! empty( $cat_terms ) && ! is_wp_error( $cat_terms ) ) :
+
+        // Kök kategoriler: üst kategorisi satıcının kategorileri arasında olmayan
+        $cat_roots = array();
+        foreach ( $cat_map as $_tid => $_term ) {
+            if ( ! isset( $cat_map[ (int) $_term->parent ] ) ) $cat_roots[] = $_tid;
+        }
+        usort( $cat_roots, function( $a, $b ) use ( $cat_map ) {
+            return strcmp( $cat_map[$a]->name, $cat_map[$b]->name );
+        } );
+
+        // Aktif kategorinin ata yolunu bul (otomatik aç)
+        $cat_ancestors = array();
+        if ( $f_cat && isset( $cat_map[$f_cat] ) ) {
+            $_pid = (int) $cat_map[$f_cat]->parent;
+            while ( $_pid && isset( $cat_map[$_pid] ) ) {
+                $cat_ancestors[] = $_pid;
+                $_pid = (int) $cat_map[$_pid]->parent;
+            }
+        }
+
+        // Özyinelemeli render
+        if ( ! function_exists( 'pzv_magaza_cat_tree' ) ) {
+            function pzv_magaza_cat_tree( $ids, $cat_map, $cat_children, $f_cat, $store_base, $cat_ancestors, $depth = 0 ) {
+                foreach ( $ids as $_tid ) {
+                    if ( ! isset( $cat_map[$_tid] ) ) continue;
+                    $_term   = $cat_map[$_tid];
+                    $_hasCh  = isset( $cat_children[$_tid] );
+                    $_isOn   = ( $f_cat === (int)$_tid );
+                    $_open   = ( $_isOn || in_array( $_tid, $cat_ancestors, true ) );
+                    $_pad    = ( $depth * 14 + 4 );
+                    $_cls    = 'pzv-cat-li' . ( $_isOn ? ' pzv-cat-on' : '' ) . ( $_open && $_hasCh ? ' pzv-cat-open' : '' );
+                    ?>
+                    <li class="<?php echo $_cls; ?>">
+                      <?php if ( $_hasCh ) : ?>
+                        <div class="pzv-cat-row">
+                          <a href="<?php echo esc_url( add_query_arg( 'store_cat', $_tid, $store_base ) ); ?>"
+                             class="pzv-cat-lnk" style="padding-left:<?php echo $_pad; ?>px">
+                            <?php echo esc_html( $_term->name ); ?>
+                          </a>
+                          <button class="pzv-cat-tog" type="button" onclick="pzvCatToggle(this)" aria-label="Aç/Kapat">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                          </button>
+                        </div>
+                        <ul class="pzv-cat-sub"<?php echo $_open ? '' : ' style="display:none"'; ?>>
+                          <li class="pzv-cat-li">
+                            <a href="<?php echo esc_url( add_query_arg( 'store_cat', $_tid, $store_base ) ); ?>"
+                               class="pzv-cat-lnk pzv-cat-showall" style="padding-left:<?php echo ($_pad+14); ?>px">
+                              Tümünü Göster
+                            </a>
+                          </li>
+                          <?php pzv_magaza_cat_tree( $cat_children[$_tid], $cat_map, $cat_children, $f_cat, $store_base, $cat_ancestors, $depth + 1 ); ?>
+                        </ul>
+                      <?php else : ?>
+                        <a href="<?php echo esc_url( add_query_arg( 'store_cat', $_tid, $store_base ) ); ?>"
+                           class="pzv-cat-lnk" style="padding-left:<?php echo $_pad; ?>px">
+                          <?php echo esc_html( $_term->name ); ?>
+                        </a>
+                      <?php endif; ?>
+                    </li>
+                    <?php
+                }
+            }
+        }
+
+        if ( ! empty( $cat_roots ) ) :
       ?>
       <div class="shop-filter-box">
         <div class="shop-filter-title">Kategoriler</div>
-        <ul class="shop-cat-list">
-          <?php foreach ( $cat_terms as $ct ) :
-            if ( $ct->slug === 'uncategorized' ) continue;
-            $on = ( $f_cat === $ct->term_id ) ? ' class="on"' : ''; ?>
-            <li<?php echo $on; ?>>
-              <a href="<?php echo esc_url( add_query_arg( 'store_cat', $ct->term_id, $store_base ) ); ?>">
-                <span><?php echo esc_html( $ct->name ); ?></span>
-              </a>
-            </li>
-          <?php endforeach; ?>
+        <ul class="pzv-cat-tree">
+          <?php pzv_magaza_cat_tree( $cat_roots, $cat_map, $cat_children, $f_cat, $store_base, $cat_ancestors ); ?>
         </ul>
       </div>
       <?php endif; ?>
@@ -346,4 +414,19 @@ get_header();
 
 </div>
 
+<script>
+function pzvCatToggle(btn){
+  var li = btn.closest('.pzv-cat-li');
+  var ul = li ? li.querySelector(':scope > .pzv-cat-sub') : null;
+  if (!ul) return;
+  var isOpen = li.classList.contains('pzv-cat-open');
+  if (isOpen) {
+    ul.style.display = 'none';
+    li.classList.remove('pzv-cat-open');
+  } else {
+    ul.style.display = '';
+    li.classList.add('pzv-cat-open');
+  }
+}
+</script>
 <?php get_footer(); ?>
