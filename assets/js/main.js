@@ -164,7 +164,7 @@ document.querySelectorAll('.fp').forEach(p => {
       if(!dragging || dragStartX===null) return;
       var dx = x - dragStartX;
       dragging=false; dragStartX=null;
-      slides.style.transition='transform .7s cubic-bezier(.22,.61,.36,1)';
+      slides.style.transition='transform .55s cubic-bezier(0.23,1,0.32,1)';
       if(dx < -60) slideGo(idx+1);
       else if(dx > 60) slideGo(idx-1);
       else { render(); restart(); }
