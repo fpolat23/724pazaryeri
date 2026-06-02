@@ -2561,3 +2561,49 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .pz-sc-val{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.4;word-break:break-word;}
 @media(max-width:768px){.pazaryeri-wrap .pz-specs-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}}
 @media(max-width:480px){.pazaryeri-wrap .pz-specs-grid{grid-template-columns:1fr 1fr;}}
+
+/* ═══════════════════════════════════════════════
+   ACCOUNT DROPDOWN — DYNAMIC REDESIGN
+═══════════════════════════════════════════════ */
+.pazaryeri-wrap .ndrop-account-drop{min-width:280px;}
+
+/* Giriş yapılmış başlık */
+.pazaryeri-wrap .ndrop-head-user{display:flex;align-items:center;gap:12px;padding:14px 16px;}
+.pazaryeri-wrap .ndrop-avatar-wrap{flex-shrink:0;}
+.pazaryeri-wrap .ndrop-avatar-img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid #ffe0c8;}
+.pazaryeri-wrap .ndrop-avatar-letter{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff9d5c);color:#fff;font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif;}
+
+/* Mağaza satırı (vendor) */
+.pazaryeri-wrap .ndrop-vendor-row{display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#fff5ec,#ffe9d4);border-top:1px solid #ffd4a8;border-bottom:1px solid #ffd4a8;text-decoration:none;transition:background .12s;}
+.pazaryeri-wrap .ndrop-vendor-row:hover{background:linear-gradient(135deg,#ffe9d4,#ffd4a8);}
+.pazaryeri-wrap .ndrop-vendor-ico{font-size:20px;width:32px;text-align:center;flex-shrink:0;}
+.pazaryeri-wrap .ndrop-vendor-label{font-size:13px;font-weight:700;color:#d45500;font-family:'Plus Jakarta Sans',sans-serif;}
+.pazaryeri-wrap .ndrop-vendor-hint{font-size:11px;color:#e87830;}
+.pazaryeri-wrap .ndrop-vendor-arrow{margin-left:auto;font-size:18px;color:#e87830;font-weight:600;}
+
+/* 2×2 kısayol grid */
+.pazaryeri-wrap .ndrop-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#f0ece6;border-top:1px solid #f0ece6;border-bottom:1px solid #f0ece6;}
+.pazaryeri-wrap .ndrop-tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;background:#fff;text-decoration:none;transition:background .12s;}
+.pazaryeri-wrap .ndrop-tile:hover{background:#faf8f5;}
+.pazaryeri-wrap .ndrop-tile-ico{font-size:20px;line-height:1;}
+.pazaryeri-wrap .ndrop-tile-label{font-size:11px;font-weight:600;color:var(--ink);text-align:center;font-family:'Plus Jakarta Sans',sans-serif;}
+.pazaryeri-wrap .ndrop-tile:hover .ndrop-tile-label{color:var(--accent);}
+
+/* İstatistik satırı */
+.pazaryeri-wrap .ndrop-stat-row{display:flex;align-items:stretch;border-bottom:1px solid #f0ece6;}
+.pazaryeri-wrap .ndrop-stat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;text-decoration:none;transition:background .12s;}
+.pazaryeri-wrap .ndrop-stat:hover{background:#faf8f5;}
+.pazaryeri-wrap .ndrop-stat-val{font-size:16px;font-weight:800;color:var(--accent);font-family:'Plus Jakarta Sans',sans-serif;line-height:1;}
+.pazaryeri-wrap .ndrop-stat-key{font-size:10px;color:var(--muted);font-weight:500;margin-top:2px;}
+.pazaryeri-wrap .ndrop-stat-divider{width:1px;background:#f0ece6;flex-shrink:0;}
+
+/* Footer (çıkış) */
+.pazaryeri-wrap .ndrop-foot{padding:10px 16px;}
+.pazaryeri-wrap .ndrop-logout{display:block;text-align:center;font-size:12px;font-weight:600;color:var(--muted);text-decoration:none;padding:7px;border-radius:6px;border:1.5px solid #eee;transition:all .12s;}
+.pazaryeri-wrap .ndrop-logout:hover{color:#e53e3e;border-color:#fca5a5;background:#fff5f5;}
+
+/* Misafir liste (disabled görünümü) */
+.pazaryeri-wrap .ndrop-guest-list .ndrop-row{opacity:.45;pointer-events:none;}
+
+/* Siparişler drop'taki badge */
+.pazaryeri-wrap .ndrop-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-family:'Plus Jakarta Sans',sans-serif;}

@@ -3,6 +3,63 @@
  * Tema header — 724PazarYeri
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
+
+// ── Dinamik header verileri ──────────────────────────────────────
+$hdr_logged_in  = is_user_logged_in();
+$hdr_user_id    = $hdr_logged_in ? get_current_user_id() : 0;
+$hdr_user       = $hdr_logged_in ? wp_get_current_user() : null;
+$hdr_first_name = $hdr_logged_in ? ( $hdr_user->first_name ?: $hdr_user->display_name ) : '';
+$hdr_is_vendor  = $hdr_logged_in && class_exists('PZV_Roles') && ( PZV_Roles::is_vendor( $hdr_user_id ) || current_user_can('manage_woocommerce') );
+
+// Avatar (WC my-account gravatar veya harf)
+$hdr_avatar_url = $hdr_logged_in ? get_avatar_url( $hdr_user_id, array( 'size' => 40, 'default' => 'blank' ) ) : '';
+$hdr_avatar_letter = $hdr_logged_in ? mb_strtoupper( mb_substr( $hdr_first_name ?: $hdr_user->user_login, 0, 1 ) ) : '';
+
+// Puanlar (WooCommerce Points & Rewards)
+$hdr_points = 0;
+if ( $hdr_logged_in ) {
+    if ( class_exists('WC_Points_Rewards_Manager') ) {
+        $hdr_points = (int) WC_Points_Rewards_Manager::get_users_points( $hdr_user_id );
+    } else {
+        $hdr_points = (int) get_user_meta( $hdr_user_id, 'wc_points_balance', true );
+    }
+}
+$hdr_points_label = $hdr_points > 0 ? number_format( $hdr_points, 0, ',', '.' ) . ' puan' : 'Puan yok';
+
+// Aktif kuponlar (kullanıcıya özel kısıtlı kuponlar)
+$hdr_coupon_count = 0;
+if ( $hdr_logged_in && $hdr_user ) {
+    $coupon_q = new WP_Query( array(
+        'post_type'      => 'shop_coupon',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'no_found_rows'  => true,
+        'meta_query'     => array( array(
+            'key'     => 'customer_email',
+            'value'   => $hdr_user->user_email,
+            'compare' => 'LIKE',
+        ) ),
+    ) );
+    // Sadece süresi dolmamış kuponlar
+    $now = current_time( 'timestamp' );
+    foreach ( $coupon_q->posts as $cid ) {
+        $exp = get_post_meta( $cid, 'date_expires', true );
+        if ( ! $exp || (int) $exp >= $now ) $hdr_coupon_count++;
+    }
+    wp_reset_postdata();
+}
+$hdr_coupon_label = $hdr_coupon_count > 0 ? $hdr_coupon_count . ' aktif kupon' : 'Kupon yok';
+
+// Sipariş sayıları
+$hdr_orders_active    = 0;
+$hdr_orders_completed = 0;
+if ( $hdr_logged_in && function_exists('wc_get_orders') ) {
+    $hdr_orders_active    = count( wc_get_orders( array( 'customer' => $hdr_user_id, 'status' => array( 'pending', 'processing', 'on-hold' ), 'limit' => -1, 'return' => 'ids' ) ) );
+    $hdr_orders_completed = count( wc_get_orders( array( 'customer' => $hdr_user_id, 'status' => array( 'completed' ), 'limit' => -1, 'return' => 'ids' ) ) );
+}
+$hdr_orders_active_label    = $hdr_orders_active > 0 ? $hdr_orders_active . ' sipariş yolda' : 'Aktif sipariş yok';
+$hdr_orders_completed_label = $hdr_orders_completed > 0 ? $hdr_orders_completed . ' sipariş' : 'Henüz yok';
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -163,19 +220,98 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
       <!-- ACCOUNT -->
       <div class="nav-btn" id="btn-account" onclick="toggleDrop('drop-account','btn-account')">
-        <span class="nav-top">Merhaba, Giriş Yap</span>
+        <span class="nav-top"><?php echo $hdr_logged_in ? 'Merhaba, ' . esc_html( $hdr_first_name ) : 'Merhaba, Giriş Yap'; ?></span>
         <span class="nav-bot">Hesabım ▾</span>
-        <div class="nav-drop" id="drop-account">
-          <div class="ndrop-head"><div class="ndrop-title">Hesabıma Git</div><div class="ndrop-sub">Üye girişi veya yeni kayıt</div></div>
-          <a href="/my-account/edit-account/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">👤</div><div><div class="ndrop-label">Profilim</div><div class="ndrop-hint">Bilgilerimi düzenle</div></div></div></a>
-          <a href="/my-account/orders/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">📦</div><div><div class="ndrop-label">Siparişlerim</div><div class="ndrop-hint">Takip et & yönet</div></div></div></a>
-          <?php if ( ( class_exists("PZV_Roles") && PZV_Roles::is_vendor() ) || current_user_can("manage_woocommerce") ) : ?><a href="<?php echo esc_url( home_url("/saticim/") ); ?>" style="text-decoration:none;color:inherit;"><div class="ndrop-row" style="background:linear-gradient(135deg,#fff5ec,#ffe9d4);border-radius:8px;margin:4px 0;"><div class="ndrop-icon">🏪</div><div><div class="ndrop-label" style="color:#ff6a00;font-weight:700;">Mağazam</div><div class="ndrop-hint">Satıcı paneline git</div></div></div></a><?php endif; ?>
-          <a href="/my-account/wishlist/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">❤️</div><div><div class="ndrop-label">Favori Listelerim</div></div></div></a>
-          <a href="/my-account/points-and-rewards/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">⭐</div><div><div class="ndrop-label">Puanlarım</div><div class="ndrop-hint">1.240 puan</div></div></div></a>
-          <a href="/my-account/coupons/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">🎟️</div><div><div class="ndrop-label">Kuponlarım</div><div class="ndrop-hint">3 aktif kupon</div></div></div></a>
+        <div class="nav-drop ndrop-account-drop" id="drop-account">
+
+          <?php if ( $hdr_logged_in ) : ?>
+          <!-- Giriş yapılmış: kullanıcı başlığı -->
+          <div class="ndrop-head ndrop-head-user">
+            <div class="ndrop-avatar-wrap">
+              <?php if ( $hdr_avatar_url ) : ?>
+                <img class="ndrop-avatar-img" src="<?php echo esc_url( $hdr_avatar_url ); ?>" alt="<?php echo esc_attr( $hdr_first_name ); ?>">
+              <?php else : ?>
+                <div class="ndrop-avatar-letter"><?php echo esc_html( $hdr_avatar_letter ); ?></div>
+              <?php endif; ?>
+            </div>
+            <div>
+              <div class="ndrop-title">Merhaba, <?php echo esc_html( $hdr_first_name ); ?>!</div>
+              <div class="ndrop-sub"><?php echo esc_html( $hdr_user->user_email ); ?></div>
+            </div>
+          </div>
+
+          <?php if ( $hdr_is_vendor ) : ?>
+          <a href="<?php echo esc_url( home_url('/saticim/') ); ?>" class="ndrop-vendor-row">
+            <div class="ndrop-vendor-ico">🏪</div>
+            <div>
+              <div class="ndrop-vendor-label">Mağazam</div>
+              <div class="ndrop-vendor-hint">Satıcı paneline git</div>
+            </div>
+            <div class="ndrop-vendor-arrow">›</div>
+          </a>
+          <?php endif; ?>
+
+          <div class="ndrop-grid">
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('edit-account') ); ?>" class="ndrop-tile">
+              <div class="ndrop-tile-ico">👤</div>
+              <div class="ndrop-tile-label">Profilim</div>
+            </a>
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('orders') ); ?>" class="ndrop-tile">
+              <div class="ndrop-tile-ico">📦</div>
+              <div class="ndrop-tile-label">Siparişlerim</div>
+            </a>
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('wishlist') ); ?>" class="ndrop-tile">
+              <div class="ndrop-tile-ico">❤️</div>
+              <div class="ndrop-tile-label">Favorilerim</div>
+            </a>
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('edit-address') ); ?>" class="ndrop-tile">
+              <div class="ndrop-tile-ico">📍</div>
+              <div class="ndrop-tile-label">Adreslerim</div>
+            </a>
+          </div>
+
+          <div class="ndrop-stat-row">
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('points-and-rewards') ); ?>" class="ndrop-stat">
+              <div class="ndrop-stat-val"><?php echo esc_html( number_format( $hdr_points, 0, ',', '.' ) ); ?></div>
+              <div class="ndrop-stat-key">Puan</div>
+            </a>
+            <div class="ndrop-stat-divider"></div>
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('orders') ); ?>" class="ndrop-stat">
+              <div class="ndrop-stat-val"><?php echo esc_html( $hdr_orders_active ); ?></div>
+              <div class="ndrop-stat-key">Aktif Sipariş</div>
+            </a>
+            <div class="ndrop-stat-divider"></div>
+            <a href="<?php echo esc_url( home_url('/my-account/coupons/') ); ?>" class="ndrop-stat">
+              <div class="ndrop-stat-val"><?php echo esc_html( $hdr_coupon_count ); ?></div>
+              <div class="ndrop-stat-key">Kupon</div>
+            </a>
+          </div>
+
+          <div class="ndrop-foot">
+            <a href="<?php echo esc_url( wp_logout_url( home_url('/') ) ); ?>" class="ndrop-logout">Çıkış Yap</a>
+          </div>
+
+          <?php else : ?>
+          <!-- Giriş yapılmamış -->
+          <div class="ndrop-head">
+            <div class="ndrop-title">Hesabıma Git</div>
+            <div class="ndrop-sub">Üye girişi veya yeni kayıt</div>
+          </div>
+
+          <div class="ndrop-guest-list">
+            <div class="ndrop-row"><div class="ndrop-icon">👤</div><div><div class="ndrop-label">Profilim</div><div class="ndrop-hint">Bilgilerimi düzenle</div></div></div>
+            <div class="ndrop-row"><div class="ndrop-icon">📦</div><div><div class="ndrop-label">Siparişlerim</div><div class="ndrop-hint">Takip et & yönet</div></div></div>
+            <div class="ndrop-row"><div class="ndrop-icon">❤️</div><div><div class="ndrop-label">Favori Listelerim</div></div></div>
+            <div class="ndrop-row"><div class="ndrop-icon">⭐</div><div><div class="ndrop-label">Puanlarım</div></div></div>
+            <div class="ndrop-row"><div class="ndrop-icon">🎟️</div><div><div class="ndrop-label">Kuponlarım</div></div></div>
+          </div>
+
           <div class="ndrop-divider"></div>
-          <a href="/my-account/" class="ndrop-btn" style="text-decoration:none;">Giriş Yap</a>
-          <a href="/my-account/?action=register" class="ndrop-btn out" style="margin-top:0;text-decoration:none;">Üye Ol</a>
+          <a href="<?php echo esc_url( wc_get_page_permalink('myaccount') ); ?>" class="ndrop-btn" style="text-decoration:none;">Giriş Yap</a>
+          <a href="<?php echo esc_url( wc_get_page_permalink('myaccount') ); ?>?action=register" class="ndrop-btn out" style="margin-top:6px;text-decoration:none;">Üye Ol</a>
+          <div style="height:10px;"></div>
+          <?php endif; ?>
+
         </div>
       </div>
 
@@ -185,10 +321,31 @@ if ( ! defined( 'ABSPATH' ) ) exit;
         <span class="nav-bot">Siparişler ▾</span>
         <div class="nav-drop" id="drop-orders">
           <div class="ndrop-head"><div class="ndrop-title">Siparişlerim</div></div>
-          <a href="/my-account/orders/?status=active" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">🚚</div><div><div class="ndrop-label">Aktif Siparişler</div><div class="ndrop-hint">2 sipariş yolda</div></div></div></a>
-          <a href="/my-account/orders/?status=completed" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">✅</div><div><div class="ndrop-label">Tamamlananlar</div><div class="ndrop-hint">14 sipariş</div></div></div></a>
-          <a href="/my-account/returns/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">🔄</div><div><div class="ndrop-label">İade Taleplerim</div></div></div></a>
-          <a href="/my-account/reviews/" style="text-decoration:none;color:inherit;"><div class="ndrop-row"><div class="ndrop-icon">⭐</div><div><div class="ndrop-label">Değerlendirmelerim</div></div></div></a>
+          <a href="<?php echo esc_url( wc_get_account_endpoint_url('orders') ); ?>" style="text-decoration:none;color:inherit;">
+            <div class="ndrop-row">
+              <div class="ndrop-icon">🚚</div>
+              <div>
+                <div class="ndrop-label">Aktif Siparişler</div>
+                <div class="ndrop-hint"><?php echo esc_html( $hdr_orders_active_label ); ?></div>
+              </div>
+              <?php if ( $hdr_orders_active > 0 ) : ?><span class="ndrop-badge"><?php echo esc_html( $hdr_orders_active ); ?></span><?php endif; ?>
+            </div>
+          </a>
+          <a href="<?php echo esc_url( add_query_arg( 'status', 'completed', wc_get_account_endpoint_url('orders') ) ); ?>" style="text-decoration:none;color:inherit;">
+            <div class="ndrop-row">
+              <div class="ndrop-icon">✅</div>
+              <div>
+                <div class="ndrop-label">Tamamlananlar</div>
+                <div class="ndrop-hint"><?php echo esc_html( $hdr_orders_completed_label ); ?></div>
+              </div>
+            </div>
+          </a>
+          <a href="<?php echo esc_url( wc_get_account_endpoint_url('returns') ); ?>" style="text-decoration:none;color:inherit;">
+            <div class="ndrop-row"><div class="ndrop-icon">🔄</div><div><div class="ndrop-label">İade Taleplerim</div></div></div>
+          </a>
+          <a href="<?php echo esc_url( wc_get_account_endpoint_url('reviews') ); ?>" style="text-decoration:none;color:inherit;">
+            <div class="ndrop-row"><div class="ndrop-icon">⭐</div><div><div class="ndrop-label">Değerlendirmelerim</div></div></div>
+          </a>
         </div>
       </div>
 
