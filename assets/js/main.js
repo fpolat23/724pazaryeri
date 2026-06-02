@@ -2114,11 +2114,15 @@ window.pzSendVerifyCode = function(btn){
     var todayStart = startOfDay(tr);
     var cutoff = new Date(todayStart.getTime() + 14 * 3600 * 1000); // 14:00 TR saati
 
-    if (dispatch === 0 && isWorkDay(todayStart) && tr.getTime() < cutoff.getTime()) {
-      var mins = Math.ceil((cutoff.getTime() - tr.getTime()) / 60000);
-      var h = Math.floor(mins / 60), m = mins % 60;
-      var t = (h > 0 ? h + ' saat ' : '') + (m > 0 ? m + ' dakika' : '');
-      return t.trim() + ' içinde sipariş verirseniz bugün kargoda';
+    if (dispatch === 0) {
+      if (isWorkDay(todayStart) && tr.getTime() < cutoff.getTime()) {
+        var mins = Math.ceil((cutoff.getTime() - tr.getTime()) / 60000);
+        var h = Math.floor(mins / 60), m = mins % 60;
+        var t = (h > 0 ? h + ' saat ' : '') + (m > 0 ? m + ' dakika' : '');
+        return t.trim() + ' içinde sipariş verirseniz bugün kargoda';
+      }
+      // 14:00 geçtiyse veya iş günü değilse sonraki iş gününe kaydır
+      dispatch = 1;
     }
 
     var shipDay = nthWorkDay(tr, dispatch);
