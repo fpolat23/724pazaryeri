@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PazarYeri Vendor System
  * Description: Hafif WooCommerce çoklu satıcı sistemi. Dokan alternatifi. Kategori bazlı komisyon, frontend dashboard, sipariş yönetimi.
- * Version:     1.2.0
+ * Version:     1.3.0
  * Author:      724PazarYeri
  * Requires PHP: 7.2
  * Requires at least: 5.6
@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PZV_VERSION', '1.2.0' );
+define( 'PZV_VERSION', '1.3.0' );
 define( 'PZV_FILE', __FILE__ );
 define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
@@ -107,4 +107,28 @@ add_action( 'wp_ajax_pzv_clone_product',   array( 'PZV_Dashboard', 'ajax_clone_p
 add_action( 'wp_ajax_pzv_update_my_product', array( 'PZV_Dashboard', 'ajax_update_my_product' ) );
 add_action( 'wp_ajax_pzv_update_order',    array( 'PZV_Dashboard', 'ajax_update_order' ) );
 add_action( 'wp_ajax_pzv_approve_product',  array( 'PZV_Admin', 'ajax_approve_product' ) );
-add_action( 'wp_ajax_pzv_dokan_migrate',   array( 'PZV_Admin', 'ajax_dokan_migrate' ) );
+add_action( 'wp_ajax_pzv_dokan_migrate',        array( 'PZV_Admin',      'ajax_dokan_migrate' ) );
+add_action( 'wp_ajax_pzv_new_product',          array( 'PZV_Dashboard',  'ajax_new_product' ) );
+add_action( 'wp_ajax_pzv_save_product_data',    array( 'PZV_Dashboard',  'ajax_save_product_data' ) );
+add_action( 'wp_ajax_pzv_save_vendor_profile',  array( 'PZV_Dashboard',  'ajax_save_vendor_profile' ) );
+
+// ─── WooCommerce My Account entegrasyonu ─── //
+add_action( 'init', function () {
+    add_rewrite_endpoint( 'satici-paneli', EP_ROOT | EP_PAGES );
+} );
+
+add_filter( 'woocommerce_account_menu_items', function ( $items ) {
+    if ( ! is_user_logged_in() ) return $items;
+    if ( ! PZV_Roles::is_pure_vendor( get_current_user_id() ) ) return $items;
+    $new = array();
+    foreach ( $items as $k => $v ) {
+        $new[ $k ] = $v;
+        if ( $k === 'dashboard' ) $new['satici-paneli'] = '🏪 Satıcı Panelim';
+    }
+    return $new;
+} );
+
+add_action( 'woocommerce_account_satici-paneli_endpoint', function () {
+    wp_redirect( home_url( '/saticim/' ) );
+    exit;
+} );

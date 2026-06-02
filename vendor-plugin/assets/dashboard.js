@@ -311,3 +311,173 @@
   }
   function escapeAttr(s){ return escapeHTML(s); }
 })();
+
+/* ═══ PZV: Ürün Formu + Profil ═══ */
+(function(){
+  'use strict';
+
+  // ── Medya seçici yardımcısı ──
+  function pzvMedia(btnId, removeId, inputId, previewId, phId, title){
+    var btn = document.getElementById(btnId);
+    var rem = document.getElementById(removeId);
+    var inp = document.getElementById(inputId);
+    var prv = document.getElementById(previewId);
+    var ph  = document.getElementById(phId);
+    if(!btn) return;
+    var frame;
+    btn.addEventListener('click', function(){
+      if(frame){frame.open();return;}
+      frame = wp.media({title:title||'Görsel Seç',button:{text:'Seç'},multiple:false});
+      frame.on('select',function(){
+        var a = frame.state().get('selection').first().toJSON();
+        if(inp) inp.value = a.id;
+        if(prv){ prv.src = a.url; prv.style.display='block'; }
+        if(ph)  ph.style.display='none';
+        if(rem) rem.style.display='';
+      });
+      frame.open();
+    });
+    if(rem) rem.addEventListener('click',function(){
+      if(inp) inp.value='0';
+      if(prv){ prv.src=''; prv.style.display='none'; }
+      if(ph)  ph.style.display='';
+      rem.style.display='none';
+    });
+  }
+
+  // ── Genel form gönderici ──
+  function pzvSubmitForm(opts){
+    var btn = document.getElementById(opts.submitId);
+    var msg = document.getElementById(opts.msgId);
+    if(!btn) return;
+    btn.addEventListener('click',function(){
+      var txt  = btn.querySelector('.pzv-btn-txt');
+      var spin = btn.querySelector('.pzv-btn-spin');
+      var fd = new FormData();
+      fd.append('nonce', pzv.nonce);
+      fd.append('action', opts.action);
+      opts.fields.forEach(function(f){
+        var el = document.getElementById(f.id);
+        if(el) fd.append(f.name, el.value||'');
+      });
+      if(opts.extra) opts.extra(fd);
+      // Validasyon
+      if(opts.validate){
+        var err = opts.validate();
+        if(err){ msg.className='pzv-form-msg error'; msg.textContent='✗ '+err; return; }
+      }
+      btn.disabled=true;
+      if(txt) txt.style.display='none';
+      if(spin) spin.style.display='';
+      msg.className='pzv-form-msg'; msg.textContent='';
+      fetch(pzv.ajax_url,{method:'POST',body:fd,credentials:'same-origin'})
+        .then(function(r){return r.json();})
+        .then(function(res){
+          btn.disabled=false;
+          if(txt) txt.style.display='';
+          if(spin) spin.style.display='none';
+          if(res&&res.success){
+            msg.className='pzv-form-msg success';
+            msg.textContent='✓ '+(res.data&&res.data.message||'Kaydedildi');
+            if(opts.onSuccess) opts.onSuccess(res.data);
+          } else {
+            msg.className='pzv-form-msg error';
+            msg.textContent='✗ '+((res&&res.data&&res.data.message)||'Bir hata oluştu');
+          }
+        })
+        .catch(function(){
+          btn.disabled=false;
+          if(txt) txt.style.display='';
+          if(spin) spin.style.display='none';
+          msg.className='pzv-form-msg error';
+          msg.textContent='✗ Bağlantı hatası';
+        });
+    });
+  }
+
+  // ── YENİ ÜRÜN formu ──
+  pzvMedia('pzv-np-img-btn','pzv-np-img-remove','pzv-np-img-id','pzv-np-img-preview','pzv-np-placeholder','Ürün Görseli Seç');
+  pzvSubmitForm({
+    submitId: 'pzv-np-submit',
+    msgId:    'pzv-np-msg',
+    action:   'pzv_new_product',
+    fields: [
+      {id:'pzv-np-title',      name:'title'},
+      {id:'pzv-np-cat',        name:'cat_id'},
+      {id:'pzv-np-price',      name:'price'},
+      {id:'pzv-np-sale-price', name:'sale_price'},
+      {id:'pzv-np-stock',      name:'stock'},
+      {id:'pzv-np-sku',        name:'sku'},
+      {id:'pzv-np-short-desc', name:'short_desc'},
+      {id:'pzv-np-desc',       name:'desc'},
+      {id:'pzv-np-status',     name:'status'},
+      {id:'pzv-np-img-id',     name:'image_id'},
+    ],
+    validate: function(){
+      var t = document.getElementById('pzv-np-title');
+      var p = document.getElementById('pzv-np-price');
+      if(!t||!t.value.trim()) return 'Ürün adı gerekli.';
+      if(!p||parseFloat(p.value)<=0) return 'Geçerli bir fiyat girin.';
+      return null;
+    },
+    onSuccess: function(data){
+      if(data&&data.went_pending){
+        setTimeout(function(){
+          var m = document.getElementById('pzv-np-msg');
+          if(m) m.innerHTML += ' &mdash; <a href="'+data.products_url+'">Ürünlerime git &rarr;</a>';
+        },200);
+      }
+    }
+  });
+
+  // ── ÜRÜN DÜZENLE formu ──
+  pzvMedia('pzv-ep-img-btn','pzv-ep-img-remove','pzv-ep-img-id','pzv-ep-img-preview','pzv-ep-placeholder','Ürün Görseli Seç');
+  var epForm = document.getElementById('pzv-edit-product-form');
+  if(epForm){
+    var pid = epForm.getAttribute('data-product');
+    pzvSubmitForm({
+      submitId: 'pzv-ep-submit',
+      msgId:    'pzv-ep-msg',
+      action:   'pzv_save_product_data',
+      fields: [
+        {id:'pzv-ep-title',      name:'title'},
+        {id:'pzv-ep-cat',        name:'cat_id'},
+        {id:'pzv-ep-price',      name:'price'},
+        {id:'pzv-ep-sale-price', name:'sale_price'},
+        {id:'pzv-ep-stock',      name:'stock'},
+        {id:'pzv-ep-sku',        name:'sku'},
+        {id:'pzv-ep-short-desc', name:'short_desc'},
+        {id:'pzv-ep-desc',       name:'desc'},
+        {id:'pzv-ep-status',     name:'status'},
+        {id:'pzv-ep-img-id',     name:'image_id'},
+      ],
+      extra: function(fd){ fd.append('product_id', pid); },
+      validate: function(){
+        var t = document.getElementById('pzv-ep-title');
+        if(!t||!t.value.trim()) return 'Ürün adı gerekli.';
+        return null;
+      }
+    });
+  }
+
+  // ── PROFİL formu ──
+  pzvMedia('pzv-prf-logo-btn',  'pzv-prf-logo-rm',   'pzv-prf-logo-id',   'pzv-prf-logo-img',   'pzv-prf-logo-ph',   'Mağaza Logosu Seç');
+  pzvMedia('pzv-prf-banner-btn','pzv-prf-banner-rm',  'pzv-prf-banner-id', 'pzv-prf-banner-img', 'pzv-prf-banner-ph', 'Mağaza Bannerı Seç');
+  pzvSubmitForm({
+    submitId: 'pzv-prf-save',
+    msgId:    'pzv-prf-msg',
+    action:   'pzv_save_vendor_profile',
+    fields: [
+      {id:'pzv-prf-name',    name:'store_name'},
+      {id:'pzv-prf-slug',    name:'store_slug'},
+      {id:'pzv-prf-phone',   name:'phone'},
+      {id:'pzv-prf-city',    name:'city'},
+      {id:'pzv-prf-address', name:'address'},
+      {id:'pzv-prf-desc',    name:'description'},
+      {id:'pzv-prf-iban',    name:'iban'},
+      {id:'pzv-prf-logo-id', name:'logo'},
+      {id:'pzv-prf-banner-id',name:'banner'},
+    ]
+  });
+
+})();

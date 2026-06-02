@@ -179,3 +179,53 @@
   .pzv-search-actions{width:100%;}
   .pzv-modal-box{padding:20px;}
 }
+
+/* ═══ ÜRÜN FORMU + PROFİL ═══ */
+.pzv-product-form{background:#fafaf8;border:1px solid #e8e5e0;border-radius:12px;padding:24px;}
+.pzv-pf-grid{display:grid;grid-template-columns:1fr 280px;gap:24px;align-items:start;}
+.pzv-pf-main{}
+.pzv-pf-side{}
+.pzv-pf-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+.pzv-product-form .pzv-form-row{margin-bottom:14px;}
+.pzv-product-form .pzv-form-row label{display:block;font-weight:600;font-size:13px;color:#1d2327;margin-bottom:5px;}
+.pzv-product-form .pzv-form-row .req{color:#dc2626;}
+.pzv-product-form input[type="text"],
+.pzv-product-form input[type="number"],
+.pzv-product-form input[type="tel"],
+.pzv-product-form select,
+.pzv-product-form textarea{width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;color:#1d2327;background:#fff;transition:border-color .14s;box-sizing:border-box;}
+.pzv-product-form input:focus,
+.pzv-product-form select:focus,
+.pzv-product-form textarea:focus{border-color:#ff6a00;outline:none;}
+.pzv-product-form textarea{resize:vertical;line-height:1.5;}
+
+.pzv-pf-img-wrap{margin-bottom:12px;}
+.pzv-pf-image-box{width:100%;aspect-ratio:1/1;border:2px dashed #ccc;border-radius:10px;overflow:hidden;background:#f0ede8;display:flex;align-items:center;justify-content:center;margin-bottom:8px;position:relative;cursor:pointer;transition:border-color .14s;}
+.pzv-pf-image-box:hover{border-color:#ff6a00;}
+.pzv-pf-img-placeholder{display:flex;flex-direction:column;align-items:center;gap:6px;color:#aaa;font-size:13px;pointer-events:none;}
+.pzv-pf-logo-box{aspect-ratio:1/1;max-width:160px;}
+.pzv-pf-banner-box{aspect-ratio:4/1;max-width:100%;}
+.pzv-pf-img-btns{display:flex;gap:6px;flex-wrap:wrap;}
+
+.pzv-pf-actions{margin-top:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-top:1px solid #e8e5e0;padding-top:18px;}
+.pzv-form-msg{font-size:13px;font-weight:600;}
+.pzv-form-msg.success{color:#15803d;}
+.pzv-form-msg.error{color:#dc2626;}
+
+/* slug wrap */
+.pzv-prf-slug-wrap{display:flex;align-items:center;gap:0;border:1.5px solid #ddd;border-radius:8px;overflow:hidden;background:#fff;}
+.pzv-prf-slug-base,.pzv-prf-slug-end{padding:9px 8px;font-size:12px;color:#888;background:#f6f4f0;white-space:nowrap;}
+.pzv-prf-slug-wrap input{border:none!important;border-radius:0!important;flex:1;min-width:0;}
+.pzv-prf-slug-wrap input:focus{box-shadow:none;}
+
+/* tab grid — 6 sekme yan yana */
+@media(min-width:769px){
+  .pzv-dash-tabs{grid-template-columns:repeat(6,1fr);}
+}
+
+@media(max-width:768px){
+  .pzv-pf-grid{grid-template-columns:1fr;}
+  .pzv-pf-2col{grid-template-columns:1fr 1fr;}
+  .pzv-pf-logo-box{max-width:120px;}
+}

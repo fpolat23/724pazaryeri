@@ -20,6 +20,9 @@ class PZV_Dashboard {
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'nonce'    => wp_create_nonce( 'pzv_nonce' ),
         ) );
+        if ( is_user_logged_in() && PZV_Roles::is_vendor() ) {
+            wp_enqueue_media();
+        }
     }
 
     public static function render_shortcode() {
@@ -43,7 +46,7 @@ class PZV_Dashboard {
                     case 'add-product': self::tab_add_product(); break;
                     case 'orders':   self::tab_orders( $user_id ); break;
                     case 'earnings': self::tab_earnings( $user_id ); break;
-                    case 'profile':  self::tab_profile(); break;
+                    case 'profile':  self::tab_profile( $user_id ); break;
                     default:         self::tab_overview( $user_id );
                 }
                 ?>
@@ -134,6 +137,13 @@ class PZV_Dashboard {
     }
 
     private static function tab_products( $user_id ) {
+        if ( ! empty( $_GET['edit'] ) ) {
+            $edit_pid = (int) $_GET['edit'];
+            if ( $edit_pid && (int) get_post_field( 'post_author', $edit_pid ) === (int) $user_id ) {
+                self::tab_edit_product( $user_id, $edit_pid );
+                return;
+            }
+        }
         $per_page  = 50;
         $cur_page  = max( 1, intval( isset( $_GET['ppage'] ) ? $_GET['ppage'] : 1 ) );
         $cur_cat   = intval( isset( $_GET['pcat'] ) ? $_GET['pcat'] : 0 );
@@ -283,6 +293,7 @@ class PZV_Dashboard {
                         <td>
                             <button type="button" class="button button-small button-primary pzv-quick-save">💾</button>
                             <a class="button button-small" href="<?php echo esc_url( get_permalink( $pid ) ); ?>" target="_blank">👁</a>
+                            <a class="button button-small" href="<?php echo esc_url( add_query_arg( array( 'tab' => 'products', 'edit' => $pid ), get_permalink() ) ); ?>">✏️</a>
                         </td>
                     </tr>
                 <?php endwhile; wp_reset_postdata(); ?>
@@ -320,65 +331,81 @@ class PZV_Dashboard {
     }
 
     private static function tab_add_product() {
+        $cats = self::build_cat_options();
         ?>
-        <h3>➕ Mağazama Ürün Ekle</h3>
-        <p style="color:#646970;margin-bottom:18px;">
-            Sitedeki bir ürünü arayıp seç. Kendi <strong>stoğun</strong> ve <strong>fiyatınla</strong> mağazana ekle.
-            Aynı ürünü farklı satıcılar farklı fiyatlardan satabilir.
-        </p>
+        <h3>➕ Yeni Ürün Ekle</h3>
 
-        <div class="pzv-add-product">
-            <div class="pzv-search-card">
-                <div class="pzv-search-icon">🔍</div>
-                <div class="pzv-search-body">
-                    <label class="pzv-search-label">Ürün Ara</label>
-                    <div class="pzv-search-row">
-                        <input type="text" id="pzv-product-search" placeholder="Ürün adı, SKU veya kategori (örn: Adidas Samba)" autocomplete="off">
-                        <button type="button" id="pzv-search-btn" class="button button-primary">
-                            <span class="pzv-btn-text">Ara</span>
-                            <span class="pzv-btn-spinner" style="display:none;">⏳</span>
-                        </button>
+        <div class="pzv-product-form" id="pzv-new-product-form">
+            <div class="pzv-pf-grid">
+                <div class="pzv-pf-main">
+                    <div class="pzv-form-row">
+                        <label>Ürün Adı <span class="req">*</span></label>
+                        <input type="text" id="pzv-np-title" placeholder="Ürün adını girin..." maxlength="200">
                     </div>
-                    <div class="pzv-search-status">İlk 2 harften sonra otomatik arar veya butona basın.</div>
+                    <div class="pzv-form-row">
+                        <label>Kategori <span class="req">*</span></label>
+                        <select id="pzv-np-cat"><option value="">— Kategori seçin —</option><?php echo $cats; ?></select>
+                    </div>
+                    <div class="pzv-pf-2col">
+                        <div class="pzv-form-row">
+                            <label>Normal Fiyat (₺) <span class="req">*</span></label>
+                            <input type="number" id="pzv-np-price" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="pzv-form-row">
+                            <label>İndirimli Fiyat (₺)</label>
+                            <input type="number" id="pzv-np-sale-price" step="0.01" min="0" placeholder="Opsiyonel">
+                        </div>
+                    </div>
+                    <div class="pzv-pf-2col">
+                        <div class="pzv-form-row">
+                            <label>Stok Miktarı <span class="req">*</span></label>
+                            <input type="number" id="pzv-np-stock" min="0" placeholder="0">
+                        </div>
+                        <div class="pzv-form-row">
+                            <label>SKU (Stok Kodu)</label>
+                            <input type="text" id="pzv-np-sku" placeholder="Opsiyonel">
+                        </div>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Kısa Açıklama</label>
+                        <textarea id="pzv-np-short-desc" rows="2" placeholder="Birkaç cümleyle ürünü tanıtın..."></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Detaylı Açıklama</label>
+                        <textarea id="pzv-np-desc" rows="5" placeholder="Ürün özellikleri, malzeme, kullanım bilgisi..."></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Yayın Durumu</label>
+                        <select id="pzv-np-status">
+                            <option value="pending">Onay için gönder</option>
+                            <option value="draft">Taslak olarak kaydet</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pzv-pf-side">
+                    <div class="pzv-pf-img-wrap">
+                        <label style="font-weight:600;font-size:13px;display:block;margin-bottom:8px;">Öne Çıkan Görsel</label>
+                        <div class="pzv-pf-image-box" id="pzv-np-imgbox">
+                            <div class="pzv-pf-img-placeholder" id="pzv-np-placeholder">
+                                <span style="font-size:36px;">📷</span>
+                                <span>Görsel seçin</span>
+                            </div>
+                            <img id="pzv-np-img-preview" src="" alt="" style="display:none;width:100%;height:100%;object-fit:cover;">
+                        </div>
+                        <input type="hidden" id="pzv-np-img-id" value="0">
+                        <div class="pzv-pf-img-btns">
+                            <button type="button" class="button" id="pzv-np-img-btn">📷 Görsel Seç</button>
+                            <button type="button" class="button" id="pzv-np-img-remove" style="display:none;">✕ Kaldır</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="pzv-search-results" id="pzv-search-results"></div>
-        </div>
-
-        <!-- Klonlama modal -->
-        <div class="pzv-modal" id="pzv-clone-modal" style="display:none;">
-            <div class="pzv-modal-box">
-                <button type="button" class="pzv-modal-close">&times;</button>
-                <h3>📦 Mağazana Ekle</h3>
-                <div class="pzv-modal-product"></div>
-                <div class="pzv-modal-form">
-                    <div class="pzv-form-row">
-                        <label>💰 Senin Satış Fiyatın (₺) <span class="req">*</span></label>
-                        <input type="number" id="pzv-clone-price" step="0.01" min="0" placeholder="Örn: 1450">
-                        <small>Diğer satıcıların fiyatları referans, sen istediğini gir</small>
-                    </div>
-                    <div class="pzv-form-row">
-                        <label>📦 Stok Adedi <span class="req">*</span></label>
-                        <input type="number" id="pzv-clone-stock" min="0" placeholder="Örn: 10">
-                    </div>
-                    <div class="pzv-form-row">
-                        <label>🏷️ SKU (kendi stok kodun, opsiyonel)</label>
-                        <input type="text" id="pzv-clone-sku" placeholder="Örn: GES-001">
-                    </div>
-                    <div class="pzv-form-row">
-                        <label>📝 Yayın durumu</label>
-                        <select id="pzv-clone-status">
-                            <option value="pending">Onay için gönder (yönetici onaylar)</option>
-                            <option value="draft">Taslak olarak kaydet (sonra gönderirim)</option>
-                        </select>
-                        <small>Ürünler yönetici onayından sonra yayınlanır.</small>
-                    </div>
-                </div>
-                <div class="pzv-modal-actions">
-                    <button type="button" class="button pzv-modal-cancel">İptal</button>
-                    <button type="button" class="button button-primary pzv-modal-clone">📥 Mağazama Ekle</button>
-                </div>
-                <div class="pzv-modal-msg"></div>
+            <div class="pzv-pf-actions">
+                <button type="button" class="button button-primary pzv-pf-submit" id="pzv-np-submit" data-form="new">
+                    <span class="pzv-btn-txt">💾 Ürünü Kaydet</span>
+                    <span class="pzv-btn-spin" style="display:none;">⏳ Kaydediliyor...</span>
+                </button>
+                <div class="pzv-form-msg" id="pzv-np-msg"></div>
             </div>
         </div>
         <?php
@@ -742,15 +769,315 @@ class PZV_Dashboard {
         <?php endif;
     }
 
-    private static function tab_profile() {
+    private static function tab_profile( $user_id = 0 ) {
+        if ( ! $user_id ) $user_id = get_current_user_id();
+        $v = PZV_Vendor::get( $user_id );
+        if ( ! $v ) return;
+        $logo_url   = ! empty( $v['logo'] )   ? wp_get_attachment_image_url( $v['logo'],   'thumbnail' ) : '';
+        $banner_url = ! empty( $v['banner'] ) ? wp_get_attachment_image_url( $v['banner'], 'medium' )    : '';
+        $cats = self::build_cat_options();
         ?>
-        <h3>⚙️ Profilim</h3>
-        <p>Mağaza bilgilerinizi düzenleyin:</p>
-        <p>
-            <a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=pzv-vendor-info' ) ); ?>">🏪 Mağaza Bilgileri</a>
-            <a class="button" href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>">👤 Kullanıcı Profili</a>
-        </p>
+        <h3>⚙️ Mağaza Profilim</h3>
+        <div class="pzv-product-form" id="pzv-profile-form">
+            <div class="pzv-pf-grid">
+                <div class="pzv-pf-main">
+                    <div class="pzv-form-row">
+                        <label>Mağaza Adı <span class="req">*</span></label>
+                        <input type="text" id="pzv-prf-name" value="<?php echo esc_attr( $v['store_name'] ); ?>">
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Mağaza URL (slug)</label>
+                        <div class="pzv-prf-slug-wrap">
+                            <span class="pzv-prf-slug-base"><?php echo esc_html( home_url('/magaza/') ); ?></span>
+                            <input type="text" id="pzv-prf-slug" value="<?php echo esc_attr( $v['store_slug'] ); ?>">
+                            <span class="pzv-prf-slug-end">/</span>
+                        </div>
+                    </div>
+                    <div class="pzv-pf-2col">
+                        <div class="pzv-form-row">
+                            <label>Telefon</label>
+                            <input type="tel" id="pzv-prf-phone" value="<?php echo esc_attr( $v['phone'] ); ?>">
+                        </div>
+                        <div class="pzv-form-row">
+                            <label>Şehir</label>
+                            <input type="text" id="pzv-prf-city" value="<?php echo esc_attr( $v['city'] ); ?>">
+                        </div>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Adres</label>
+                        <textarea id="pzv-prf-address" rows="2"><?php echo esc_textarea( $v['address'] ); ?></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Mağaza Açıklaması</label>
+                        <textarea id="pzv-prf-desc" rows="3"><?php echo esc_textarea( $v['description'] ); ?></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>IBAN (Ödeme için)</label>
+                        <input type="text" id="pzv-prf-iban" value="<?php echo esc_attr( $v['iban'] ); ?>" placeholder="TR...">
+                    </div>
+                </div>
+                <div class="pzv-pf-side">
+                    <div class="pzv-pf-img-wrap" style="margin-bottom:20px;">
+                        <label style="font-weight:600;font-size:13px;display:block;margin-bottom:8px;">Mağaza Logosu</label>
+                        <div class="pzv-pf-image-box pzv-pf-logo-box" id="pzv-prf-logo-box">
+                            <div class="pzv-pf-img-placeholder" id="pzv-prf-logo-ph"<?php echo $logo_url ? ' style="display:none;"' : ''; ?>><span style="font-size:28px;">🏪</span><span>Logo</span></div>
+                            <img id="pzv-prf-logo-img" src="<?php echo esc_url( $logo_url ); ?>" alt=""<?php echo ! $logo_url ? ' style="display:none;"' : ' style="width:100%;height:100%;object-fit:cover;"'; ?>>
+                        </div>
+                        <input type="hidden" id="pzv-prf-logo-id" value="<?php echo (int) ( $v['logo'] ?? 0 ); ?>">
+                        <div class="pzv-pf-img-btns">
+                            <button type="button" class="button" id="pzv-prf-logo-btn">Seç</button>
+                            <button type="button" class="button" id="pzv-prf-logo-rm"<?php echo empty( $v['logo'] ) ? ' style="display:none;"' : ''; ?>>✕</button>
+                        </div>
+                        <small style="color:#888;">Önerilen: 200×200 px</small>
+                    </div>
+                    <div class="pzv-pf-img-wrap">
+                        <label style="font-weight:600;font-size:13px;display:block;margin-bottom:8px;">Mağaza Bannerı</label>
+                        <div class="pzv-pf-image-box pzv-pf-banner-box" id="pzv-prf-banner-box">
+                            <div class="pzv-pf-img-placeholder" id="pzv-prf-banner-ph"<?php echo $banner_url ? ' style="display:none;"' : ''; ?>><span style="font-size:28px;">🖼️</span><span>Banner</span></div>
+                            <img id="pzv-prf-banner-img" src="<?php echo esc_url( $banner_url ); ?>" alt=""<?php echo ! $banner_url ? ' style="display:none;"' : ' style="width:100%;height:100%;object-fit:cover;"'; ?>>
+                        </div>
+                        <input type="hidden" id="pzv-prf-banner-id" value="<?php echo (int) ( $v['banner'] ?? 0 ); ?>">
+                        <div class="pzv-pf-img-btns">
+                            <button type="button" class="button" id="pzv-prf-banner-btn">Seç</button>
+                            <button type="button" class="button" id="pzv-prf-banner-rm"<?php echo empty( $v['banner'] ) ? ' style="display:none;"' : ''; ?>>✕</button>
+                        </div>
+                        <small style="color:#888;">Önerilen: 1200×300 px</small>
+                    </div>
+                </div>
+            </div>
+            <div class="pzv-pf-actions">
+                <button type="button" class="button button-primary" id="pzv-prf-save">💾 Profili Kaydet</button>
+                <div class="pzv-form-msg" id="pzv-prf-msg"></div>
+            </div>
+        </div>
         <?php
+    }
+
+    /** ─── Kategori seçeneklerini hiyerarşik olarak oluştur ─── */
+    private static function build_cat_options( $parent = 0, $depth = 0 ) {
+        $args = array(
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => false,
+            'parent'     => $parent,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        );
+        $cats = get_terms( $args );
+        $html = '';
+        if ( is_wp_error( $cats ) || empty( $cats ) ) return $html;
+        foreach ( $cats as $cat ) {
+            if ( $cat->slug === 'uncategorized' ) continue;
+            $pad   = str_repeat( '&nbsp;&nbsp;&nbsp;', $depth );
+            $html .= '<option value="' . (int) $cat->term_id . '">' . $pad . esc_html( $cat->name ) . '</option>';
+            $html .= self::build_cat_options( $cat->term_id, $depth + 1 );
+        }
+        return $html;
+    }
+
+    /** ─── TAB: Ürün Düzenle ─── */
+    private static function tab_edit_product( $user_id, $product_id ) {
+        $product = wc_get_product( $product_id );
+        if ( ! $product ) { echo '<p>Ürün bulunamadı.</p>'; return; }
+        $cats       = self::build_cat_options();
+        $prod_cats  = wp_get_post_terms( $product_id, 'product_cat', array( 'fields' => 'ids' ) );
+        $first_cat  = ! empty( $prod_cats ) ? (int) $prod_cats[0] : 0;
+        $img_id     = (int) $product->get_image_id();
+        $img_url    = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
+        $back_url   = add_query_arg( 'tab', 'products', get_permalink() );
+        ?>
+        <p><a href="<?php echo esc_url( $back_url ); ?>" class="button">&larr; Ürünlerime dön</a></p>
+        <h3>✏️ Ürün Düzenle</h3>
+
+        <div class="pzv-product-form" id="pzv-edit-product-form" data-product="<?php echo (int) $product_id; ?>">
+            <div class="pzv-pf-grid">
+                <div class="pzv-pf-main">
+                    <div class="pzv-form-row">
+                        <label>Ürün Adı <span class="req">*</span></label>
+                        <input type="text" id="pzv-ep-title" value="<?php echo esc_attr( $product->get_name() ); ?>" maxlength="200">
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Kategori</label>
+                        <select id="pzv-ep-cat">
+                            <option value="0">— Değiştirmek için seçin —</option>
+                            <?php
+                            $all_cats = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'orderby' => 'name' ) );
+                            if ( ! is_wp_error( $all_cats ) ) foreach ( $all_cats as $cat ) {
+                                if ( $cat->slug === 'uncategorized' ) continue;
+                                echo '<option value="' . (int) $cat->term_id . '"' . selected( $first_cat, $cat->term_id, false ) . '>' . esc_html( $cat->name ) . '</option>';
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <div class="pzv-pf-2col">
+                        <div class="pzv-form-row">
+                            <label>Normal Fiyat (₺) <span class="req">*</span></label>
+                            <input type="number" id="pzv-ep-price" step="0.01" min="0" value="<?php echo esc_attr( $product->get_regular_price() ); ?>">
+                        </div>
+                        <div class="pzv-form-row">
+                            <label>İndirimli Fiyat (₺)</label>
+                            <input type="number" id="pzv-ep-sale-price" step="0.01" min="0" value="<?php echo esc_attr( $product->get_sale_price() ); ?>" placeholder="Boş bırakın">
+                        </div>
+                    </div>
+                    <div class="pzv-pf-2col">
+                        <div class="pzv-form-row">
+                            <label>Stok Miktarı</label>
+                            <input type="number" id="pzv-ep-stock" min="0" value="<?php echo esc_attr( (int) $product->get_stock_quantity() ); ?>">
+                        </div>
+                        <div class="pzv-form-row">
+                            <label>SKU</label>
+                            <input type="text" id="pzv-ep-sku" value="<?php echo esc_attr( $product->get_sku() ); ?>">
+                        </div>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Kısa Açıklama</label>
+                        <textarea id="pzv-ep-short-desc" rows="2"><?php echo esc_textarea( $product->get_short_description() ); ?></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Detaylı Açıklama</label>
+                        <textarea id="pzv-ep-desc" rows="5"><?php echo esc_textarea( $product->get_description() ); ?></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Yayın Durumu</label>
+                        <select id="pzv-ep-status">
+                            <option value="publish" <?php selected( $product->get_status(), 'publish' ); ?>>✓ Yayında (onay gerekir)</option>
+                            <option value="pending" <?php selected( $product->get_status(), 'pending' ); ?>>⏳ Onay Bekliyor</option>
+                            <option value="draft"   <?php selected( $product->get_status(), 'draft' );   ?>>📝 Taslak</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pzv-pf-side">
+                    <div class="pzv-pf-img-wrap">
+                        <label style="font-weight:600;font-size:13px;display:block;margin-bottom:8px;">Öne Çıkan Görsel</label>
+                        <div class="pzv-pf-image-box" id="pzv-ep-imgbox">
+                            <div class="pzv-pf-img-placeholder" id="pzv-ep-placeholder"<?php echo $img_url ? ' style="display:none;"' : ''; ?>><span style="font-size:36px;">📷</span><span>Görsel seçin</span></div>
+                            <img id="pzv-ep-img-preview" src="<?php echo esc_url( $img_url ); ?>" alt=""<?php echo ! $img_url ? ' style="display:none;"' : ' style="width:100%;height:100%;object-fit:cover;"'; ?>>
+                        </div>
+                        <input type="hidden" id="pzv-ep-img-id" value="<?php echo $img_id; ?>">
+                        <div class="pzv-pf-img-btns">
+                            <button type="button" class="button" id="pzv-ep-img-btn">📷 Değiştir</button>
+                            <button type="button" class="button" id="pzv-ep-img-remove"<?php echo ! $img_id ? ' style="display:none;"' : ''; ?>>✕ Kaldır</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pzv-pf-actions">
+                <button type="button" class="button button-primary pzv-pf-submit" id="pzv-ep-submit" data-form="edit">
+                    <span class="pzv-btn-txt">💾 Değişiklikleri Kaydet</span>
+                    <span class="pzv-btn-spin" style="display:none;">⏳ Kaydediliyor...</span>
+                </button>
+                <div class="pzv-form-msg" id="pzv-ep-msg"></div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /** AJAX: Yeni ürün oluştur */
+    public static function ajax_new_product() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        $uid = get_current_user_id();
+        if ( ! PZV_Roles::is_vendor( $uid ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+
+        $title      = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
+        $price      = floatval( $_POST['price'] ?? 0 );
+        $sale_price = ( isset( $_POST['sale_price'] ) && $_POST['sale_price'] !== '' ) ? floatval( $_POST['sale_price'] ) : '';
+        $stock      = (int) ( $_POST['stock'] ?? 0 );
+        $sku        = sanitize_text_field( wp_unslash( $_POST['sku'] ?? '' ) );
+        $desc       = wp_kses_post( wp_unslash( $_POST['desc'] ?? '' ) );
+        $short_desc = wp_kses_post( wp_unslash( $_POST['short_desc'] ?? '' ) );
+        $image_id   = (int) ( $_POST['image_id'] ?? 0 );
+        $cat_id     = (int) ( $_POST['cat_id'] ?? 0 );
+        $requested  = sanitize_key( $_POST['status'] ?? 'pending' );
+        $status     = ( $requested === 'draft' ) ? 'draft' : 'pending';
+
+        if ( ! $title ) wp_send_json_error( array( 'message' => 'Ürün adı gerekli.' ) );
+        if ( $price <= 0 ) wp_send_json_error( array( 'message' => 'Geçerli bir fiyat girin.' ) );
+
+        $product = new WC_Product_Simple();
+        $product->set_name( $title );
+        $product->set_status( $status );
+        $product->set_description( $desc );
+        $product->set_short_description( $short_desc );
+        $product->set_regular_price( (string) $price );
+        if ( $sale_price !== '' ) $product->set_sale_price( (string) $sale_price );
+        $product->set_manage_stock( true );
+        $product->set_stock_quantity( $stock );
+        $product->set_stock_status( $stock > 0 ? 'instock' : 'outofstock' );
+        if ( $sku ) $product->set_sku( $sku );
+        if ( $image_id ) $product->set_image_id( $image_id );
+        if ( $cat_id ) $product->set_category_ids( array( $cat_id ) );
+
+        $pid = $product->save();
+        if ( ! $pid ) wp_send_json_error( array( 'message' => 'Ürün oluşturulamadı.' ) );
+
+        wp_update_post( array( 'ID' => $pid, 'post_author' => $uid ) );
+
+        $saticim = get_page_by_path( 'saticim' );
+        wp_send_json_success( array(
+            'product_id'   => $pid,
+            'message'      => $status === 'draft' ? 'Taslak kaydedildi.' : 'Onay için gönderildi. Yönetici onayından sonra yayınlanacak.',
+            'went_pending' => ( $status === 'pending' ),
+            'products_url' => $saticim ? add_query_arg( 'tab', 'products', get_permalink( $saticim ) ) : '',
+        ) );
+    }
+
+    /** AJAX: Mevcut ürünü kaydet */
+    public static function ajax_save_product_data() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        $uid = get_current_user_id();
+        if ( ! PZV_Roles::is_vendor( $uid ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+
+        $pid = (int) ( $_POST['product_id'] ?? 0 );
+        if ( ! $pid ) wp_send_json_error( array( 'message' => 'Ürün ID eksik' ) );
+        if ( (int) get_post_field( 'post_author', $pid ) !== $uid ) wp_send_json_error( array( 'message' => 'Bu ürün size ait değil' ) );
+
+        $product = wc_get_product( $pid );
+        if ( ! $product ) wp_send_json_error( array( 'message' => 'Ürün bulunamadı' ) );
+
+        if ( ! empty( $_POST['title'] ) ) $product->set_name( sanitize_text_field( wp_unslash( $_POST['title'] ) ) );
+        if ( isset( $_POST['price'] ) && is_numeric( $_POST['price'] ) ) $product->set_regular_price( (string) floatval( $_POST['price'] ) );
+        if ( isset( $_POST['sale_price'] ) ) $product->set_sale_price( $_POST['sale_price'] !== '' ? (string) floatval( $_POST['sale_price'] ) : '' );
+        if ( isset( $_POST['stock'] ) ) {
+            $s = (int) $_POST['stock'];
+            $product->set_manage_stock( true );
+            $product->set_stock_quantity( $s );
+            $product->set_stock_status( $s > 0 ? 'instock' : 'outofstock' );
+        }
+        if ( isset( $_POST['sku'] ) ) $product->set_sku( sanitize_text_field( wp_unslash( $_POST['sku'] ) ) );
+        if ( isset( $_POST['desc'] ) ) $product->set_description( wp_kses_post( wp_unslash( $_POST['desc'] ) ) );
+        if ( isset( $_POST['short_desc'] ) ) $product->set_short_description( wp_kses_post( wp_unslash( $_POST['short_desc'] ) ) );
+        if ( isset( $_POST['image_id'] ) ) $product->set_image_id( (int) $_POST['image_id'] );
+        if ( ! empty( $_POST['cat_id'] ) ) $product->set_category_ids( array( (int) $_POST['cat_id'] ) );
+
+        $went_pending = false;
+        $new_status   = sanitize_key( $_POST['status'] ?? '' );
+        if ( $new_status ) {
+            if ( $new_status === 'publish' ) { $product->set_status( 'pending' ); $went_pending = true; }
+            elseif ( in_array( $new_status, array( 'draft', 'pending' ), true ) ) { $product->set_status( $new_status ); }
+        }
+
+        if ( ! defined( 'PZV_DOING_QUICK_SAVE' ) ) define( 'PZV_DOING_QUICK_SAVE', true );
+        $product->save();
+
+        wp_send_json_success( array(
+            'message'      => $went_pending ? 'Onay için gönderildi.' : 'Güncellendi.',
+            'went_pending' => $went_pending,
+        ) );
+    }
+
+    /** AJAX: Profil kaydet (frontend dashboard) */
+    public static function ajax_save_vendor_profile() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        $uid = get_current_user_id();
+        if ( ! PZV_Roles::is_pure_vendor( $uid ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+
+        foreach ( array( 'store_name', 'phone', 'city', 'address', 'description', 'iban' ) as $f ) {
+            if ( isset( $_POST[ $f ] ) ) update_user_meta( $uid, 'pzv_' . $f, sanitize_text_field( wp_unslash( $_POST[ $f ] ) ) );
+        }
+        if ( ! empty( $_POST['store_slug'] ) ) update_user_meta( $uid, 'pzv_store_slug', sanitize_title( $_POST['store_slug'] ) );
+        update_user_meta( $uid, 'pzv_logo',   (int) ( $_POST['logo']   ?? 0 ) );
+        update_user_meta( $uid, 'pzv_banner', (int) ( $_POST['banner'] ?? 0 ) );
+
+        wp_send_json_success( array( 'message' => 'Profil güncellendi.' ) );
     }
 
     /** AJAX: vendor sipariş güncelle */
