@@ -54,12 +54,32 @@ $hdr_coupon_label = $hdr_coupon_count > 0 ? $hdr_coupon_count . ' aktif kupon' :
 // Sipariş sayıları
 $hdr_orders_active    = 0;
 $hdr_orders_completed = 0;
+$hdr_orders_cancelled = 0;
+$hdr_last_order       = null;
 if ( $hdr_logged_in && function_exists('wc_get_orders') ) {
     $hdr_orders_active    = count( wc_get_orders( array( 'customer' => $hdr_user_id, 'status' => array( 'pending', 'processing', 'on-hold' ), 'limit' => -1, 'return' => 'ids' ) ) );
     $hdr_orders_completed = count( wc_get_orders( array( 'customer' => $hdr_user_id, 'status' => array( 'completed' ), 'limit' => -1, 'return' => 'ids' ) ) );
+    $hdr_orders_cancelled = count( wc_get_orders( array( 'customer' => $hdr_user_id, 'status' => array( 'refunded', 'cancelled' ), 'limit' => -1, 'return' => 'ids' ) ) );
+    // Son sipariş (durum + tutar gösterimi için)
+    $last_orders = wc_get_orders( array( 'customer' => $hdr_user_id, 'limit' => 1, 'orderby' => 'date', 'order' => 'DESC' ) );
+    $hdr_last_order = ! empty( $last_orders ) ? $last_orders[0] : null;
 }
 $hdr_orders_active_label    = $hdr_orders_active > 0 ? $hdr_orders_active . ' sipariş yolda' : 'Aktif sipariş yok';
 $hdr_orders_completed_label = $hdr_orders_completed > 0 ? $hdr_orders_completed . ' sipariş' : 'Henüz yok';
+$hdr_orders_cancelled_label = $hdr_orders_cancelled > 0 ? $hdr_orders_cancelled . ' sipariş' : 'Yok';
+
+// Değerlendirmeler (yorum sayısı)
+$hdr_reviews_count = 0;
+if ( $hdr_logged_in ) {
+    $hdr_reviews_count = (int) get_comments( array(
+        'user_id'    => $hdr_user_id,
+        'type'       => 'review',
+        'status'     => 'approve',
+        'count'      => true,
+        'no_found_rows' => true,
+    ) );
+}
+$hdr_reviews_label = $hdr_reviews_count > 0 ? $hdr_reviews_count . ' değerlendirme' : 'Henüz yok';
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -315,37 +335,92 @@ $hdr_orders_completed_label = $hdr_orders_completed > 0 ? $hdr_orders_completed 
         </div>
       </div>
 
-      <!-- RETURNS -->
+      <!-- RETURNS / SİPARİŞLER -->
       <div class="nav-btn" id="btn-orders" onclick="toggleDrop('drop-orders','btn-orders')">
         <span class="nav-top">İadeler &</span>
-        <span class="nav-bot">Siparişler ▾</span>
-        <div class="nav-drop" id="drop-orders">
-          <div class="ndrop-head"><div class="ndrop-title">Siparişlerim</div></div>
-          <a href="<?php echo esc_url( wc_get_account_endpoint_url('orders') ); ?>" style="text-decoration:none;color:inherit;">
-            <div class="ndrop-row">
-              <div class="ndrop-icon">🚚</div>
-              <div>
-                <div class="ndrop-label">Aktif Siparişler</div>
-                <div class="ndrop-hint"><?php echo esc_html( $hdr_orders_active_label ); ?></div>
-              </div>
-              <?php if ( $hdr_orders_active > 0 ) : ?><span class="ndrop-badge"><?php echo esc_html( $hdr_orders_active ); ?></span><?php endif; ?>
+        <span class="nav-bot">Siparişler <?php if ( $hdr_orders_active > 0 ) : ?><span class="nav-badge"><?php echo esc_html( $hdr_orders_active ); ?></span><?php endif; ?> ▾</span>
+        <div class="nav-drop ndrop-orders-drop" id="drop-orders">
+
+          <!-- Başlık + özet sayılar -->
+          <div class="ndrop-head ndrop-orders-head">
+            <div class="ndrop-title">Siparişlerim</div>
+            <div class="ndrop-orders-summary">
+              <span class="ndrop-os ndrop-os-active"><?php echo esc_html( $hdr_orders_active ); ?> Aktif</span>
+              <span class="ndrop-os ndrop-os-done"><?php echo esc_html( $hdr_orders_completed ); ?> Tamamlandı</span>
+            </div>
+          </div>
+
+          <?php if ( $hdr_last_order ) :
+            $lo_status    = $hdr_last_order->get_status();
+            $lo_total     = $hdr_last_order->get_formatted_order_total();
+            $lo_date      = $hdr_last_order->get_date_created() ? $hdr_last_order->get_date_created()->date_i18n( 'd M Y' ) : '';
+            $lo_id        = $hdr_last_order->get_id();
+            $lo_url       = $hdr_last_order->get_view_order_url();
+            $lo_status_labels = array(
+                'pending'    => array( 'Bekliyor',    'ndrop-st-pending' ),
+                'processing' => array( 'Hazırlanıyor','ndrop-st-processing' ),
+                'on-hold'    => array( 'Beklemede',   'ndrop-st-pending' ),
+                'completed'  => array( 'Teslim Edildi','ndrop-st-done' ),
+                'cancelled'  => array( 'İptal',        'ndrop-st-cancel' ),
+                'refunded'   => array( 'İade Edildi',  'ndrop-st-cancel' ),
+                'failed'     => array( 'Başarısız',    'ndrop-st-cancel' ),
+            );
+            $lo_sl = isset( $lo_status_labels[ $lo_status ] ) ? $lo_status_labels[ $lo_status ] : array( ucfirst( $lo_status ), 'ndrop-st-pending' );
+          ?>
+          <a href="<?php echo esc_url( $lo_url ); ?>" class="ndrop-last-order">
+            <div class="ndrop-lo-left">
+              <div class="ndrop-lo-label">Son Siparişiniz</div>
+              <div class="ndrop-lo-meta">#<?php echo esc_html( $lo_id ); ?><?php if ( $lo_date ) : ?> &bull; <?php echo esc_html( $lo_date ); ?><?php endif; ?></div>
+            </div>
+            <div class="ndrop-lo-right">
+              <div class="ndrop-lo-total"><?php echo wp_kses_post( $lo_total ); ?></div>
+              <span class="ndrop-st <?php echo esc_attr( $lo_sl[1] ); ?>"><?php echo esc_html( $lo_sl[0] ); ?></span>
             </div>
           </a>
-          <a href="<?php echo esc_url( add_query_arg( 'status', 'completed', wc_get_account_endpoint_url('orders') ) ); ?>" style="text-decoration:none;color:inherit;">
-            <div class="ndrop-row">
-              <div class="ndrop-icon">✅</div>
-              <div>
-                <div class="ndrop-label">Tamamlananlar</div>
-                <div class="ndrop-hint"><?php echo esc_html( $hdr_orders_completed_label ); ?></div>
-              </div>
-            </div>
-          </a>
-          <a href="<?php echo esc_url( wc_get_account_endpoint_url('returns') ); ?>" style="text-decoration:none;color:inherit;">
-            <div class="ndrop-row"><div class="ndrop-icon">🔄</div><div><div class="ndrop-label">İade Taleplerim</div></div></div>
-          </a>
-          <a href="<?php echo esc_url( wc_get_account_endpoint_url('reviews') ); ?>" style="text-decoration:none;color:inherit;">
-            <div class="ndrop-row"><div class="ndrop-icon">⭐</div><div><div class="ndrop-label">Değerlendirmelerim</div></div></div>
-          </a>
+          <?php endif; ?>
+
+          <!-- Durum linkleri -->
+          <div class="ndrop-orders-links">
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('orders') ); ?>" class="ndrop-ol">
+              <span class="ndrop-ol-ico ndrop-ol-ico-active">🚚</span>
+              <span class="ndrop-ol-txt">
+                <strong>Aktif Siparişler</strong>
+                <em><?php echo esc_html( $hdr_orders_active_label ); ?></em>
+              </span>
+              <?php if ( $hdr_orders_active > 0 ) : ?>
+                <span class="ndrop-ol-badge ndrop-ol-badge-active"><?php echo esc_html( $hdr_orders_active ); ?></span>
+              <?php endif; ?>
+            </a>
+
+            <a href="<?php echo esc_url( add_query_arg( 'status', 'completed', wc_get_account_endpoint_url('orders') ) ); ?>" class="ndrop-ol">
+              <span class="ndrop-ol-ico ndrop-ol-ico-done">✅</span>
+              <span class="ndrop-ol-txt">
+                <strong>Tamamlananlar</strong>
+                <em><?php echo esc_html( $hdr_orders_completed_label ); ?></em>
+              </span>
+            </a>
+
+            <a href="<?php echo esc_url( add_query_arg( 'status', 'cancelled', wc_get_account_endpoint_url('orders') ) ); ?>" class="ndrop-ol">
+              <span class="ndrop-ol-ico ndrop-ol-ico-cancel">🔄</span>
+              <span class="ndrop-ol-txt">
+                <strong>İade &amp; İptal</strong>
+                <em><?php echo esc_html( $hdr_orders_cancelled_label ); ?></em>
+              </span>
+            </a>
+
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('reviews') ); ?>" class="ndrop-ol">
+              <span class="ndrop-ol-ico ndrop-ol-ico-review">⭐</span>
+              <span class="ndrop-ol-txt">
+                <strong>Değerlendirmelerim</strong>
+                <em><?php echo esc_html( $hdr_reviews_label ); ?></em>
+              </span>
+            </a>
+          </div>
+
+          <div class="ndrop-orders-footer">
+            <a href="<?php echo esc_url( wc_get_account_endpoint_url('orders') ); ?>" class="ndrop-orders-all">Tüm Siparişleri Gör →</a>
+          </div>
+
         </div>
       </div>
 
