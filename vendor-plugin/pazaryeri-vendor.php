@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PazarYeri Vendor System
  * Description: Hafif WooCommerce çoklu satıcı sistemi. Dokan alternatifi. Kategori bazlı komisyon, frontend dashboard, sipariş yönetimi.
- * Version:     1.3.0
+ * Version:     1.3.1
  * Author:      724PazarYeri
  * Requires PHP: 7.2
  * Requires at least: 5.6
@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PZV_VERSION', '1.3.0' );
+define( 'PZV_VERSION', '1.3.1' );
 define( 'PZV_FILE', __FILE__ );
 define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
@@ -116,6 +116,12 @@ add_action( 'wp_ajax_pzv_save_vendor_profile',  array( 'PZV_Dashboard',  'ajax_s
 add_action( 'init', function () {
     add_rewrite_rule( '^magaza/([^/]+)/?$', 'index.php?pzv_store=$matches[1]', 'top' );
     add_rewrite_endpoint( 'satici-paneli', EP_ROOT | EP_PAGES );
+
+    // Rewrite kuralı henüz kaydedilmemişse otomatik flush
+    $rules = get_option( 'rewrite_rules' );
+    if ( empty( $rules ) || ! isset( $rules['^magaza/([^/]+)/?$'] ) ) {
+        flush_rewrite_rules( false );
+    }
 } );
 
 add_filter( 'query_vars', function ( $vars ) {
@@ -127,11 +133,6 @@ add_filter( 'template_include', function ( $template ) {
     if ( ! get_query_var( 'pzv_store' ) ) return $template;
     $theme_tpl = locate_template( 'magaza.php' );
     return $theme_tpl ? $theme_tpl : $template;
-} );
-
-// ─── WooCommerce My Account entegrasyonu ─── //
-add_action( 'init', function () {
-    add_rewrite_endpoint( 'satici-paneli', EP_ROOT | EP_PAGES );
 } );
 
 add_filter( 'woocommerce_account_menu_items', function ( $items ) {
