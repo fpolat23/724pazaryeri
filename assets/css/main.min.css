@@ -91,7 +91,7 @@ body.pazaryeri-site, body.pazaryeri-fullwidth .entry-content > .pazaryeri-wrap{
 .pazaryeri-wrap .header,
 .pazaryeri-wrap .catbar,
 .pazaryeri-wrap .announce,
-.pazaryeri-wrap .footer{width:100%;}
+.pazaryeri-wrap .footer{width:100%;background:var(--nav-bg);}
 
 /* ═══════════ TEMA CSS SIZINTISI DÜZELTMELERİ ═══════════ */
 /* 1) Tüm link altı çizgilerini kesin kaldır (tema !important ile ekliyor olabilir) */
