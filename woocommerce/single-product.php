@@ -87,24 +87,62 @@ while ( have_posts() ) : the_post();
       </div>
 
       <?php
-        // Dokan satıcı bilgisi
-        $vendor_html = '';
-        if ( function_exists( 'dokan_get_vendor_by_product' ) ) {
-          $vendor = dokan_get_vendor_by_product( $product->get_id() );
-          if ( $vendor ) {
-            $shop_name = $vendor->get_shop_name();
-            $shop_url  = $vendor->get_shop_url();
-            $v_rating  = $vendor->get_rating();
-            $v_rval    = is_array($v_rating) && isset($v_rating['rating']) ? (float)$v_rating['rating'] : 5.0;
-            ?>
-            <div class="hb-seller-line">
-              <span class="hb-seller-label">Satıcı:</span>
-              <a class="hb-seller-name" href="<?php echo esc_url( $shop_url ); ?>"><?php echo esc_html( $shop_name ); ?></a>
-              <span class="hb-seller-rating">★ <?php echo esc_html( number_format($v_rval,1) ); ?></span>
-              <a class="hb-seller-visit" href="<?php echo esc_url( $shop_url ); ?>">Mağazaya Git ›</a>
+        // ── SATICI KARTI (PZV) ──
+        global $wpdb;
+        $pzv_author_id = (int) get_post_field( 'post_author', $product->get_id() );
+        $pzv_vendor    = ( $pzv_author_id && class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $pzv_author_id ) : null;
+        if ( $pzv_vendor && get_user_meta( $pzv_author_id, 'pzv_status', true ) !== 'inactive' ) :
+          $pzv_store_url  = PZV_Vendor::store_url( $pzv_author_id );
+          $pzv_logo_id    = $pzv_vendor['logo'];
+          $pzv_logo_url   = $pzv_logo_id ? wp_get_attachment_image_url( $pzv_logo_id, array( 52, 52 ) ) : '';
+          $pzv_store_name = $pzv_vendor['store_name'];
+          $pzv_city       = $pzv_vendor['city'];
+          $pzv_prod_count = PZV_Vendor::product_count( $pzv_author_id );
+          $pzv_avg_rating = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT AVG(cm.meta_value) FROM {$wpdb->comments} c
+             INNER JOIN {$wpdb->commentmeta} cm ON c.comment_ID=cm.comment_id
+             INNER JOIN {$wpdb->posts} p ON c.comment_post_ID=p.ID
+             WHERE p.post_author=%d AND p.post_type='product' AND p.post_status='publish'
+               AND c.comment_approved='1' AND cm.meta_key='rating'",
+            $pzv_author_id
+          ) );
+          $pzv_rating_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(DISTINCT c.comment_ID) FROM {$wpdb->comments} c
+             INNER JOIN {$wpdb->commentmeta} cm ON c.comment_ID=cm.comment_id
+             INNER JOIN {$wpdb->posts} p ON c.comment_post_ID=p.ID
+             WHERE p.post_author=%d AND p.post_type='product' AND p.post_status='publish'
+               AND c.comment_approved='1' AND cm.meta_key='rating'",
+            $pzv_author_id
+          ) );
+          $pzv_rating_val = $pzv_avg_rating > 0 ? round( $pzv_avg_rating, 1 ) : 0;
+        ?>
+        <div class="pzv-seller-card">
+          <div class="pzv-sc-left">
+            <?php if ( $pzv_logo_url ) : ?>
+              <img class="pzv-sc-logo" src="<?php echo esc_url( $pzv_logo_url ); ?>" alt="<?php echo esc_attr( $pzv_store_name ); ?>">
+            <?php else : ?>
+              <div class="pzv-sc-logo pzv-sc-logo-fallback"><?php echo esc_html( mb_strtoupper( mb_substr( $pzv_store_name, 0, 1 ) ) ); ?></div>
+            <?php endif; ?>
+          </div>
+          <div class="pzv-sc-info">
+            <div class="pzv-sc-name">
+              <a href="<?php echo esc_url( $pzv_store_url ); ?>"><?php echo esc_html( $pzv_store_name ); ?></a>
+              <?php if ( $pzv_city ) : ?><span class="pzv-sc-city">📍 <?php echo esc_html( $pzv_city ); ?></span><?php endif; ?>
             </div>
-          <?php }
-        } ?>
+            <div class="pzv-sc-meta">
+              <?php if ( $pzv_rating_val > 0 ) : ?>
+                <span class="pzv-sc-rating">
+                  <?php echo str_repeat( '★', (int) round( $pzv_rating_val ) ) . str_repeat( '☆', 5 - (int) round( $pzv_rating_val ) ); ?>
+                  <strong><?php echo esc_html( number_format( $pzv_rating_val, 1 ) ); ?></strong>
+                  <span class="pzv-sc-rcount">(<?php echo esc_html( $pzv_rating_count ); ?> değerlendirme)</span>
+                </span>
+              <?php endif; ?>
+              <span class="pzv-sc-pcount"><?php echo esc_html( $pzv_prod_count ); ?> ürün</span>
+            </div>
+          </div>
+          <a class="pzv-sc-btn" href="<?php echo esc_url( $pzv_store_url ); ?>">Mağazaya Git <span>›</span></a>
+        </div>
+        <?php endif; ?>
 
       <!-- Varyantlar -->
       <?php
@@ -425,56 +463,86 @@ while ( have_posts() ) : the_post();
       </div>
 
       <?php
-        // ── DİĞER SATICILAR (Dokan) ──
-        // Aynı isimli/benzer ürünü satan diğer Dokan satıcılarını bul
-        $other_offers = array();
-        if ( function_exists( 'dokan_get_vendor_by_product' ) ) {
-          $current_vendor = dokan_get_vendor_by_product( $product->get_id() );
-          $current_vid = $current_vendor ? $current_vendor->get_id() : 0;
-          // Aynı SKU veya aynı başlıkla diğer ürünleri bul
-          $title = $product->get_name();
-          $similar = new WP_Query( array(
-            'post_type'      => 'product',
-            'post_status'    => 'publish',
-            'posts_per_page' => 6,
-        'no_found_rows' => true, 'update_post_term_cache' => false,
-            'post__not_in'   => array( $product->get_id() ),
-            's'              => $title,
-            'orderby'        => 'meta_value_num',
-            'meta_key'       => '_price',
-            'order'          => 'ASC',
-          ) );
-          if ( $similar->have_posts() ) {
-            while ( $similar->have_posts() ) { $similar->the_post();
-              $op = wc_get_product( get_the_ID() );
-              if ( ! $op ) continue;
-              $ov = dokan_get_vendor_by_product( get_the_ID() );
-              if ( ! $ov ) continue;
-              $other_offers[] = array(
-                'vendor_name' => $ov->get_shop_name(),
-                'vendor_url'  => $ov->get_shop_url(),
-                'price'       => $op->get_price(),
-                'rating'      => $ov->get_rating(),
-                'product_url' => get_permalink( get_the_ID() ),
-              );
-            }
-            wp_reset_postdata();
+        // ── DİĞER SATICILAR (PZV) ──
+        $pzv_other_offers = array();
+        if ( isset( $pzv_author_id ) && $pzv_author_id && class_exists( 'PZV_Vendor' ) ) {
+          // Tam başlık eşleşmesi önce denensin
+          $pzv_same_ids = array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+            "SELECT p.ID FROM {$wpdb->posts} p
+             WHERE p.post_type='product' AND p.post_status='publish'
+               AND p.post_author!=%d AND p.post_title=%s
+             LIMIT 8",
+            $pzv_author_id, $product->get_name()
+          ) ) );
+          // Tam eşleşme yoksa başlık içeren ürünler
+          if ( empty( $pzv_same_ids ) ) {
+            $pzv_title_like = '%' . $wpdb->esc_like( $product->get_name() ) . '%';
+            $pzv_same_ids = array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+              "SELECT p.ID FROM {$wpdb->posts} p
+               WHERE p.post_type='product' AND p.post_status='publish'
+                 AND p.post_author!=%d AND p.post_title LIKE %s
+               ORDER BY p.post_date DESC LIMIT 8",
+              $pzv_author_id, $pzv_title_like
+            ) ) );
+          }
+          foreach ( $pzv_same_ids as $sim_id ) {
+            $sim_p = wc_get_product( $sim_id );
+            if ( ! $sim_p || ! $sim_p->is_purchasable() || ! $sim_p->get_price() ) continue;
+            $sim_author = (int) get_post_field( 'post_author', $sim_id );
+            if ( get_user_meta( $sim_author, 'pzv_status', true ) === 'inactive' ) continue;
+            $sim_vendor = PZV_Vendor::get( $sim_author );
+            if ( ! $sim_vendor ) continue;
+            $sim_avg = (float) $wpdb->get_var( $wpdb->prepare(
+              "SELECT AVG(cm.meta_value) FROM {$wpdb->comments} c
+               INNER JOIN {$wpdb->commentmeta} cm ON c.comment_ID=cm.comment_id
+               INNER JOIN {$wpdb->posts} p ON c.comment_post_ID=p.ID
+               WHERE p.post_author=%d AND p.post_type='product' AND p.post_status='publish'
+                 AND c.comment_approved='1' AND cm.meta_key='rating'",
+              $sim_author
+            ) );
+            $pzv_other_offers[] = array(
+              'vendor_name' => $sim_vendor['store_name'],
+              'vendor_url'  => PZV_Vendor::store_url( $sim_author ),
+              'product_url' => get_permalink( $sim_id ),
+              'price'       => (float) $sim_p->get_price(),
+              'rating'      => $sim_avg > 0 ? round( $sim_avg, 1 ) : 0,
+              'logo_id'     => $sim_vendor['logo'],
+            );
+            if ( count( $pzv_other_offers ) >= 4 ) break;
           }
         }
-        if ( ! empty( $other_offers ) ) :
+        if ( ! empty( $pzv_other_offers ) ) :
       ?>
-      <div class="hb-other-sellers">
-        <div class="hb-os-title">🏪 Bu üründe <?php echo count( $other_offers ); ?> farklı satıcı</div>
-        <?php foreach ( array_slice( $other_offers, 0, 4 ) as $offer ) :
-          $r = $offer['rating'];
-          $rval = is_array($r) && isset($r['rating']) ? (float)$r['rating'] : 5.0; ?>
-          <a class="hb-os-item" href="<?php echo esc_url( $offer['product_url'] ); ?>">
-            <div class="hb-os-info">
-              <span class="hb-os-name"><?php echo esc_html( $offer['vendor_name'] ); ?></span>
-              <span class="hb-os-rating">★ <?php echo esc_html( number_format($rval,1) ); ?></span>
+      <div class="pzv-other-sellers">
+        <div class="pzv-os-header">
+          <span class="pzv-os-title">🏪 Diğer Satıcılar</span>
+          <span class="pzv-os-count"><?php echo esc_html( count( $pzv_other_offers ) ); ?> farklı satıcı</span>
+        </div>
+        <?php foreach ( $pzv_other_offers as $offer ) :
+          $logo_url = $offer['logo_id'] ? wp_get_attachment_image_url( $offer['logo_id'], array( 36, 36 ) ) : '';
+        ?>
+        <div class="pzv-os-item">
+          <div class="pzv-os-left">
+            <?php if ( $logo_url ) : ?>
+              <img class="pzv-os-logo" src="<?php echo esc_url( $logo_url ); ?>" alt="">
+            <?php else : ?>
+              <div class="pzv-os-logo pzv-os-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $offer['vendor_name'], 0, 1 ) ) ); ?></div>
+            <?php endif; ?>
+            <div class="pzv-os-info">
+              <span class="pzv-os-name"><?php echo esc_html( $offer['vendor_name'] ); ?></span>
+              <?php if ( $offer['rating'] > 0 ) : ?>
+                <span class="pzv-os-rating">★ <?php echo esc_html( number_format( $offer['rating'], 1 ) ); ?></span>
+              <?php endif; ?>
             </div>
-            <div class="hb-os-price"><?php echo wc_price( $offer['price'] ); ?></div>
-          </a>
+          </div>
+          <div class="pzv-os-right">
+            <div class="pzv-os-price"><?php echo wc_price( $offer['price'] ); ?></div>
+            <div class="pzv-os-actions">
+              <a class="pzv-os-buy" href="<?php echo esc_url( $offer['product_url'] ); ?>">Satın Al</a>
+              <a class="pzv-os-store" href="<?php echo esc_url( $offer['vendor_url'] ); ?>">Mağaza ›</a>
+            </div>
+          </div>
+        </div>
         <?php endforeach; ?>
       </div>
       <?php endif; ?>

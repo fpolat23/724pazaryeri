@@ -288,11 +288,24 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-rating-val{font-weight:800;font-size:15px;}
 .pazaryeri-wrap .hb-rating-count{font-size:13px;color:var(--blue);}
 .pazaryeri-wrap .hb-sold{font-size:13px;color:var(--muted);padding-left:12px;border-left:1px solid var(--border);}
-.pazaryeri-wrap .hb-seller-line{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:#faf8f5;border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:16px;font-size:13px;}
-.pazaryeri-wrap .hb-seller-label{color:var(--muted);}
-.pazaryeri-wrap .hb-seller-name{font-weight:700;color:var(--ink);}
-.pazaryeri-wrap .hb-seller-rating{background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;}
-.pazaryeri-wrap .hb-seller-visit{margin-left:auto;color:var(--accent);font-weight:700;}
+/* Satıcı kartı (ürün detay) */
+.pazaryeri-wrap .pzv-seller-card{display:flex;align-items:center;gap:14px;background:#faf8f5;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+.pazaryeri-wrap .pzv-sc-left{flex-shrink:0;}
+.pazaryeri-wrap .pzv-sc-logo{width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid var(--border);}
+.pazaryeri-wrap .pzv-sc-logo-fallback{width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ff8c00);color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.pazaryeri-wrap .pzv-sc-info{flex:1;min-width:0;}
+.pazaryeri-wrap .pzv-sc-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;}
+.pazaryeri-wrap .pzv-sc-name a{font-weight:800;font-size:14px;color:var(--ink);text-decoration:none;}
+.pazaryeri-wrap .pzv-sc-name a:hover{color:var(--accent);}
+.pazaryeri-wrap .pzv-sc-city{font-size:11.5px;color:var(--muted);}
+.pazaryeri-wrap .pzv-sc-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.pazaryeri-wrap .pzv-sc-rating{display:flex;align-items:center;gap:4px;font-size:12px;color:#f59e0b;}
+.pazaryeri-wrap .pzv-sc-rating strong{color:var(--ink);font-size:13px;}
+.pazaryeri-wrap .pzv-sc-rcount{color:var(--muted);font-size:11px;}
+.pazaryeri-wrap .pzv-sc-pcount{font-size:12px;color:var(--muted);padding-left:10px;border-left:1px solid var(--border);}
+.pazaryeri-wrap .pzv-sc-btn{flex-shrink:0;padding:9px 16px;background:var(--accent);color:#fff;border-radius:9px;font-size:13px;font-weight:700;text-decoration:none;transition:background .14s;white-space:nowrap;}
+.pazaryeri-wrap .pzv-sc-btn:hover{background:#e05a00;color:#fff;}
+.pazaryeri-wrap .pzv-sc-btn span{opacity:.8;}
 .pazaryeri-wrap .hb-variant-block{margin-bottom:16px;}
 .pazaryeri-wrap .hb-variant-label{font-size:13px;font-weight:600;margin-bottom:8px;}
 .pazaryeri-wrap .hb-variant-label span{color:var(--accent);}
@@ -433,15 +446,26 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-inst-v{font-weight:800;color:var(--accent);text-align:right;}
 .pazaryeri-wrap .hb-inst-hidden{display:none;}
 .pazaryeri-wrap .hb-inst-note{font-size:10px;color:var(--muted);line-height:1.4;margin-top:4px;padding:0 2px;}
-/* Diğer satıcılar */
-.pazaryeri-wrap .hb-other-sellers{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
-.pazaryeri-wrap .hb-os-title{font-size:13px;font-weight:700;margin-bottom:10px;}
-.pazaryeri-wrap .hb-os-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:7px;transition:all .14s;}
-.pazaryeri-wrap .hb-os-item:hover{border-color:var(--accent);background:#fff5ec;}
-.pazaryeri-wrap .hb-os-info{display:flex;flex-direction:column;gap:2px;}
-.pazaryeri-wrap .hb-os-name{font-size:13px;font-weight:600;color:var(--ink);}
-.pazaryeri-wrap .hb-os-rating{font-size:11px;color:var(--green);font-weight:700;}
-.pazaryeri-wrap .hb-os-price{font-size:15px;font-weight:800;color:var(--accent);white-space:nowrap;}
+/* Diğer satıcılar (ürün detay) */
+.pazaryeri-wrap .pzv-other-sellers{margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:12px;background:#fefefe;}
+.pazaryeri-wrap .pzv-os-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.pazaryeri-wrap .pzv-os-title{font-size:13px;font-weight:800;color:var(--ink);}
+.pazaryeri-wrap .pzv-os-count{font-size:12px;color:var(--muted);background:#f4f0ec;border-radius:6px;padding:2px 8px;}
+.pazaryeri-wrap .pzv-os-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;background:#fff;}
+.pazaryeri-wrap .pzv-os-item:last-child{margin-bottom:0;}
+.pazaryeri-wrap .pzv-os-left{display:flex;align-items:center;gap:10px;min-width:0;}
+.pazaryeri-wrap .pzv-os-logo{width:36px;height:36px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;}
+.pazaryeri-wrap .pzv-os-logo-fb{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#ff8c00);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pazaryeri-wrap .pzv-os-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.pazaryeri-wrap .pzv-os-name{font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+.pazaryeri-wrap .pzv-os-rating{font-size:11px;color:#f59e0b;font-weight:700;}
+.pazaryeri-wrap .pzv-os-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.pazaryeri-wrap .pzv-os-price{font-size:15px;font-weight:800;color:var(--accent);white-space:nowrap;}
+.pazaryeri-wrap .pzv-os-actions{display:flex;gap:6px;}
+.pazaryeri-wrap .pzv-os-buy{padding:6px 12px;background:var(--accent);color:#fff;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;transition:background .14s;}
+.pazaryeri-wrap .pzv-os-buy:hover{background:#e05a00;color:#fff;}
+.pazaryeri-wrap .pzv-os-store{padding:6px 10px;border:1px solid var(--border);background:#fff;color:var(--ink);border-radius:7px;font-size:12px;font-weight:600;text-decoration:none;transition:all .14s;}
+.pazaryeri-wrap .pzv-os-store:hover{border-color:var(--accent);color:var(--accent);}
 
 /* ═══════════════════════════════════════════════
    YARDIM / BİLGİ SAYFALARI
@@ -1768,7 +1792,10 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-title{display:block!important;font-size:17px!important;line-height:1.35!important;margin:8px 0 12px!important;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-brand{display:inline-flex!important;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-rating-row{display:flex!important;flex-wrap:wrap;gap:6px;align-items:center;}
-  .pazaryeri-wrap .hb-right-col .hb-info .hb-seller-line{display:flex!important;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin:6px 0 12px;}
+  .pazaryeri-wrap .pzv-seller-card{flex-wrap:wrap;gap:10px;padding:12px;}
+  .pazaryeri-wrap .pzv-sc-btn{width:100%;text-align:center;justify-content:center;padding:8px 12px;}
+  .pazaryeri-wrap .pzv-os-actions{flex-direction:column;gap:4px;}
+  .pazaryeri-wrap .pzv-os-buy,.pazaryeri-wrap .pzv-os-store{text-align:center;padding:5px 8px;font-size:11px;}
   /* Varyasyon bloğu - kesin görünür */
   .pazaryeri-wrap .hb-right-col .hb-info .hb-variant-block{display:block!important;visibility:visible!important;background:#f9f7f3;border-radius:10px;padding:12px!important;margin:12px 0!important;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-variant-label{display:block!important;font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink);}
