@@ -80,44 +80,89 @@ $f_brand = isset( $_GET['store_brand'] ) ? absint( $_GET['store_brand'] ) : 0;
 $f_min   = isset( $_GET['min_price'] ) && $_GET['min_price'] !== '' ? floatval( $_GET['min_price'] ) : null;
 $f_max   = isset( $_GET['max_price'] ) && $_GET['max_price'] !== '' ? floatval( $_GET['max_price'] ) : null;
 
-// ── Tüm ürün ID'leri (filtre menüsü için) ──
-$all_q = new WP_Query( array(
-    'post_type'      => 'product',
-    'post_status'    => 'publish',
-    'author'         => $store_id,
-    'posts_per_page' => -1,
-    'fields'         => 'ids',
-    'no_found_rows'  => true,
-) );
-$all_store_ids = $all_q->posts;
-wp_reset_postdata();
+// ── Tüm sorgular doğrudan DB — Dokan / diğer plugin hook'larını tamamen atlatır ──
+global $wpdb;
 
-// ── Filtreli ürün sorgusu ──
-$args = array(
-    'post_type'      => 'product',
-    'post_status'    => 'publish',
-    'author'         => $store_id,
-    'posts_per_page' => 24,
-    'paged'          => $paged,
-    'orderby'        => 'date',
-    'order'          => 'DESC',
+// Filtre sidebar: bu satıcının kategorileri ve markaları
+$store_cats = array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+    "SELECT DISTINCT tt.term_id
+     FROM {$wpdb->term_relationships} tr
+     INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+     INNER JOIN {$wpdb->posts} p           ON tr.object_id        = p.ID
+     WHERE p.post_type = 'product' AND p.post_status = 'publish'
+       AND p.post_author = %d AND tt.taxonomy = 'product_cat'",
+    $store_id
+) ) );
+
+$store_brands = array_map( 'intval', $wpdb->get_col( $wpdb->prepare(
+    "SELECT DISTINCT tt.term_id
+     FROM {$wpdb->term_relationships} tr
+     INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+     INNER JOIN {$wpdb->posts} p           ON tr.object_id        = p.ID
+     WHERE p.post_type = 'product' AND p.post_status = 'publish'
+       AND p.post_author = %d AND tt.taxonomy = 'product_brand'",
+    $store_id
+) ) );
+
+// Filtreli sorgu — JOIN ile, WP_Query author parametresine bağımlılık yok
+$sql_joins      = '';
+$sql_conditions = $wpdb->prepare(
+    "p.post_type = 'product' AND p.post_status = 'publish' AND p.post_author = %d",
+    $store_id
 );
-$tax_q = array();
-if ( $f_cat )   $tax_q[] = array( 'taxonomy' => 'product_cat',   'field' => 'term_id', 'terms' => $f_cat );
-if ( $f_brand ) $tax_q[] = array( 'taxonomy' => 'product_brand', 'field' => 'term_id', 'terms' => $f_brand );
-if ( ! empty( $tax_q ) ) { $tax_q['relation'] = 'AND'; $args['tax_query'] = $tax_q; }
-if ( $f_min !== null || $f_max !== null ) {
-    $pq = array( 'key' => '_price', 'type' => 'NUMERIC' );
-    if ( $f_min !== null && $f_max !== null ) { $pq['value'] = array( $f_min, $f_max ); $pq['compare'] = 'BETWEEN'; }
-    elseif ( $f_min !== null ) { $pq['value'] = $f_min; $pq['compare'] = '>='; }
-    else { $pq['value'] = $f_max; $pq['compare'] = '<='; }
-    $args['meta_query'] = array( $pq );
-}
-$store_products = new WP_Query( $args );
 
-// ── Kategoriler ve markalar ──
-$store_cats   = function_exists( 'pazaryeri_terms_for_products' ) ? pazaryeri_terms_for_products( $all_store_ids, 'product_cat' )   : array();
-$store_brands = function_exists( 'pazaryeri_terms_for_products' ) ? pazaryeri_terms_for_products( $all_store_ids, 'product_brand' ) : array();
+if ( $f_cat ) {
+    $sql_joins      .= " INNER JOIN {$wpdb->term_relationships} tr_c"
+                     . "   ON tr_c.object_id = p.ID"
+                     . " INNER JOIN {$wpdb->term_taxonomy} tt_c"
+                     . "   ON tr_c.term_taxonomy_id = tt_c.term_taxonomy_id"
+                     . "  AND tt_c.taxonomy = 'product_cat'";
+    $sql_conditions .= $wpdb->prepare( ' AND tt_c.term_id = %d', $f_cat );
+}
+if ( $f_brand ) {
+    $sql_joins      .= " INNER JOIN {$wpdb->term_relationships} tr_b"
+                     . "   ON tr_b.object_id = p.ID"
+                     . " INNER JOIN {$wpdb->term_taxonomy} tt_b"
+                     . "   ON tr_b.term_taxonomy_id = tt_b.term_taxonomy_id"
+                     . "  AND tt_b.taxonomy = 'product_brand'";
+    $sql_conditions .= $wpdb->prepare( ' AND tt_b.term_id = %d', $f_brand );
+}
+if ( $f_min !== null || $f_max !== null ) {
+    $sql_joins .= " INNER JOIN {$wpdb->postmeta} pm_pr"
+                . "   ON pm_pr.post_id = p.ID AND pm_pr.meta_key = '_price'";
+    if ( $f_min !== null && $f_max !== null ) {
+        $sql_conditions .= $wpdb->prepare(
+            ' AND CAST(pm_pr.meta_value AS DECIMAL(10,2)) BETWEEN %f AND %f',
+            $f_min, $f_max
+        );
+    } elseif ( $f_min !== null ) {
+        $sql_conditions .= $wpdb->prepare( ' AND CAST(pm_pr.meta_value AS DECIMAL(10,2)) >= %f', $f_min );
+    } else {
+        $sql_conditions .= $wpdb->prepare( ' AND CAST(pm_pr.meta_value AS DECIMAL(10,2)) <= %f', $f_max );
+    }
+}
+
+$total_products = (int) $wpdb->get_var(
+    "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p{$sql_joins} WHERE {$sql_conditions}"
+);
+$max_num_pages  = $total_products > 0 ? (int) ceil( $total_products / 24 ) : 1;
+$sql_offset     = ( $paged - 1 ) * 24;
+$page_ids       = array_map( 'intval', $wpdb->get_col(
+    "SELECT DISTINCT p.ID FROM {$wpdb->posts} p{$sql_joins} WHERE {$sql_conditions}"
+    . " ORDER BY p.post_date DESC LIMIT 24 OFFSET {$sql_offset}"
+) );
+
+// WP_Query sadece bu sayfadaki 24 ID için (post__in kullanır, author filtresi yok)
+$store_products = new WP_Query( empty( $page_ids )
+    ? array( 'post_type' => 'product', 'post__in' => array( 0 ), 'posts_per_page' => 1, 'no_found_rows' => true )
+    : array(
+        'post_type'      => 'product',
+        'post__in'       => $page_ids,
+        'posts_per_page' => count( $page_ids ),
+        'orderby'        => 'post__in',
+        'no_found_rows'  => true,
+    )
+);
 
 get_header();
 ?>
@@ -241,7 +286,7 @@ get_header();
     <div class="shop-main">
       <div class="pz-store-products-head">
         <h2 class="pz-store-products-title">Mağaza Ürünleri</h2>
-        <span class="pz-store-count"><?php echo intval( $store_products->found_posts ); ?> ürün</span>
+        <span class="pz-store-count"><?php echo intval( $total_products ); ?> ürün</span>
       </div>
 
       <?php if ( $store_products->have_posts() ) : ?>
@@ -269,7 +314,7 @@ get_header();
                 echo paginate_links( array(
                     'base'      => $pg_base,
                     'format'    => '',
-                    'total'     => $store_products->max_num_pages,
+                    'total'     => $max_num_pages,
                     'current'   => isset( $_GET['pg'] ) ? max( 1, (int) $_GET['pg'] ) : $paged,
                     'prev_text' => '‹ Önceki',
                     'next_text' => 'Sonraki ›',
@@ -279,7 +324,7 @@ get_header();
                 echo paginate_links( array(
                     'base'      => trailingslashit( $store_base ) . '%_%',
                     'format'    => 'page/%#%/',
-                    'total'     => $store_products->max_num_pages,
+                    'total'     => $max_num_pages,
                     'current'   => $paged,
                     'prev_text' => '‹ Önceki',
                     'next_text' => 'Sonraki ›',
