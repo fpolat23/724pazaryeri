@@ -64,8 +64,9 @@ while ( have_posts() ) : the_post();
           <img loading="lazy" decoding="async" id="mainImgEl" src="<?php echo esc_url( $main_full ); ?>" alt="<?php the_title_attribute(); ?>">
           <div class="hb-zoom-hint">🔍 İncelemek için üzerine gelin</div>
         </div>
+      </div><!-- /hb-img-col -->
 
-        <?php
+      <?php
           // ── SATICI BÖLÜMÜ ──
           $pz_me = (int) get_the_author_meta( 'ID' ) ?: (int) get_post_field( 'post_author', get_the_ID() );
 
@@ -164,8 +165,7 @@ while ( have_posts() ) : the_post();
           <?php endforeach; ?>
         </div>
         <?php } } ?>
-      </div>
-    </div>
+    </div><!-- /hb-gallery -->
 
     <!-- ═══ SAĞ KOLON: BİLGİ + SATIN AL ═══ -->
     <div class="hb-right-col">
