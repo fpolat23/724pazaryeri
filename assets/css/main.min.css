@@ -448,7 +448,7 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .hb-grid{grid-template-columns:1fr;}
   .pazaryeri-wrap .hb-gallery{display:flex;flex-direction:column;position:static;}
   .pazaryeri-wrap .hb-thumbs{flex-direction:row;overflow-x:auto;}
-  .pazaryeri-wrap .hb-quick-specs-grid,.pazaryeri-wrap .hb-installments,.pazaryeri-wrap .hb-trust{grid-template-columns:1fr;}
+  .pazaryeri-wrap .hb-installments,.pazaryeri-wrap .hb-trust{grid-template-columns:1fr;}
 }
 
 /* ═══════════ AMAZON ZOOM + TAKSİT + DİĞER SATICILAR ═══════════ */
@@ -1822,8 +1822,8 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .pzv-os-actions{flex-direction:column;gap:4px;}
   .pazaryeri-wrap .pzv-os-buy,.pazaryeri-wrap .pzv-os-store{text-align:center;padding:5px 8px;font-size:11px;}
   /* Varyasyon bloğu - kesin görünür */
-  .pazaryeri-wrap .hb-right-col .hb-info .hb-variant-block{display:block!important;visibility:visible!important;background:#f9f7f3;border-radius:10px;padding:12px!important;margin:12px 0!important;}
-  .pazaryeri-wrap .hb-right-col .hb-info .hb-variant-label{display:block!important;font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink);}
+  .pazaryeri-wrap .hb-right-col .hb-info .hb-variant-block{display:flex!important;visibility:visible!important;align-items:center;flex-wrap:wrap;gap:10px;background:#f9f7f3;border-radius:10px;padding:10px 14px!important;margin:10px 0!important;}
+  .pazaryeri-wrap .hb-right-col .hb-info .hb-variant-label{display:block!important;font-size:13px;font-weight:700;margin-bottom:0;color:var(--ink);white-space:nowrap;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-colors,
   .pazaryeri-wrap .hb-right-col .hb-info .hb-variants{display:flex!important;flex-wrap:wrap;gap:8px;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-color{display:inline-block!important;width:42px!important;height:42px!important;}
