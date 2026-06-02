@@ -23,7 +23,11 @@ class PZV_Vendor {
             'commission_override' => get_user_meta( $vendor_id, 'pzv_commission_override', true ),
             'logo'                => (int) get_user_meta( $vendor_id, 'pzv_logo', true ),
             'banner'              => (int) get_user_meta( $vendor_id, 'pzv_banner', true ),
-            'dispatch_days'       => max( 0, (int) ( get_user_meta( $vendor_id, 'pzv_dispatch_days', true ) ?: 1 ) ),
+            'dispatch_days'       => max( 0, min( 30, (int) ( get_user_meta( $vendor_id, 'pzv_dispatch_days', true ) ?: 1 ) ) ),
+            'instagram_url'       => get_user_meta( $vendor_id, 'pzv_instagram_url', true ),
+            'twitter_url'         => get_user_meta( $vendor_id, 'pzv_twitter_url',   true ),
+            'return_policy'       => get_user_meta( $vendor_id, 'pzv_return_policy', true ),
+            'working_hours'       => get_user_meta( $vendor_id, 'pzv_working_hours', true ),
         );
     }
 

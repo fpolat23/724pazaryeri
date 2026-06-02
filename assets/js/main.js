@@ -2102,7 +2102,7 @@ window.pzSendVerifyCode = function(btn){
     }
     var count = 0;
     d = new Date(d.getTime() + 86400000);
-    for (var safety = 0; safety < 30; safety++) {
+    for (var safety = 0; safety < 60; safety++) {
       if (isWorkDay(d)) { count++; if (count >= n) return d; }
       d = new Date(d.getTime() + 86400000);
     }

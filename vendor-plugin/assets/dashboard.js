@@ -475,9 +475,14 @@
       {id:'pzv-prf-address', name:'address'},
       {id:'pzv-prf-desc',    name:'description'},
       {id:'pzv-prf-iban',    name:'iban'},
-      {id:'pzv-prf-logo-id', name:'logo'},
-      {id:'pzv-prf-banner-id',  name:'banner'},
-      {id:'pzv-prf-dispatch',   name:'dispatch_days'},
+      {id:'pzv-prf-logo-id',         name:'logo'},
+      {id:'pzv-prf-banner-id',       name:'banner'},
+      {id:'pzv-prf-dispatch',        name:'dispatch_days'},
+      {id:'pzv-prf-tc-tax',          name:'tc_or_tax'},
+      {id:'pzv-prf-instagram',       name:'instagram_url'},
+      {id:'pzv-prf-twitter',         name:'twitter_url'},
+      {id:'pzv-prf-working-hours',   name:'working_hours'},
+      {id:'pzv-prf-return-policy',   name:'return_policy'},
     ]
   });
 
