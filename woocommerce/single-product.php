@@ -68,39 +68,39 @@ while ( have_posts() ) : the_post();
         <?php
           // ── SATICI ŞERİDİ (resim altı) ──
           // PZV vendor varsa PZV verisi, yoksa WP yazar verisi kullanılır
-          $pzv_author_id  = (int) get_post_field( 'post_author', $product->get_id() );
-          if ( $pzv_author_id ) :
-            $pzv_vendor     = ( class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $pzv_author_id ) : null;
-            $pzv_is_active  = ( ! $pzv_vendor ) || get_user_meta( $pzv_author_id, 'pzv_status', true ) !== 'inactive';
-            if ( $pzv_is_active ) :
-              if ( $pzv_vendor ) {
-                $pzv_store_url  = PZV_Vendor::store_url( $pzv_author_id );
-                $pzv_logo_url   = $pzv_vendor['logo'] ? wp_get_attachment_image_url( $pzv_vendor['logo'], array( 40, 40 ) ) : '';
-                $pzv_store_name = $pzv_vendor['store_name'];
-                $pzv_city       = $pzv_vendor['city'];
+          $ss_author_id = (int) get_post_field( 'post_author', $product->get_id() );
+          if ( $ss_author_id ) {
+            $ss_vendor    = ( class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $ss_author_id ) : null;
+            $ss_inactive  = $ss_vendor && get_user_meta( $ss_author_id, 'pzv_status', true ) === 'inactive';
+            if ( ! $ss_inactive ) {
+              if ( $ss_vendor ) {
+                $ss_url    = PZV_Vendor::store_url( $ss_author_id );
+                $ss_logo   = $ss_vendor['logo'] ? wp_get_attachment_image_url( $ss_vendor['logo'], array( 40, 40 ) ) : '';
+                $ss_name   = $ss_vendor['store_name'];
+                $ss_city   = $ss_vendor['city'];
               } else {
-                $pzv_wp_user    = get_userdata( $pzv_author_id );
-                $pzv_store_url  = get_author_posts_url( $pzv_author_id );
-                $pzv_logo_url   = '';
-                $pzv_store_name = $pzv_wp_user ? $pzv_wp_user->display_name : '';
-                $pzv_city       = '';
+                $ss_wp     = get_userdata( $ss_author_id );
+                $ss_url    = get_author_posts_url( $ss_author_id );
+                $ss_logo   = '';
+                $ss_name   = $ss_wp ? $ss_wp->display_name : '';
+                $ss_city   = '';
               }
         ?>
         <div class="pzv-seller-strip">
           <div class="pzv-ss-left">
-            <?php if ( $pzv_logo_url ) : ?>
-              <img class="pzv-ss-logo" src="<?php echo esc_url( $pzv_logo_url ); ?>" alt="<?php echo esc_attr( $pzv_store_name ); ?>">
+            <?php if ( $ss_logo ) : ?>
+              <img class="pzv-ss-logo" src="<?php echo esc_url( $ss_logo ); ?>" alt="<?php echo esc_attr( $ss_name ); ?>">
             <?php else : ?>
-              <div class="pzv-ss-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $pzv_store_name, 0, 1 ) ) ); ?></div>
+              <div class="pzv-ss-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $ss_name, 0, 1 ) ) ); ?></div>
             <?php endif; ?>
             <div class="pzv-ss-info">
-              <a class="pzv-ss-name" href="<?php echo esc_url( $pzv_store_url ); ?>"><?php echo esc_html( $pzv_store_name ); ?></a>
-              <?php if ( $pzv_city ) : ?><span class="pzv-ss-city">📍 <?php echo esc_html( $pzv_city ); ?></span><?php endif; ?>
+              <a class="pzv-ss-name" href="<?php echo esc_url( $ss_url ); ?>"><?php echo esc_html( $ss_name ); ?></a>
+              <?php if ( $ss_city ) : ?><span class="pzv-ss-city">📍 <?php echo esc_html( $ss_city ); ?></span><?php endif; ?>
             </div>
           </div>
-          <a class="pzv-ss-btn" href="<?php echo esc_url( $pzv_store_url ); ?>">Mağazaya Git ›</a>
+          <a class="pzv-ss-btn" href="<?php echo esc_url( $ss_url ); ?>">Mağazaya Git ›</a>
         </div>
-        <?php endif; endif; ?>
+        <?php } } ?>
       </div>
     </div>
 
