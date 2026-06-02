@@ -9,16 +9,8 @@ if ( false === $pz_stats ) {
     $counts = wp_count_posts( 'product' );
     if ( isset( $counts->publish ) ) $prod_count = (int) $counts->publish;
 
-    // Satıcı (Dokan vendor) sayısı
-    $seller_count = 0;
-    if ( function_exists( 'dokan_get_sellers' ) ) {
-        $sellers = dokan_get_sellers( array( 'number' => -1, 'count' => true ) );
-        if ( is_array( $sellers ) && isset( $sellers['count'] ) ) $seller_count = (int) $sellers['count'];
-    }
-    if ( ! $seller_count ) {
-        $seller_users = get_users( array( 'role' => 'seller', 'fields' => 'ID', 'number' => 99999 ) );
-        $seller_count = is_array( $seller_users ) ? count( $seller_users ) : 0;
-    }
+    // Satıcı (PZV vendor) sayısı
+    $seller_count = class_exists('PZV_Vendor') ? count( PZV_Vendor::get_all() ) : 0;
 
     // Kullanıcı (toplam üye) sayısı
     $user_count = 0;
@@ -542,65 +534,76 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
   <div class="sec">
     <div class="sec-head">
       <div class="sec-title">En Çok Tercih Edilen <span>Satıcılar</span></div>
-      <a class="sec-all" href="<?php echo esc_url( function_exists('dokan_get_page_url') ? dokan_get_page_url('store_listing') : home_url('/store-listing/') ); ?>" style="text-decoration:none">Tümünü Gör <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a>
+      <a class="sec-all" href="<?php echo esc_url( home_url('/magazalar/') ); ?>" style="text-decoration:none">Tümünü Gör <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a>
     </div>
     <div class="sgrid">
       <?php
-        // Dokan satıcılarını güvenli şekilde dinamik çek
-        $sellers = array();
-        if ( function_exists( 'dokan_get_sellers' ) ) {
-          $result = dokan_get_sellers( array( 'number' => 4, 'orderby' => 'registered', 'order' => 'DESC' ) );
-          if ( ! empty( $result['users'] ) ) {
-            $sellers = $result['users'];
+        // PZV vendor mağazalarını listele
+        $pzv_vendors = class_exists('PZV_Vendor') ? PZV_Vendor::get_all() : array();
+        $pzv_vendors = array_slice( $pzv_vendors, 0, 8 ); // en fazla 8 çek, ürünlü 4 göster
+        $avatars = array('🏪','🛍️','📦','🎁','🧶','🎧','💎','👜');
+        $shown = 0;
+        ob_start();
+        foreach ( $pzv_vendors as $vu ) :
+          if ( $shown >= 4 ) break;
+          $v = PZV_Vendor::get( $vu->ID );
+          if ( ! $v ) continue;
+
+          // Ürün sayısı (yayınlanmış)
+          $pcount_q = new WP_Query( array(
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'author'         => $v['id'],
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+          ) );
+          $product_count = count( $pcount_q->posts );
+
+          // Logo
+          $logo_url = ! empty( $v['logo'] ) ? wp_get_attachment_image_url( $v['logo'], 'thumbnail' ) : '';
+          $avatar   = $avatars[ $shown % count($avatars) ];
+
+          // Ana kategori (ilk ürünün kategorisi)
+          $main_cat = '';
+          if ( ! empty( $pcount_q->posts ) ) {
+            $cats_q = wp_get_post_terms( $pcount_q->posts[0], 'product_cat', array('fields'=>'names') );
+            if ( ! is_wp_error($cats_q) && ! empty($cats_q) ) $main_cat = $cats_q[0];
           }
-        }
-        if ( ! empty( $sellers ) && function_exists( 'dokan' ) ) :
-          $avatars = array('🏪','🛍️','📦','🎁','🧶','🎧','💎','👜');
-          $sidx = 0;
-          foreach ( $sellers as $seller ) :
-            $vendor_id = $seller->ID;
-            $vendor    = dokan()->vendor->get( $vendor_id );
-            if ( ! $vendor ) { continue; }
-            $shop_name = $vendor->get_shop_name() ? $vendor->get_shop_name() : $seller->display_name;
-            $shop_url  = $vendor->get_shop_url();
-            $rating    = method_exists( $vendor, 'get_rating' ) ? $vendor->get_rating() : array();
-            $rating_val = ( is_array($rating) && isset($rating['rating']) && $rating['rating'] > 0 ) ? (float)$rating['rating'] : 5.0;
-            $stars     = str_repeat('★', round($rating_val)) . str_repeat('☆', 5 - round($rating_val));
-            $product_count = 0;
-            if ( function_exists( 'dokan_get_seller_products' ) ) {
-              $sp_list = dokan_get_seller_products( $vendor_id, array( 'post_status' => 'publish' ) );
-              if ( is_array( $sp_list ) ) { $product_count = count( $sp_list ); }
-              elseif ( is_object( $sp_list ) && isset( $sp_list->posts ) ) { $product_count = count( $sp_list->posts ); }
-            }
-            $cat = get_user_meta( $vendor_id, 'dokan_store_category', true );
-            $avatar = isset($avatars[$sidx]) ? $avatars[$sidx] : '🏪';
-            $shop_logo = method_exists( $vendor, 'get_avatar' ) ? $vendor->get_avatar() : '';
-            $sidx++;
-      ?>
-        <div class="scard" data-href="<?php echo esc_url( $shop_url ); ?>" onclick="window.location.href=this.dataset.href" style="cursor:pointer">
-          <div class="sc-av" style="background:#fff5f2;overflow:hidden;">
-            <?php if ( $shop_logo ) : ?>
-              <img loading="lazy" decoding="async" src="<?php echo esc_url( $shop_logo ); ?>" alt="<?php echo esc_attr( $shop_name ); ?>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-            <?php else : ?>
-              <?php echo $avatar; ?>
-            <?php endif; ?>
+          if ( ! $main_cat ) $main_cat = $v['city'] ? $v['city'] : 'Mağaza';
+
+          $shop_url = PZV_Vendor::store_url( $v['id'] );
+          $shown++;
+          ?>
+          <div class="scard" data-href="<?php echo esc_url( $shop_url ); ?>" onclick="window.location.href=this.dataset.href" style="cursor:pointer">
+            <div class="sc-av" style="background:#fff5f2;overflow:hidden;">
+              <?php if ( $logo_url ) : ?>
+                <img loading="lazy" decoding="async" src="<?php echo esc_url( $logo_url ); ?>" alt="<?php echo esc_attr( $v['store_name'] ); ?>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+              <?php else : ?>
+                <?php echo $avatar; ?>
+              <?php endif; ?>
+            </div>
+            <div class="sc-name"><?php echo esc_html( $v['store_name'] ); ?></div>
+            <div class="sc-cat"><?php echo esc_html( $main_cat ); ?></div>
+            <div class="sc-rt"><span class="sc-stars">★★★★★</span><span class="sc-rn">5.0</span></div>
+            <div class="sc-stats">
+              <div><div class="sc-stat-n"><?php echo (int) $product_count; ?></div><div class="sc-stat-l">İlan</div></div>
+              <div><div class="sc-stat-n">✓</div><div class="sc-stat-l">Onaylı</div></div>
+            </div>
+            <a class="sc-follow" href="<?php echo esc_url( $shop_url ); ?>" onclick="event.stopPropagation();">Mağazayı Gör</a>
           </div>
-          <div class="sc-name"><?php echo esc_html( $shop_name ); ?></div>
-          <div class="sc-cat"><?php echo esc_html( $cat ? $cat : 'Mağaza' ); ?></div>
-          <div class="sc-rt"><span class="sc-stars"><?php echo $stars; ?></span><span class="sc-rn"><?php echo esc_html( number_format($rating_val,1) ); ?></span></div>
-          <div class="sc-stats">
-            <div><div class="sc-stat-n"><?php echo esc_html( $product_count ); ?></div><div class="sc-stat-l">İlan</div></div>
-            <div><div class="sc-stat-n">★</div><div class="sc-stat-l">Satıcı</div></div>
+        <?php endforeach;
+        $cards_html = ob_get_clean();
+
+        if ( $shown > 0 ) {
+          echo $cards_html;
+        } else { ?>
+          <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--muted)">
+            <div style="font-size:40px;margin-bottom:10px;opacity:.5">🏪</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:4px;color:var(--ink)">Henüz onaylı satıcı yok</div>
+            <div style="font-size:13px">Satıcı başvurusu onaylandıktan sonra burada görünür.</div>
           </div>
-          <a class="sc-follow" href="<?php echo esc_url( $shop_url ); ?>" onclick="event.stopPropagation();">Mağazayı Gör</a>
-        </div>
-      <?php endforeach; else : ?>
-        <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--muted)">
-          <div style="font-size:40px;margin-bottom:10px;opacity:.5">🏪</div>
-          <div style="font-size:15px;font-weight:600;margin-bottom:4px;color:var(--ink)">Henüz satıcı yok</div>
-          <div style="font-size:13px">Dokan eklentisi kurulu değilse veya henüz satıcı kaydı yoksa burada satıcılar görünür.</div>
-        </div>
-      <?php endif; ?>
+        <?php } ?>
     </div>
   </div>
 
