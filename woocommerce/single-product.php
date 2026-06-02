@@ -66,46 +66,95 @@ while ( have_posts() ) : the_post();
         </div>
 
         <?php
-          // ── SATICI ŞERİDİ (resim altı) ──
-          // Loop içindeyiz: get_the_author_meta() en güvenilir yöntem
-          $ss_author_id = (int) get_the_author_meta( 'ID' );
-          if ( ! $ss_author_id ) {
-            // Yedek: post_author alanından al
-            $ss_author_id = (int) get_post_field( 'post_author', get_the_ID() );
-          }
-          if ( $ss_author_id ) {
-            $ss_vendor    = ( class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $ss_author_id ) : null;
-            $ss_inactive  = $ss_vendor && get_user_meta( $ss_author_id, 'pzv_status', true ) === 'inactive';
-            if ( ! $ss_inactive ) {
-              if ( $ss_vendor ) {
-                $ss_url    = PZV_Vendor::store_url( $ss_author_id );
-                $ss_logo   = $ss_vendor['logo'] ? wp_get_attachment_image_url( $ss_vendor['logo'], array( 40, 40 ) ) : '';
-                $ss_name   = $ss_vendor['store_name'];
-                $ss_city   = $ss_vendor['city'];
-              } else {
-                $ss_wp     = get_userdata( $ss_author_id );
-                $ss_url    = get_author_posts_url( $ss_author_id );
-                $ss_logo   = '';
-                $ss_name   = $ss_wp ? ( $ss_wp->display_name ?: $ss_wp->user_login ) : '';
-                $ss_city   = '';
+          // ── SATICI BÖLÜMÜ ──
+          $pz_me = (int) get_the_author_meta( 'ID' ) ?: (int) get_post_field( 'post_author', get_the_ID() );
+
+          // Bir satıcının verisini dizi olarak döndüren yardımcı closure
+          $pz_get_seller = function( $uid, $wc_prod ) {
+            $v = class_exists( 'PZV_Vendor' ) ? PZV_Vendor::get( $uid ) : null;
+            if ( $v && get_user_meta( $uid, 'pzv_status', true ) === 'inactive' ) return null;
+            if ( $v ) {
+              $url  = PZV_Vendor::store_url( $uid );
+              $logo = $v['logo'] ? wp_get_attachment_image_url( $v['logo'], array( 40, 40 ) ) : '';
+              $name = $v['store_name'];
+              $city = $v['city'];
+            } else {
+              $wp   = get_userdata( $uid );
+              $url  = get_author_posts_url( $uid );
+              $logo = '';
+              $name = $wp ? ( $wp->display_name ?: $wp->user_login ) : '';
+              $city = '';
+            }
+            if ( ! $name ) return null;
+            return array(
+              'url'      => $url,
+              'logo'     => $logo,
+              'name'     => $name,
+              'city'     => $city,
+              'price'    => $wc_prod ? (float) $wc_prod->get_price() : 0,
+              'prod_url' => $wc_prod ? get_permalink( $wc_prod->get_id() ) : '',
+            );
+          };
+
+          if ( $pz_me ) {
+            $pz_cur = $pz_get_seller( $pz_me, $product );
+            if ( $pz_cur ) {
+              $pz_sellers = array( $pz_me => $pz_cur + array( 'is_current' => true ) );
+
+              // Aynı başlıkta diğer ürünler (başka satıcılar)
+              global $wpdb;
+              $pz_rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT ID, post_author FROM {$wpdb->posts}
+                 WHERE post_title = %s AND post_type = 'product'
+                   AND post_status = 'publish' AND ID != %d LIMIT 4",
+                get_the_title(), get_the_ID()
+              ) );
+              foreach ( $pz_rows as $row ) {
+                $o_uid = (int) $row->post_author;
+                if ( ! $o_uid || isset( $pz_sellers[ $o_uid ] ) ) continue;
+                $o_data = $pz_get_seller( $o_uid, wc_get_product( (int) $row->ID ) );
+                if ( $o_data ) {
+                  $pz_sellers[ $o_uid ] = $o_data + array( 'is_current' => false );
+                }
               }
-              if ( $ss_name ) :
+
+              // Fiyata göre sırala
+              uasort( $pz_sellers, function( $a, $b ) {
+                return $a['price'] <=> $b['price'];
+              } );
+              $pz_count = count( $pz_sellers );
         ?>
-        <div class="pzv-seller-strip">
-          <div class="pzv-ss-left">
-            <?php if ( $ss_logo ) : ?>
-              <img class="pzv-ss-logo" src="<?php echo esc_url( $ss_logo ); ?>" alt="<?php echo esc_attr( $ss_name ); ?>">
+        <div class="pzv-sellers-box">
+          <?php if ( $pz_count > 1 ) : ?>
+          <div class="pzv-sellers-head">Satıcılar <span class="pzv-sellers-count"><?php echo $pz_count; ?></span></div>
+          <?php endif; ?>
+          <?php foreach ( $pz_sellers as $pz_s ) :
+            $pz_href = $pz_s['is_current'] ? $pz_s['url'] : $pz_s['prod_url'];
+          ?>
+          <a class="pzv-seller-row<?php echo $pz_s['is_current'] ? ' current' : ''; ?>"
+             href="<?php echo esc_url( $pz_href ); ?>">
+            <?php if ( $pz_s['logo'] ) : ?>
+              <img class="pzv-sr-logo" src="<?php echo esc_url( $pz_s['logo'] ); ?>" alt="">
             <?php else : ?>
-              <div class="pzv-ss-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $ss_name, 0, 1 ) ) ); ?></div>
+              <div class="pzv-sr-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $pz_s['name'], 0, 1 ) ) ); ?></div>
             <?php endif; ?>
-            <div class="pzv-ss-info">
-              <a class="pzv-ss-name" href="<?php echo esc_url( $ss_url ); ?>"><?php echo esc_html( $ss_name ); ?></a>
-              <?php if ( $ss_city ) : ?><span class="pzv-ss-city">📍 <?php echo esc_html( $ss_city ); ?></span><?php endif; ?>
+            <div class="pzv-sr-info">
+              <span class="pzv-sr-name"><?php echo esc_html( $pz_s['name'] ); ?></span>
+              <?php if ( $pz_s['city'] ) : ?>
+              <span class="pzv-sr-city">📍 <?php echo esc_html( $pz_s['city'] ); ?></span>
+              <?php endif; ?>
             </div>
-          </div>
-          <a class="pzv-ss-btn" href="<?php echo esc_url( $ss_url ); ?>">Mağazaya Git ›</a>
+            <div class="pzv-sr-right">
+              <?php if ( $pz_s['price'] > 0 ) : ?>
+              <span class="pzv-sr-price"><?php echo esc_html( number_format( $pz_s['price'], 0, ',', '.' ) ); ?> ₺</span>
+              <?php endif; ?>
+              <span class="pzv-sr-del">3–5 iş günü</span>
+            </div>
+            <span class="pzv-sr-arr">›</span>
+          </a>
+          <?php endforeach; ?>
         </div>
-        <?php endif; } } ?>
+        <?php } } ?>
       </div>
     </div>
 
