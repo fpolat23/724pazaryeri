@@ -306,6 +306,16 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .pzv-sc-btn{flex-shrink:0;padding:9px 16px;background:var(--accent);color:#fff;border-radius:9px;font-size:13px;font-weight:700;text-decoration:none;transition:background .14s;white-space:nowrap;}
 .pazaryeri-wrap .pzv-sc-btn:hover{background:#e05a00;color:#fff;}
 .pazaryeri-wrap .pzv-sc-btn span{opacity:.8;}
+.pazaryeri-wrap .pzv-seller-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#faf8f5;border:1px solid var(--border);border-radius:10px;margin-top:12px;}
+.pazaryeri-wrap .pzv-ss-left{display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden;}
+.pazaryeri-wrap .pzv-ss-logo{width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid var(--border);}
+.pazaryeri-wrap .pzv-ss-logo-fb{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#ff8c00);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pazaryeri-wrap .pzv-ss-info{min-width:0;}
+.pazaryeri-wrap .pzv-ss-name{display:block;font-size:13px;font-weight:700;color:var(--ink);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pazaryeri-wrap .pzv-ss-name:hover{color:var(--accent);}
+.pazaryeri-wrap .pzv-ss-city{display:block;font-size:11px;color:var(--muted);margin-top:1px;}
+.pazaryeri-wrap .pzv-ss-btn{flex-shrink:0;font-size:12px;font-weight:700;color:var(--accent);text-decoration:none;white-space:nowrap;padding:6px 12px;border:1.5px solid var(--accent);border-radius:8px;transition:background 140ms ease,color 140ms ease;}
+.pazaryeri-wrap .pzv-ss-btn:hover{background:var(--accent);color:#fff;}
 .pazaryeri-wrap .hb-variant-block{margin-bottom:16px;}
 .pazaryeri-wrap .hb-variant-label{font-size:13px;font-weight:600;margin-bottom:8px;}
 .pazaryeri-wrap .hb-variant-label span{color:var(--accent);}
