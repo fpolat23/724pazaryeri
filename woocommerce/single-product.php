@@ -47,15 +47,6 @@ while ( have_posts() ) : the_post();
         $sale    = (float) $product->get_price();
         $disc    = ( $regular > 0 && $product->is_on_sale() ) ? round( ( ( $regular - $sale ) / $regular ) * 100 ) : 0;
       ?>
-      <div class="hb-thumbs">
-        <?php foreach ( $all_imgs as $idx => $img_id ) :
-          $thumb = wp_get_attachment_image_url( $img_id, 'thumbnail' );
-          $full  = wp_get_attachment_image_url( $img_id, 'large' ); ?>
-          <div class="hb-thumb<?php echo $idx === 0 ? ' on' : ''; ?>" data-full="<?php echo esc_url( $full ); ?>" onmouseenter="hbSetImg(this,'<?php echo esc_url( $full ); ?>')" onclick="hbSetImg(this,'<?php echo esc_url( $full ); ?>')">
-            <img loading="lazy" decoding="async" src="<?php echo esc_url( $thumb ); ?>" alt="">
-          </div>
-        <?php endforeach; ?>
-      </div>
       <div class="hb-img-col">
         <div class="hb-main-img">
           <?php if ( $disc > 0 ) : ?><span class="hb-disc-badge">%<?php echo esc_html( $disc ); ?><br><small>indirim</small></span><?php endif; ?>
@@ -65,6 +56,15 @@ while ( have_posts() ) : the_post();
           <div class="hb-zoom-hint">🔍 İncelemek için üzerine gelin</div>
         </div>
       </div><!-- /hb-img-col -->
+      <div class="hb-thumbs">
+        <?php foreach ( $all_imgs as $idx => $img_id ) :
+          $thumb = wp_get_attachment_image_url( $img_id, 'thumbnail' );
+          $full  = wp_get_attachment_image_url( $img_id, 'large' ); ?>
+          <div class="hb-thumb<?php echo $idx === 0 ? ' on' : ''; ?>" data-full="<?php echo esc_url( $full ); ?>" onmouseenter="hbSetImg(this,'<?php echo esc_url( $full ); ?>')" onclick="hbSetImg(this,'<?php echo esc_url( $full ); ?>')">
+            <img loading="lazy" decoding="async" src="<?php echo esc_url( $thumb ); ?>" alt="">
+          </div>
+        <?php endforeach; ?>
+      </div>
 
       <?php
           // ── SATICI BÖLÜMÜ ──
