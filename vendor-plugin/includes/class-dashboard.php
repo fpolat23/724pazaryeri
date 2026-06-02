@@ -1151,7 +1151,7 @@ class PZV_Dashboard {
     public static function ajax_save_vendor_profile() {
         check_ajax_referer( 'pzv_nonce', 'nonce' );
         $uid = get_current_user_id();
-        if ( ! PZV_Roles::is_pure_vendor( $uid ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
+        if ( ! PZV_Roles::is_vendor( $uid ) ) wp_send_json_error( array( 'message' => 'Yetki yok' ) );
 
         foreach ( array( 'store_name', 'phone', 'city', 'address', 'description', 'iban', 'tc_or_tax', 'working_hours' ) as $f ) {
             if ( isset( $_POST[ $f ] ) ) update_user_meta( $uid, 'pzv_' . $f, sanitize_text_field( wp_unslash( $_POST[ $f ] ) ) );
