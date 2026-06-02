@@ -2068,62 +2068,67 @@ window.pzSendVerifyCode = function(btn){
     2027: ['3-9','3-10','3-11','5-16','5-17','5-18','5-19','5-20']
   };
 
+  // Türkiye UTC+3 sabit (DST yok). Date.now()+3h ile UTC metodları kullanılır.
   function trNow() {
-    var now = new Date();
-    return new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 3 * 3600000);
+    return new Date(Date.now() + 3 * 3600 * 1000);
   }
 
   function isHol(d) {
-    var key = (d.getMonth() + 1) + '-' + d.getDate();
+    var key = (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
     if (fixedHols.indexOf(key) !== -1) return true;
-    var yh = lunarHols[d.getFullYear()];
+    var yh = lunarHols[d.getUTCFullYear()];
     return yh ? yh.indexOf(key) !== -1 : false;
   }
 
   function isWorkDay(d) {
-    var w = d.getDay();
+    var w = d.getUTCDay();
     return w !== 0 && w !== 6 && !isHol(d);
   }
 
   function dayName(d) {
-    return ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'][d.getDay()];
+    return ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'][d.getUTCDay()];
+  }
+
+  function startOfDay(d) {
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   }
 
   /* Bugünden itibaren n iş günü sonrasını döndürür (n=0: bugün/sonraki iş günü) */
   function nthWorkDay(from, n) {
-    var d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    var d = startOfDay(from);
     if (n === 0) {
       if (isWorkDay(d)) return d;
       n = 1;
     }
     var count = 0;
-    d.setDate(d.getDate() + 1);
+    d = new Date(d.getTime() + 86400000);
     for (var safety = 0; safety < 30; safety++) {
       if (isWorkDay(d)) { count++; if (count >= n) return d; }
-      d.setDate(d.getDate() + 1);
+      d = new Date(d.getTime() + 86400000);
     }
     return d;
   }
 
   /* dispatch: vendor'un kargoya verme süresi (iş günü) */
   function computeText(dispatch, tr) {
-    var cutoff = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate(), 14, 0, 0);
+    var todayStart = startOfDay(tr);
+    var cutoff = new Date(todayStart.getTime() + 14 * 3600 * 1000); // 14:00 TR saati
 
-    if (dispatch === 0 && isWorkDay(tr) && cutoff > tr) {
-      var mins = Math.ceil((cutoff - tr) / 60000);
+    if (dispatch === 0 && isWorkDay(todayStart) && tr.getTime() < cutoff.getTime()) {
+      var mins = Math.ceil((cutoff.getTime() - tr.getTime()) / 60000);
       var h = Math.floor(mins / 60), m = mins % 60;
       var t = (h > 0 ? h + ' saat ' : '') + (m > 0 ? m + ' dakika' : '');
       return t.trim() + ' içinde sipariş verirseniz bugün kargoda';
     }
 
     var shipDay = nthWorkDay(tr, dispatch);
-    var today   = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate());
-    var tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    var today    = todayStart;
+    var tomorrow = new Date(todayStart.getTime() + 86400000);
 
     var when;
-    if (shipDay.toDateString() === today.toDateString())    when = 'bugün';
-    else if (shipDay.toDateString() === tomorrow.toDateString()) when = 'yarın';
-    else when = dayName(shipDay);
+    if (shipDay.getTime() === today.getTime())         when = 'bugün';
+    else if (shipDay.getTime() === tomorrow.getTime()) when = 'yarın';
+    else                                               when = dayName(shipDay);
 
     return 'En geç ' + when + ' kargoya verilir';
   }

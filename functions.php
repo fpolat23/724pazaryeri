@@ -4,25 +4,26 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.102' );
+define( 'PAZARYERI_VERSION', '9.9.103' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
 /**
  * Bugünden itibaren N. iş gününün Unix timestamp'ini döndürür.
- * Hafta sonları ve sabit Türkiye tatilleri atlanır.
+ * İstanbul timezone (UTC+3) kullanır — sunucu/WP timezone'dan bağımsız.
  */
 function pz_workday_ts( $n ) {
     static $hols = array('01-01','04-23','05-01','05-19','07-15','08-30','10-29');
-    $ts = current_time('timestamp');
-    $i = 0;
-    while ( $i < $n ) {
-        $ts += DAY_IN_SECONDS;
-        $dow  = (int) date( 'N', $ts );
-        $mday = date( 'm-d', $ts );
-        if ( $dow < 6 && ! in_array( $mday, $hols, true ) ) $i++;
+    $tz    = new DateTimeZone( 'Europe/Istanbul' );
+    $now   = new DateTime( 'now', $tz );
+    $count = 0;
+    while ( $count < $n ) {
+        $now->modify( '+1 day' );
+        if ( (int) $now->format('N') < 6 && ! in_array( $now->format('m-d'), $hols, true ) ) {
+            $count++;
+        }
     }
-    return $ts;
+    return $now->getTimestamp();
 }
 
 
