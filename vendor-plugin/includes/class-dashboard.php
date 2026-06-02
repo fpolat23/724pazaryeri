@@ -144,47 +144,59 @@ class PZV_Dashboard {
                 return;
             }
         }
-        $per_page  = 50;
-        $cur_page  = max( 1, intval( isset( $_GET['ppage'] ) ? $_GET['ppage'] : 1 ) );
-        $cur_cat   = intval( isset( $_GET['pcat'] ) ? $_GET['pcat'] : 0 );
-        $base_link = get_permalink();
 
-        // Tüm ürün ID'leri (kategori filtresi olmadan, toplam sayı için)
+        $per_page   = 50;
+        $cur_page   = max( 1, intval( $_GET['ppage'] ?? 1 ) );
+        $cur_cat    = intval( $_GET['pcat']    ?? 0 );
+        $cur_brand  = intval( $_GET['pbrand']  ?? 0 );
+        $cur_status = sanitize_key( $_GET['pstatus'] ?? '' );
+        $cur_search = sanitize_text_field( $_GET['ps'] ?? '' );
+        $base_link  = get_permalink();
+
+        // Tüm ürün ID'leri (filtre bağımsız; toplam ve term listesi için)
         $all_ids   = PZV_Vendor::get_product_ids( $user_id );
         $total_all = count( $all_ids );
 
-        // Sayfalı sorgu (kategori filtreli)
+        // Sorgu parametreleri
+        $allowed_statuses = array( 'publish', 'draft', 'pending', 'private' );
         $query_args = array(
             'post_type'      => 'product',
             'author'         => $user_id,
-            'post_status'    => array( 'publish', 'draft', 'pending', 'private' ),
+            'post_status'    => ( $cur_status && in_array( $cur_status, $allowed_statuses, true ) )
+                                    ? array( $cur_status )
+                                    : $allowed_statuses,
             'posts_per_page' => $per_page,
             'paged'          => $cur_page,
             'no_found_rows'  => false,
             'orderby'        => 'date',
             'order'          => 'DESC',
         );
+        if ( $cur_search ) {
+            $query_args['s'] = $cur_search;
+        }
+        $tax_q = array();
         if ( $cur_cat ) {
-            $query_args['tax_query'] = array( array(
-                'taxonomy' => 'product_cat',
-                'field'    => 'term_id',
-                'terms'    => $cur_cat,
-            ) );
+            $tax_q[] = array( 'taxonomy' => 'product_cat', 'field' => 'term_id', 'terms' => $cur_cat, 'include_children' => true );
+        }
+        if ( $cur_brand ) {
+            $tax_q[] = array( 'taxonomy' => 'product_brand', 'field' => 'term_id', 'terms' => $cur_brand );
+        }
+        if ( ! empty( $tax_q ) ) {
+            $tax_q['relation'] = 'AND';
+            $query_args['tax_query'] = $tax_q;
         }
         $q           = new WP_Query( $query_args );
         $total       = $q->found_posts;
         $total_pages = $q->max_num_pages;
 
-        // Bu satıcının ürünlerinin bulunduğu kategoriler
-        $cats = ! empty( $all_ids ) ? get_terms( array(
+        // ── Kategoriler (hiyerarşik select için) ──
+        $cats     = ! empty( $all_ids ) ? get_terms( array(
             'taxonomy'   => 'product_cat',
             'hide_empty' => true,
             'object_ids' => $all_ids,
             'orderby'    => 'name',
             'order'      => 'ASC',
         ) ) : array();
-
-        // Hiyerarşik ağaç kur
         $term_map     = array();
         $top_cats     = array();
         $children_map = array();
@@ -201,70 +213,115 @@ class PZV_Dashboard {
             }
         }
 
-        // Hangi üst-kategori açık?
-        $active_parent_id = 0;
-        if ( $cur_cat && isset( $term_map[ $cur_cat ] ) ) {
-            $t = $term_map[ $cur_cat ];
-            $active_parent_id = ( $t->parent === 0 || ! isset( $term_map[ $t->parent ] ) )
-                ? $cur_cat    // seçilen zaten üst-kategori → kendi çocuklarını aç
-                : $t->parent; // seçilen alt-kategori → üst-kategoriyi aç
-        }
+        // ── Markalar (select için) ──
+        $brands = ! empty( $all_ids ) && taxonomy_exists( 'product_brand' ) ? get_terms( array(
+            'taxonomy'   => 'product_brand',
+            'hide_empty' => true,
+            'object_ids' => $all_ids,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ) ) : array();
+
+        // Aktif filtre var mı?
+        $has_filter = $cur_cat || $cur_brand || $cur_status || $cur_search;
+        $clear_url  = add_query_arg( array( 'tab' => 'products' ), $base_link );
         ?>
         <div class="pzv-section-head">
             <h3>📦 Ürünlerim
-                (<?php echo $cur_cat ? esc_html( $total . ' / ' . $total_all ) : $total_all; ?>)
+                <span class="pzv-prod-count"><?php echo $has_filter ? esc_html( $total . ' / ' . $total_all ) : $total_all; ?></span>
             </h3>
-            <a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=product' ) ); ?>">➕ Yeni Ürün Ekle</a>
+            <a class="pzv-btn-primary" href="<?php echo esc_url( add_query_arg( 'tab', 'add_product', $base_link ) ); ?>">+ Yeni Ürün Ekle</a>
         </div>
 
-        <?php /* ── Hiyerarşik Kategori Filtresi ── */ ?>
-        <?php if ( ! empty( $top_cats ) ) : ?>
-        <div class="pzv-products-filter">
-            <?php /* Satır 1: Üst kategoriler */ ?>
-            <div class="pzv-filter-row pzv-filter-parents">
-                <?php
-                $all_url = add_query_arg( array( 'tab' => 'products', 'pcat' => 0, 'ppage' => 1 ), $base_link );
-                $all_cls = ( ! $cur_cat ) ? ' pzv-fcat-active' : '';
-                echo '<a href="' . esc_url( $all_url ) . '" class="pzv-fcat' . $all_cls . '">Tümü <span>' . $total_all . '</span></a>';
-                foreach ( $top_cats as $cat ) :
-                    $tid     = $cat->term_id;
-                    $cat_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $tid, 'ppage' => 1 ), $base_link );
-                    $is_active_parent = ( $active_parent_id === $tid );
-                    $is_direct_sel    = ( $cur_cat === $tid );
-                    $cat_cls = ( $is_active_parent || $is_direct_sel ) ? ' pzv-fcat-active' : '';
-                    $has_children = isset( $children_map[ $tid ] );
-                    echo '<a href="' . esc_url( $cat_url ) . '" class="pzv-fcat' . $cat_cls . '">'
-                        . esc_html( $cat->name )
-                        . ( $has_children ? ' <span class="pzv-fcat-arrow">›</span>' : '' )
-                        . ' <span>' . intval( $cat->count ) . '</span></a>';
-                endforeach;
-                ?>
+        <!-- ── Kompakt filtre çubuğu ── -->
+        <form method="get" action="<?php echo esc_url( $base_link ); ?>" class="pzv-filter-bar">
+            <input type="hidden" name="tab" value="products">
+
+            <div class="pzv-filter-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="ps" placeholder="Ürün adı ara…" value="<?php echo esc_attr( $cur_search ); ?>">
             </div>
 
-            <?php /* Satır 2: Alt kategoriler (sadece üst seçiliyse) */ ?>
-            <?php if ( $active_parent_id && isset( $children_map[ $active_parent_id ] ) ) :
-                $parent_term = $term_map[ $active_parent_id ];
-                $parent_all_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $active_parent_id, 'ppage' => 1 ), $base_link );
-                ?>
-            <div class="pzv-filter-row pzv-filter-children">
-                <span class="pzv-filter-child-label">↳ <?php echo esc_html( $parent_term->name ); ?>:</span>
-                <?php
-                $all_sub_cls = ( $cur_cat === $active_parent_id ) ? ' pzv-fcat-active' : '';
-                echo '<a href="' . esc_url( $parent_all_url ) . '" class="pzv-fcat pzv-fcat-sub' . $all_sub_cls . '">Tümü</a>';
-                foreach ( $children_map[ $active_parent_id ] as $child ) :
-                    $child_url = add_query_arg( array( 'tab' => 'products', 'pcat' => $child->term_id, 'ppage' => 1 ), $base_link );
-                    $child_cls = ( $cur_cat === $child->term_id ) ? ' pzv-fcat-active' : '';
-                    echo '<a href="' . esc_url( $child_url ) . '" class="pzv-fcat pzv-fcat-sub' . $child_cls . '">'
-                        . esc_html( $child->name ) . ' <span>' . intval( $child->count ) . '</span></a>';
-                endforeach;
-                ?>
-            </div>
+            <select name="pcat" class="pzv-filter-select">
+                <option value="">— Tüm Kategoriler —</option>
+                <?php foreach ( $top_cats as $top ) :
+                    $sel = selected( $cur_cat, $top->term_id, false ); ?>
+                    <option value="<?php echo esc_attr( $top->term_id ); ?>" <?php echo $sel; ?>>
+                        <?php echo esc_html( $top->name ); ?> (<?php echo intval( $top->count ); ?>)
+                    </option>
+                    <?php if ( isset( $children_map[ $top->term_id ] ) ) :
+                        foreach ( $children_map[ $top->term_id ] as $child ) :
+                            $csel = selected( $cur_cat, $child->term_id, false ); ?>
+                        <option value="<?php echo esc_attr( $child->term_id ); ?>" <?php echo $csel; ?>>
+                            &nbsp;&nbsp;› <?php echo esc_html( $child->name ); ?> (<?php echo intval( $child->count ); ?>)
+                        </option>
+                        <?php endforeach;
+                    endif;
+                endforeach; ?>
+            </select>
+
+            <?php if ( ! empty( $brands ) && ! is_wp_error( $brands ) ) : ?>
+            <select name="pbrand" class="pzv-filter-select">
+                <option value="">— Tüm Markalar —</option>
+                <?php foreach ( $brands as $br ) :
+                    $sel = selected( $cur_brand, $br->term_id, false ); ?>
+                    <option value="<?php echo esc_attr( $br->term_id ); ?>" <?php echo $sel; ?>>
+                        <?php echo esc_html( $br->name ); ?> (<?php echo intval( $br->count ); ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
             <?php endif; ?>
+
+            <select name="pstatus" class="pzv-filter-select">
+                <option value="">— Tüm Durumlar —</option>
+                <option value="publish" <?php selected( $cur_status, 'publish' ); ?>>✓ Yayında</option>
+                <option value="pending" <?php selected( $cur_status, 'pending' ); ?>>⏳ Onay Bekliyor</option>
+                <option value="draft"   <?php selected( $cur_status, 'draft' );   ?>>📝 Taslak</option>
+            </select>
+
+            <button type="submit" class="pzv-filter-btn">Filtrele</button>
+            <?php if ( $has_filter ) : ?>
+            <a href="<?php echo esc_url( $clear_url ); ?>" class="pzv-filter-clear-btn">✕ Temizle</a>
+            <?php endif; ?>
+        </form>
+
+        <!-- Aktif filtre etiketleri -->
+        <?php if ( $has_filter ) : ?>
+        <div class="pzv-filter-tags">
+            <?php
+            if ( $cur_cat && isset( $term_map[ $cur_cat ] ) ) {
+                $tag_url = esc_url( add_query_arg( array( 'pcat' => 0 ), remove_query_arg( 'pcat' ) ) );
+                echo '<span class="pzv-ftag pzv-ftag-cat">📂 ' . esc_html( $term_map[ $cur_cat ]->name ) . ' <a href="' . $tag_url . '">✕</a></span>';
+            }
+            if ( $cur_brand && ! empty( $brands ) && ! is_wp_error( $brands ) ) {
+                foreach ( $brands as $br ) {
+                    if ( $br->term_id === $cur_brand ) {
+                        $tag_url = esc_url( remove_query_arg( 'pbrand' ) );
+                        echo '<span class="pzv-ftag pzv-ftag-brand">🏷️ ' . esc_html( $br->name ) . ' <a href="' . $tag_url . '">✕</a></span>';
+                        break;
+                    }
+                }
+            }
+            $status_labels = array( 'publish' => 'Yayında', 'pending' => 'Onay Bekliyor', 'draft' => 'Taslak' );
+            if ( $cur_status && isset( $status_labels[ $cur_status ] ) ) {
+                $tag_url = esc_url( remove_query_arg( 'pstatus' ) );
+                echo '<span class="pzv-ftag pzv-ftag-status">📊 ' . esc_html( $status_labels[ $cur_status ] ) . ' <a href="' . $tag_url . '">✕</a></span>';
+            }
+            if ( $cur_search ) {
+                $tag_url = esc_url( remove_query_arg( 'ps' ) );
+                echo '<span class="pzv-ftag pzv-ftag-search">🔍 &ldquo;' . esc_html( $cur_search ) . '&rdquo; <a href="' . $tag_url . '">✕</a></span>';
+            }
+            ?>
         </div>
         <?php endif; ?>
 
         <?php if ( ! $q->have_posts() ) : ?>
-            <p style="padding:20px;color:#888;">Bu kategoride ürün bulunamadı.</p>
+            <div class="pzv-empty-state">
+                <div class="pzv-empty-ico">📦</div>
+                <div class="pzv-empty-title">Ürün bulunamadı</div>
+                <div class="pzv-empty-text">Filtreleri değiştirip tekrar deneyin.</div>
+                <?php if ( $has_filter ) : ?><a href="<?php echo esc_url( $clear_url ); ?>" class="pzv-btn-secondary">Filtreleri Temizle</a><?php endif; ?>
+            </div>
         <?php else : ?>
             <table class="pzv-table">
                 <thead><tr><th>Görsel</th><th>Ürün</th><th>SKU</th><th>Fiyat (₺)</th><th>Stok</th><th>Durum</th><th>İşlem</th></tr></thead>
@@ -300,29 +357,23 @@ class PZV_Dashboard {
                 </tbody>
             </table>
 
-            <?php /* ── Sayfalandırma ── */ ?>
             <?php if ( $total_pages > 1 ) :
-                $from     = ( $cur_page - 1 ) * $per_page + 1;
-                $to       = min( $cur_page * $per_page, $total );
-                $cat_p    = $cur_cat ? array( 'pcat' => $cur_cat ) : array();
-                $pg_base  = add_query_arg( array_merge( array( 'tab' => 'products' ), $cat_p ), $base_link );
+                $from    = ( $cur_page - 1 ) * $per_page + 1;
+                $to      = min( $cur_page * $per_page, $total );
+                $pg_args = array_filter( array( 'tab' => 'products', 'pcat' => $cur_cat ?: null, 'pbrand' => $cur_brand ?: null, 'pstatus' => $cur_status ?: null, 'ps' => $cur_search ?: null ) );
+                $pg_base = add_query_arg( $pg_args, $base_link );
                 ?>
             <div class="pzv-pagination">
-                <?php if ( $cur_page > 1 ) :
-                    echo '<a href="' . esc_url( add_query_arg( 'ppage', $cur_page - 1, $pg_base ) ) . '" class="pzv-page-btn">‹ Önceki</a>';
-                endif;
-
-                $range_start = max( 1, $cur_page - 2 );
-                $range_end   = min( $total_pages, $cur_page + 2 );
-                if ( $range_start > 1 ) echo '<a href="' . esc_url( add_query_arg( 'ppage', 1, $pg_base ) ) . '" class="pzv-page-btn">1</a><span class="pzv-page-dots">…</span>';
-                for ( $i = $range_start; $i <= $range_end; $i++ ) :
+                <?php if ( $cur_page > 1 ) echo '<a href="' . esc_url( add_query_arg( 'ppage', $cur_page - 1, $pg_base ) ) . '" class="pzv-page-btn">‹ Önceki</a>';
+                $rs = max( 1, $cur_page - 2 );
+                $re = min( $total_pages, $cur_page + 2 );
+                if ( $rs > 1 ) echo '<a href="' . esc_url( add_query_arg( 'ppage', 1, $pg_base ) ) . '" class="pzv-page-btn">1</a><span class="pzv-page-dots">…</span>';
+                for ( $i = $rs; $i <= $re; $i++ ) {
                     $cls = ( $i === $cur_page ) ? ' pzv-page-active' : '';
                     echo '<a href="' . esc_url( add_query_arg( 'ppage', $i, $pg_base ) ) . '" class="pzv-page-btn' . $cls . '">' . $i . '</a>';
-                endfor;
-                if ( $range_end < $total_pages ) echo '<span class="pzv-page-dots">…</span><a href="' . esc_url( add_query_arg( 'ppage', $total_pages, $pg_base ) ) . '" class="pzv-page-btn">' . $total_pages . '</a>';
-                if ( $cur_page < $total_pages ) :
-                    echo '<a href="' . esc_url( add_query_arg( 'ppage', $cur_page + 1, $pg_base ) ) . '" class="pzv-page-btn">Sonraki ›</a>';
-                endif;
+                }
+                if ( $re < $total_pages ) echo '<span class="pzv-page-dots">…</span><a href="' . esc_url( add_query_arg( 'ppage', $total_pages, $pg_base ) ) . '" class="pzv-page-btn">' . $total_pages . '</a>';
+                if ( $cur_page < $total_pages ) echo '<a href="' . esc_url( add_query_arg( 'ppage', $cur_page + 1, $pg_base ) ) . '" class="pzv-page-btn">Sonraki ›</a>';
                 ?>
                 <span class="pzv-page-info"><?php printf( '%d–%d / %d ürün', $from, $to, $total ); ?></span>
             </div>
