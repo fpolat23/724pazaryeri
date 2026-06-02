@@ -67,8 +67,12 @@ while ( have_posts() ) : the_post();
 
         <?php
           // ── SATICI ŞERİDİ (resim altı) ──
-          // PZV vendor varsa PZV verisi, yoksa WP yazar verisi kullanılır
-          $ss_author_id = (int) get_post_field( 'post_author', $product->get_id() );
+          // Loop içindeyiz: get_the_author_meta() en güvenilir yöntem
+          $ss_author_id = (int) get_the_author_meta( 'ID' );
+          if ( ! $ss_author_id ) {
+            // Yedek: post_author alanından al
+            $ss_author_id = (int) get_post_field( 'post_author', get_the_ID() );
+          }
           if ( $ss_author_id ) {
             $ss_vendor    = ( class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $ss_author_id ) : null;
             $ss_inactive  = $ss_vendor && get_user_meta( $ss_author_id, 'pzv_status', true ) === 'inactive';
@@ -82,9 +86,10 @@ while ( have_posts() ) : the_post();
                 $ss_wp     = get_userdata( $ss_author_id );
                 $ss_url    = get_author_posts_url( $ss_author_id );
                 $ss_logo   = '';
-                $ss_name   = $ss_wp ? $ss_wp->display_name : '';
+                $ss_name   = $ss_wp ? ( $ss_wp->display_name ?: $ss_wp->user_login ) : '';
                 $ss_city   = '';
               }
+              if ( $ss_name ) :
         ?>
         <div class="pzv-seller-strip">
           <div class="pzv-ss-left">
@@ -100,7 +105,7 @@ while ( have_posts() ) : the_post();
           </div>
           <a class="pzv-ss-btn" href="<?php echo esc_url( $ss_url ); ?>">Mağazaya Git ›</a>
         </div>
-        <?php } } ?>
+        <?php endif; } } ?>
       </div>
     </div>
 
