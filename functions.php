@@ -4,9 +4,15 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.105' );
+define( 'PAZARYERI_VERSION', '9.9.106' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
+
+// Vendor plugin: wp-content/plugins yüklemediyse tema kendi dizininden yükler.
+// Böylece tema güncellemesi plugin güncellemesini de kapsar.
+if ( ! class_exists( 'PZV_Dashboard' ) ) {
+    require_once PAZARYERI_DIR . '/vendor-plugin/pazaryeri-vendor.php';
+}
 
 /**
  * Bugünden itibaren N. iş gününün Unix timestamp'ini döndürür.
