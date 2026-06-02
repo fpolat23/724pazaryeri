@@ -35,6 +35,20 @@ class WC_XML_Background_Importer {
 		return $job_id;
 	}
 
+	/**
+	 * Duraklatılan import için kaldığı offsetten devam eder.
+	 */
+	public static function resume( int $job_id ): void {
+		$job = WC_XML_Job_Manager::get( $job_id );
+		if ( ! $job ) return;
+
+		if ( (int) $job->processed < (int) $job->total_items ) {
+			as_enqueue_async_action( self::HOOK_BATCH, [ 'job_id' => $job_id, 'offset' => (int) $job->processed ], self::GROUP );
+		} else {
+			as_enqueue_async_action( self::HOOK_TERM_IMAGES, [ 'job_id' => $job_id ], self::GROUP );
+		}
+	}
+
 	public static function process_batch( int $job_id, int $offset ): void {
 		$job = WC_XML_Job_Manager::get( $job_id );
 		if ( ! $job || $job->status !== 'processing' ) return;
@@ -111,24 +125,34 @@ class WC_XML_Background_Importer {
 	}
 
 	private static function read_product_nodes( string $file_path, int $offset, int $limit ): array {
-		$dom = new DOMDocument();
+		$reader = new XMLReader();
+		if ( ! @$reader->open( $file_path ) ) return []; // phpcs:ignore
+
+		$result  = [];
+		$current = 0;
+
 		libxml_use_internal_errors( true );
 
-		if ( ! $dom->load( $file_path ) ) {
-			libxml_clear_errors();
-			return [];
+		while ( $reader->read() ) {
+			if ( $reader->nodeType !== XMLReader::ELEMENT || $reader->localName !== 'product' ) {
+				continue;
+			}
+
+			if ( $current < $offset ) {
+				$reader->next(); // Alt ağacı atla; döngünün read() çağrısı end tag'i geçer
+				$current++;
+				continue;
+			}
+
+			if ( count( $result ) >= $limit ) break;
+
+			$xml = $reader->readOuterXML(); // Elementi oku ve okuyucuyu ilerlet
+			if ( $xml ) $result[] = $xml;
+			$current++;
 		}
+
 		libxml_clear_errors();
-
-		$nodes  = $dom->getElementsByTagName( 'product' );
-		$result = [];
-		$end    = min( $offset + $limit, $nodes->length );
-
-		for ( $i = $offset; $i < $end; $i++ ) {
-			$node = $nodes->item( $i );
-			if ( $node ) $result[] = $dom->saveXML( $node );
-		}
-
+		$reader->close();
 		return $result;
 	}
 }

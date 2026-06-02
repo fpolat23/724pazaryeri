@@ -72,9 +72,27 @@ class WC_XML_Background_Exporter {
 		}
 	}
 
-	public static function finalize( int $job_id ): void {
+	/**
+	 * Duraklatılan veya iptal edilen export için kaldığı sayfa numarasından devam eder.
+	 */
+	public static function resume( int $job_id ): void {
 		$job = WC_XML_Job_Manager::get( $job_id );
 		if ( ! $job ) return;
+
+		$options    = json_decode( $job->options, true ) ?: [];
+		$batch_size = min( (int) ( $options['batch_size'] ?? self::BATCH_SIZE ), 100 );
+
+		if ( (int) $job->processed < (int) $job->total_items ) {
+			$page = max( 1, (int) ceil( $job->processed / $batch_size ) + 1 );
+			as_enqueue_async_action( self::HOOK_BATCH, [ 'job_id' => $job_id, 'page' => $page ], self::GROUP );
+		} else {
+			as_enqueue_async_action( self::HOOK_FINALIZE, [ 'job_id' => $job_id ], self::GROUP );
+		}
+	}
+
+	public static function finalize( int $job_id ): void {
+		$job = WC_XML_Job_Manager::get( $job_id );
+		if ( ! $job || $job->status !== 'processing' ) return;
 
 		if ( ! file_exists( $job->file_path ) ) {
 			WC_XML_Job_Manager::fail( $job_id, 'Geçici dosya bulunamadı.' );

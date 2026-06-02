@@ -518,33 +518,9 @@ class WC_XML_Migrator_Admin {
 		WC_XML_Job_Manager::update( $job_id, [ 'status' => 'processing' ] );
 
 		if ( $job->job_type === 'import' ) {
-			if ( (int) $job->processed < (int) $job->total_items ) {
-				as_enqueue_async_action(
-					WC_XML_Background_Importer::HOOK_BATCH,
-					[ 'job_id' => $job_id, 'offset' => (int) $job->processed ],
-					WC_XML_Background_Importer::GROUP
-				);
-			} else {
-				as_enqueue_async_action(
-					WC_XML_Background_Importer::HOOK_TERM_IMAGES,
-					[ 'job_id' => $job_id ],
-					WC_XML_Background_Importer::GROUP
-				);
-			}
+			WC_XML_Background_Importer::resume( $job_id );
 		} else {
-			if ( (int) $job->processed < (int) $job->total_items ) {
-				as_enqueue_async_action(
-					WC_XML_Background_Exporter::HOOK_BATCH,
-					[ 'job_id' => $job_id, 'offset' => (int) $job->processed ],
-					WC_XML_Background_Exporter::GROUP
-				);
-			} else {
-				as_enqueue_async_action(
-					WC_XML_Background_Exporter::HOOK_FINALIZE,
-					[ 'job_id' => $job_id ],
-					WC_XML_Background_Exporter::GROUP
-				);
-			}
+			WC_XML_Background_Exporter::resume( $job_id );
 		}
 
 		wp_send_json_success();
