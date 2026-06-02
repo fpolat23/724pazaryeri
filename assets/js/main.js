@@ -2059,7 +2059,7 @@ window.pzSendVerifyCode = function(btn){
     });
 };
 
-/* ── Dinamik kargo sayacı (Türkiye saati, iş günü, tatil kontrolü) ── */
+/* ── Dinamik kargo sayacı — vendor dispatch_days destekli ── */
 (function(){
   var fixedHols = ['1-1','4-23','5-1','5-19','7-15','8-30','10-29'];
   var lunarHols = {
@@ -2085,51 +2085,62 @@ window.pzSendVerifyCode = function(btn){
     return w !== 0 && w !== 6 && !isHol(d);
   }
 
-  function nextWorkDay(from) {
-    var d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
-    for (var i = 0; i < 14; i++) {
+  function dayName(d) {
+    return ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'][d.getDay()];
+  }
+
+  /* Bugünden itibaren n iş günü sonrasını döndürür (n=0: bugün/sonraki iş günü) */
+  function nthWorkDay(from, n) {
+    var d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    if (n === 0) {
       if (isWorkDay(d)) return d;
+      n = 1;
+    }
+    var count = 0;
+    d.setDate(d.getDate() + 1);
+    for (var safety = 0; safety < 30; safety++) {
+      if (isWorkDay(d)) { count++; if (count >= n) return d; }
       d.setDate(d.getDate() + 1);
     }
     return d;
   }
 
-  function dayNames(d) {
-    return ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'][d.getDay()];
-  }
+  /* dispatch: vendor'un kargoya verme süresi (iş günü) */
+  function computeText(dispatch, tr) {
+    var cutoff = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate(), 14, 0, 0);
 
-  function computeText() {
-    var tr = trNow();
-    var cutoff = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate(), 14, 0, 0, 0);
-    var diffMs = cutoff - tr;
-
-    if (isWorkDay(tr) && diffMs > 0) {
-      var totalMins = Math.ceil(diffMs / 60000);
-      var h = Math.floor(totalMins / 60);
-      var m = totalMins % 60;
-      var timeStr = '';
-      if (h > 0) timeStr += h + ' saat ';
-      if (m > 0) timeStr += m + ' dakika ';
-      return timeStr.trim() + ' içinde sipariş verirseniz bugün kargoda';
+    if (dispatch === 0 && isWorkDay(tr) && cutoff > tr) {
+      var mins = Math.ceil((cutoff - tr) / 60000);
+      var h = Math.floor(mins / 60), m = mins % 60;
+      var t = (h > 0 ? h + ' saat ' : '') + (m > 0 ? m + ' dakika' : '');
+      return t.trim() + ' içinde sipariş verirseniz bugün kargoda';
     }
 
-    var nwd = nextWorkDay(tr);
-    var tmrw = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate() + 1);
-    var whenStr = (nwd.toDateString() === tmrw.toDateString()) ? 'yarın' : dayNames(nwd);
-    return 'En geç ' + whenStr + ' kargoya verilir';
+    var shipDay = nthWorkDay(tr, dispatch);
+    var today   = new Date(tr.getFullYear(), tr.getMonth(), tr.getDate());
+    var tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+    var when;
+    if (shipDay.toDateString() === today.toDateString())    when = 'bugün';
+    else if (shipDay.toDateString() === tomorrow.toDateString()) when = 'yarın';
+    else when = dayName(shipDay);
+
+    return 'En geç ' + when + ' kargoya verilir';
   }
 
   function update() {
-    var els = document.querySelectorAll('[data-pship] .pship-txt, .hb-del-row .pship-txt');
+    var els = document.querySelectorAll('.pship-txt');
     if (!els.length) return;
-    var txt = computeText();
-    for (var i = 0; i < els.length; i++) els[i].textContent = txt;
+    var tr = trNow();
+    for (var i = 0; i < els.length; i++) {
+      var container = els[i].closest('[data-dispatch]');
+      var dispatch  = container ? parseInt(container.getAttribute('data-dispatch') || '1', 10) : 1;
+      if (isNaN(dispatch) || dispatch < 0) dispatch = 1;
+      els[i].textContent = computeText(dispatch, tr);
+    }
   }
 
-  function init() {
-    update();
-    setInterval(update, 60000);
-  }
+  function init() { update(); setInterval(update, 60000); }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

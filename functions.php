@@ -4,9 +4,27 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.101' );
+define( 'PAZARYERI_VERSION', '9.9.102' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
+
+/**
+ * Bugünden itibaren N. iş gününün Unix timestamp'ini döndürür.
+ * Hafta sonları ve sabit Türkiye tatilleri atlanır.
+ */
+function pz_workday_ts( $n ) {
+    static $hols = array('01-01','04-23','05-01','05-19','07-15','08-30','10-29');
+    $ts = current_time('timestamp');
+    $i = 0;
+    while ( $i < $n ) {
+        $ts += DAY_IN_SECONDS;
+        $dow  = (int) date( 'N', $ts );
+        $mday = date( 'm-d', $ts );
+        if ( $dow < 6 && ! in_array( $mday, $hols, true ) ) $i++;
+    }
+    return $ts;
+}
+
 
 /**
  * Attribute etiketini oku; wc_attribute_label kayıtlı değilse

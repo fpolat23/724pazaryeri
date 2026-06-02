@@ -476,7 +476,8 @@
       {id:'pzv-prf-desc',    name:'description'},
       {id:'pzv-prf-iban',    name:'iban'},
       {id:'pzv-prf-logo-id', name:'logo'},
-      {id:'pzv-prf-banner-id',name:'banner'},
+      {id:'pzv-prf-banner-id',  name:'banner'},
+      {id:'pzv-prf-dispatch',   name:'dispatch_days'},
     ]
   });
 

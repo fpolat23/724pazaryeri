@@ -74,31 +74,36 @@ while ( have_posts() ) : the_post();
             $v = class_exists( 'PZV_Vendor' ) ? PZV_Vendor::get( $uid ) : null;
             if ( $v && get_user_meta( $uid, 'pzv_status', true ) === 'inactive' ) return null;
             if ( $v ) {
-              $url  = PZV_Vendor::store_url( $uid );
-              $logo = $v['logo'] ? wp_get_attachment_image_url( $v['logo'], array( 40, 40 ) ) : '';
-              $name = $v['store_name'];
-              $city = $v['city'];
+              $url      = PZV_Vendor::store_url( $uid );
+              $logo     = $v['logo'] ? wp_get_attachment_image_url( $v['logo'], array( 40, 40 ) ) : '';
+              $name     = $v['store_name'];
+              $city     = $v['city'];
+              $dispatch = (int) $v['dispatch_days'];
             } else {
-              $wp   = get_userdata( $uid );
-              $url  = get_author_posts_url( $uid );
-              $logo = '';
-              $name = $wp ? ( $wp->display_name ?: $wp->user_login ) : '';
-              $city = '';
+              $wp       = get_userdata( $uid );
+              $url      = get_author_posts_url( $uid );
+              $logo     = '';
+              $name     = $wp ? ( $wp->display_name ?: $wp->user_login ) : '';
+              $city     = '';
+              $dispatch = max( 0, (int) ( get_user_meta( $uid, 'pzv_dispatch_days', true ) ?: 1 ) );
             }
             if ( ! $name ) return null;
             return array(
-              'url'      => $url,
-              'logo'     => $logo,
-              'name'     => $name,
-              'city'     => $city,
-              'price'    => $wc_prod ? (float) $wc_prod->get_price() : 0,
-              'prod_url' => $wc_prod ? get_permalink( $wc_prod->get_id() ) : '',
+              'url'           => $url,
+              'logo'          => $logo,
+              'name'          => $name,
+              'city'          => $city,
+              'price'         => $wc_prod ? (float) $wc_prod->get_price() : 0,
+              'prod_url'      => $wc_prod ? get_permalink( $wc_prod->get_id() ) : '',
+              'dispatch_days' => $dispatch,
             );
           };
+          $pz_main_dispatch = 1; // Varsayılan; mevcut satıcı verisi alındıktan sonra güncellenir
 
           if ( $pz_me ) {
             $pz_cur = $pz_get_seller( $pz_me, $product );
             if ( $pz_cur ) {
+              $pz_main_dispatch = $pz_cur['dispatch_days'];
               $pz_sellers = array( $pz_me => $pz_cur + array( 'is_current' => true ) );
 
               // Aynı başlıkta diğer ürünler (başka satıcılar)
@@ -132,7 +137,8 @@ while ( have_posts() ) : the_post();
             $pz_href = $pz_s['is_current'] ? $pz_s['url'] : $pz_s['prod_url'];
           ?>
           <a class="pzv-seller-row<?php echo $pz_s['is_current'] ? ' current' : ''; ?>"
-             href="<?php echo esc_url( $pz_href ); ?>">
+             href="<?php echo esc_url( $pz_href ); ?>"
+             data-dispatch="<?php echo (int) $pz_s['dispatch_days']; ?>">
             <?php if ( $pz_s['logo'] ) : ?>
               <img class="pzv-sr-logo" src="<?php echo esc_url( $pz_s['logo'] ); ?>" alt="">
             <?php else : ?>
@@ -148,7 +154,10 @@ while ( have_posts() ) : the_post();
               <?php if ( $pz_s['price'] > 0 ) : ?>
               <span class="pzv-sr-price"><?php echo esc_html( number_format( $pz_s['price'], 0, ',', '.' ) ); ?> ₺</span>
               <?php endif; ?>
-              <span class="pzv-sr-del">3–5 iş günü</span>
+              <span class="pzv-sr-del pship-txt"><?php
+                $dd = (int) $pz_s['dispatch_days'];
+                echo $dd === 0 ? 'Aynı gün kargo' : $dd . ' iş günü';
+              ?></span>
             </div>
             <span class="pzv-sr-arr">›</span>
           </a>
@@ -376,22 +385,28 @@ while ( have_posts() ) : the_post();
       <!-- Kargo / teslimat -->
       <div class="hb-delivery">
         <?php if ( $in_stock ) : ?>
-        <div class="hb-del-row hb-del-kargo<?php echo ( $price >= 1500 ) ? ' hb-del-kargo-free' : ''; ?>">
+        <?php
+          // Dinamik teslimat tarihleri: vendor kargoya verme süresi + 1-3 gün transit
+          $pz_del_start = pz_workday_ts( $pz_main_dispatch + 1 );
+          $pz_del_end   = pz_workday_ts( $pz_main_dispatch + 3 );
+        ?>
+        <div class="hb-del-row hb-del-kargo<?php echo ( $price >= 1500 ) ? ' hb-del-kargo-free' : ''; ?>"
+             data-dispatch="<?php echo (int) $pz_main_dispatch; ?>">
           <div class="hb-del-ico-wrap">🚚</div>
           <div class="hb-del-content">
             <?php if ( $price >= 1500 ) : ?>
               <strong>Bu Ürün İçin Kargo Ücretsiz!</strong>
-              <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', strtotime('+2 days') ) ); ?> – <?php echo esc_html( date_i18n( 'j F', strtotime('+4 days') ) ); ?></small>
+              <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', $pz_del_start ) ); ?> – <?php echo esc_html( date_i18n( 'j F', $pz_del_end ) ); ?></small>
             <?php else : ?>
               <strong>1500₺ Üzeri Ücretsiz Kargo</strong>
-              <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', strtotime('+2 days') ) ); ?> – <?php echo esc_html( date_i18n( 'j F', strtotime('+4 days') ) ); ?></small>
+              <small>Tahmini teslimat: <?php echo esc_html( date_i18n( 'j F', $pz_del_start ) ); ?> – <?php echo esc_html( date_i18n( 'j F', $pz_del_end ) ); ?></small>
             <?php endif; ?>
           </div>
           <?php if ( $price >= 1500 ) : ?>
             <span class="hb-del-badge hb-del-badge-green">ÜCRETSİZ</span>
           <?php endif; ?>
         </div>
-        <div class="hb-del-row hb-del-hizli">
+        <div class="hb-del-row hb-del-hizli" data-dispatch="<?php echo (int) $pz_main_dispatch; ?>">
           <div class="hb-del-ico-wrap">⚡</div>
           <div class="hb-del-content">
             <strong>Hızlı Teslimat</strong>

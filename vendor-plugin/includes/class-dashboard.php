@@ -866,6 +866,18 @@ class PZV_Dashboard {
                         <label>IBAN (Ödeme için)</label>
                         <input type="text" id="pzv-prf-iban" value="<?php echo esc_attr( $v['iban'] ); ?>" placeholder="TR...">
                     </div>
+                    <div class="pzv-form-row">
+                        <label>Kargoya Verme Süresi</label>
+                        <select id="pzv-prf-dispatch">
+                            <?php
+                            $dd_opts = array( 0 => 'Aynı gün (14:00\'a kadar sipariş)', 1 => '1 iş günü', 2 => '2 iş günü', 3 => '3 iş günü', 5 => '5 iş günü', 7 => '7 iş günü' );
+                            foreach ( $dd_opts as $dd_val => $dd_label ) :
+                            ?>
+                            <option value="<?php echo $dd_val; ?>"<?php selected( (int) ( $v['dispatch_days'] ?? 1 ), $dd_val ); ?>><?php echo esc_html( $dd_label ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small style="color:#888;font-size:12px;margin-top:4px;display:block;">Siparişi aldıktan kaç iş günü içinde kargoya veriyorsunuz?</small>
+                    </div>
                 </div>
                 <div class="pzv-pf-side">
                     <div class="pzv-pf-img-wrap" style="margin-bottom:20px;">
@@ -1125,8 +1137,9 @@ class PZV_Dashboard {
             if ( isset( $_POST[ $f ] ) ) update_user_meta( $uid, 'pzv_' . $f, sanitize_text_field( wp_unslash( $_POST[ $f ] ) ) );
         }
         if ( ! empty( $_POST['store_slug'] ) ) update_user_meta( $uid, 'pzv_store_slug', sanitize_title( $_POST['store_slug'] ) );
-        update_user_meta( $uid, 'pzv_logo',   (int) ( $_POST['logo']   ?? 0 ) );
-        update_user_meta( $uid, 'pzv_banner', (int) ( $_POST['banner'] ?? 0 ) );
+        update_user_meta( $uid, 'pzv_logo',          (int) ( $_POST['logo']          ?? 0 ) );
+        update_user_meta( $uid, 'pzv_banner',        (int) ( $_POST['banner']        ?? 0 ) );
+        update_user_meta( $uid, 'pzv_dispatch_days', max( 0, (int) ( $_POST['dispatch_days'] ?? 1 ) ) );
 
         wp_send_json_success( array( 'message' => 'Profil güncellendi.' ) );
     }

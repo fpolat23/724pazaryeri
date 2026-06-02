@@ -23,6 +23,7 @@ class PZV_Vendor {
             'commission_override' => get_user_meta( $vendor_id, 'pzv_commission_override', true ),
             'logo'                => (int) get_user_meta( $vendor_id, 'pzv_logo', true ),
             'banner'              => (int) get_user_meta( $vendor_id, 'pzv_banner', true ),
+            'dispatch_days'       => max( 0, (int) ( get_user_meta( $vendor_id, 'pzv_dispatch_days', true ) ?: 1 ) ),
         );
     }
 
