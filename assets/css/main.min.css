@@ -265,7 +265,8 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-thumb img{width:100%;height:100%;object-fit:cover;}
 .pazaryeri-wrap .hb-thumb:hover{border-color:var(--accent2);}
 .pazaryeri-wrap .hb-thumb.on{border-color:var(--accent);}
-.pazaryeri-wrap .hb-main-img{flex:1;min-width:0;background:#fff;border:1.5px solid var(--border);border-radius:16px;position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;overflow:hidden;}
+.pazaryeri-wrap .hb-img-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;}
+.pazaryeri-wrap .hb-main-img{background:#fff;border:1.5px solid var(--border);border-radius:16px;position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;overflow:hidden;}
 .pazaryeri-wrap .hb-main-img img{width:92%;height:92%;object-fit:contain;transition:transform .3s;}
 
 .pazaryeri-wrap .hb-disc-badge{position:absolute;top:14px;left:14px;background:var(--accent);color:#fff;font-weight:800;font-size:15px;text-align:center;border-radius:10px;padding:8px 10px;line-height:1.1;z-index:2;}
@@ -1313,7 +1314,9 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .hb-grid{display:block;padding:0;}
   /* Galeri: tam genişlik, thumbnail'ler altta yatay */
   .pazaryeri-wrap .hb-gallery{display:flex!important;flex-direction:column-reverse;gap:10px;margin:0 -14px;position:static!important;width:auto;visibility:visible!important;}
+  .pazaryeri-wrap .hb-img-col{width:100%;gap:0;}
   .pazaryeri-wrap .hb-main-img{width:100%;border-radius:0;background:#fff;aspect-ratio:1/1;display:flex!important;align-items:center;justify-content:center;min-height:300px;}
+  .pazaryeri-wrap .pzv-seller-strip{border-radius:0;border-left:none;border-right:none;border-top:none;margin-top:0;}
   .pazaryeri-wrap .hb-main-img img{width:100%;height:100%;object-fit:contain;}
   /* Thumbnail çubuğu yatay kaydırmalı (Hepsiburada gibi) */
   .pazaryeri-wrap .hb-thumbs,.pazaryeri-wrap .hb-thumbs-wrap{flex-direction:row!important;overflow-x:auto;gap:8px;padding:0 14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}

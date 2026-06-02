@@ -56,41 +56,43 @@ while ( have_posts() ) : the_post();
           </div>
         <?php endforeach; ?>
       </div>
-      <div class="hb-main-img">
-        <?php if ( $disc > 0 ) : ?><span class="hb-disc-badge">%<?php echo esc_html( $disc ); ?><br><small>indirim</small></span><?php endif; ?>
-        <?php if ( $sale >= 1500 ) : ?><span class="hb-freeship-badge"><span class="hb-freeship-ico">🚚</span><span class="hb-freeship-txt">Ücretsiz<br>Kargo</span></span><?php endif; ?>
-        <button class="hb-fav" id="imgFav" onclick="toggleImgFav()" aria-label="Favorilere ekle">🤍</button>
-        <img loading="lazy" decoding="async" id="mainImgEl" src="<?php echo esc_url( $main_full ); ?>" alt="<?php the_title_attribute(); ?>">
-        <div class="hb-zoom-hint">🔍 İncelemek için üzerine gelin</div>
-      </div>
-
-      <?php
-        // ── SATICI ŞERİDİ (galeri altı) ──
-        global $wpdb;
-        $pzv_author_id  = (int) get_post_field( 'post_author', $product->get_id() );
-        $pzv_vendor     = ( $pzv_author_id && class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $pzv_author_id ) : null;
-        if ( $pzv_vendor && get_user_meta( $pzv_author_id, 'pzv_status', true ) !== 'inactive' ) :
-          $pzv_store_url  = PZV_Vendor::store_url( $pzv_author_id );
-          $pzv_logo_id    = $pzv_vendor['logo'];
-          $pzv_logo_url   = $pzv_logo_id ? wp_get_attachment_image_url( $pzv_logo_id, array( 40, 40 ) ) : '';
-          $pzv_store_name = $pzv_vendor['store_name'];
-          $pzv_city       = $pzv_vendor['city'];
-      ?>
-      <div class="pzv-seller-strip">
-        <div class="pzv-ss-left">
-          <?php if ( $pzv_logo_url ) : ?>
-            <img class="pzv-ss-logo" src="<?php echo esc_url( $pzv_logo_url ); ?>" alt="<?php echo esc_attr( $pzv_store_name ); ?>">
-          <?php else : ?>
-            <div class="pzv-ss-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $pzv_store_name, 0, 1 ) ) ); ?></div>
-          <?php endif; ?>
-          <div class="pzv-ss-info">
-            <a class="pzv-ss-name" href="<?php echo esc_url( $pzv_store_url ); ?>"><?php echo esc_html( $pzv_store_name ); ?></a>
-            <?php if ( $pzv_city ) : ?><span class="pzv-ss-city">📍 <?php echo esc_html( $pzv_city ); ?></span><?php endif; ?>
-          </div>
+      <div class="hb-img-col">
+        <div class="hb-main-img">
+          <?php if ( $disc > 0 ) : ?><span class="hb-disc-badge">%<?php echo esc_html( $disc ); ?><br><small>indirim</small></span><?php endif; ?>
+          <?php if ( $sale >= 1500 ) : ?><span class="hb-freeship-badge"><span class="hb-freeship-ico">🚚</span><span class="hb-freeship-txt">Ücretsiz<br>Kargo</span></span><?php endif; ?>
+          <button class="hb-fav" id="imgFav" onclick="toggleImgFav()" aria-label="Favorilere ekle">🤍</button>
+          <img loading="lazy" decoding="async" id="mainImgEl" src="<?php echo esc_url( $main_full ); ?>" alt="<?php the_title_attribute(); ?>">
+          <div class="hb-zoom-hint">🔍 İncelemek için üzerine gelin</div>
         </div>
-        <a class="pzv-ss-btn" href="<?php echo esc_url( $pzv_store_url ); ?>">Mağazaya Git ›</a>
+
+        <?php
+          // ── SATICI ŞERİDİ (resim altı) ──
+          global $wpdb;
+          $pzv_author_id  = (int) get_post_field( 'post_author', $product->get_id() );
+          $pzv_vendor     = ( $pzv_author_id && class_exists( 'PZV_Vendor' ) ) ? PZV_Vendor::get( $pzv_author_id ) : null;
+          if ( $pzv_vendor && get_user_meta( $pzv_author_id, 'pzv_status', true ) !== 'inactive' ) :
+            $pzv_store_url  = PZV_Vendor::store_url( $pzv_author_id );
+            $pzv_logo_id    = $pzv_vendor['logo'];
+            $pzv_logo_url   = $pzv_logo_id ? wp_get_attachment_image_url( $pzv_logo_id, array( 40, 40 ) ) : '';
+            $pzv_store_name = $pzv_vendor['store_name'];
+            $pzv_city       = $pzv_vendor['city'];
+        ?>
+        <div class="pzv-seller-strip">
+          <div class="pzv-ss-left">
+            <?php if ( $pzv_logo_url ) : ?>
+              <img class="pzv-ss-logo" src="<?php echo esc_url( $pzv_logo_url ); ?>" alt="<?php echo esc_attr( $pzv_store_name ); ?>">
+            <?php else : ?>
+              <div class="pzv-ss-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $pzv_store_name, 0, 1 ) ) ); ?></div>
+            <?php endif; ?>
+            <div class="pzv-ss-info">
+              <a class="pzv-ss-name" href="<?php echo esc_url( $pzv_store_url ); ?>"><?php echo esc_html( $pzv_store_name ); ?></a>
+              <?php if ( $pzv_city ) : ?><span class="pzv-ss-city">📍 <?php echo esc_html( $pzv_city ); ?></span><?php endif; ?>
+            </div>
+          </div>
+          <a class="pzv-ss-btn" href="<?php echo esc_url( $pzv_store_url ); ?>">Mağazaya Git ›</a>
+        </div>
+        <?php endif; ?>
       </div>
-      <?php endif; ?>
     </div>
 
     <!-- ═══ SAĞ KOLON: BİLGİ + SATIN AL ═══ -->
