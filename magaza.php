@@ -59,7 +59,13 @@ $store_phone   = $v['phone'];
 $store_desc    = $v['description'];
 
 // ── Filtre parametreleri ──
-$paged   = max( 1, (int) get_query_var( 'paged' ) );
+// Filtre varsa ?pg=N, yoksa /page/N/ rewrite kullan
+$has_filter_qs_early = isset( $_GET['store_cat'] ) || isset( $_GET['store_brand'] )
+    || ( isset( $_GET['min_price'] ) && $_GET['min_price'] !== '' )
+    || ( isset( $_GET['max_price'] ) && $_GET['max_price'] !== '' );
+$paged   = $has_filter_qs_early
+    ? max( 1, (int) ( $_GET['pg'] ?? 1 ) )
+    : max( 1, (int) get_query_var( 'paged' ) );
 $f_cat   = isset( $_GET['store_cat'] )   ? absint( $_GET['store_cat'] )   : 0;
 $f_brand = isset( $_GET['store_brand'] ) ? absint( $_GET['store_brand'] ) : 0;
 $f_min   = isset( $_GET['min_price'] ) && $_GET['min_price'] !== '' ? floatval( $_GET['min_price'] ) : null;
@@ -240,12 +246,36 @@ get_header();
         </div>
         <div class="shop-pagination">
           <?php
-            echo paginate_links( array(
-              'total'     => $store_products->max_num_pages,
-              'current'   => $paged,
-              'prev_text' => '‹ Önceki',
-              'next_text' => 'Sonraki ›',
-            ) );
+            // Filtre parametreleri varsa query string olarak ekle, yoksa temiz /page/N/ URL kullan
+            $has_filter_qs = ( $f_cat || $f_brand || $f_min !== null || $f_max !== null );
+            if ( $has_filter_qs ) {
+                // Query string modunda sayfalama
+                $pg_base = add_query_arg( array_filter( array(
+                    'store_cat'   => $f_cat   ?: null,
+                    'store_brand' => $f_brand ?: null,
+                    'min_price'   => $f_min !== null ? $f_min : null,
+                    'max_price'   => $f_max !== null ? $f_max : null,
+                    'pg'          => '%#%',
+                ) ), $store_base );
+                echo paginate_links( array(
+                    'base'      => $pg_base,
+                    'format'    => '',
+                    'total'     => $store_products->max_num_pages,
+                    'current'   => isset( $_GET['pg'] ) ? max( 1, (int) $_GET['pg'] ) : $paged,
+                    'prev_text' => '‹ Önceki',
+                    'next_text' => 'Sonraki ›',
+                ) );
+            } else {
+                // Temiz /page/N/ URL (rewrite rule ile çalışır)
+                echo paginate_links( array(
+                    'base'      => trailingslashit( $store_base ) . '%_%',
+                    'format'    => 'page/%#%/',
+                    'total'     => $store_products->max_num_pages,
+                    'current'   => $paged,
+                    'prev_text' => '‹ Önceki',
+                    'next_text' => 'Sonraki ›',
+                ) );
+            }
           ?>
         </div>
         <?php wp_reset_postdata(); ?>

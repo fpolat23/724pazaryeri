@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PazarYeri Vendor System
  * Description: Hafif WooCommerce çoklu satıcı sistemi. Dokan alternatifi. Kategori bazlı komisyon, frontend dashboard, sipariş yönetimi.
- * Version:     1.3.3
+ * Version:     1.3.4
  * Author:      724PazarYeri
  * Requires PHP: 7.2
  * Requires at least: 5.6
@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PZV_VERSION', '1.3.3' );
+define( 'PZV_VERSION', '1.3.4' );
 define( 'PZV_FILE', __FILE__ );
 define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
@@ -133,14 +133,19 @@ add_action( 'pre_get_posts', function ( $query ) {
     }
 } );
 
-// ─── Mağaza URL rewrite: /magaza/{slug}/ ─── //
+// ─── Mağaza URL rewrite: /magaza/{slug}/ ve /magaza/{slug}/page/{n}/ ─── //
 add_action( 'init', function () {
-    add_rewrite_rule( '^magaza/([^/]+)/?$', 'index.php?pzv_store=$matches[1]', 'top' );
+    // Sayfalı URL önce gelmeli (daha spesifik)
+    add_rewrite_rule( '^magaza/([^/]+)/page/([0-9]+)/?$', 'index.php?pzv_store=$matches[1]&paged=$matches[2]', 'top' );
+    add_rewrite_rule( '^magaza/([^/]+)/?$',               'index.php?pzv_store=$matches[1]',                    'top' );
     add_rewrite_endpoint( 'satici-paneli', EP_ROOT | EP_PAGES );
 
-    // Rewrite kuralı henüz kaydedilmemişse otomatik flush
+    // Her iki kural da yoksa flush et
     $rules = get_option( 'rewrite_rules' );
-    if ( empty( $rules ) || ! isset( $rules['^magaza/([^/]+)/?$'] ) ) {
+    if ( empty( $rules )
+        || ! isset( $rules['^magaza/([^/]+)/?$'] )
+        || ! isset( $rules['^magaza/([^/]+)/page/([0-9]+)/?$'] )
+    ) {
         flush_rewrite_rules( false );
     }
 } );
