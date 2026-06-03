@@ -75,7 +75,8 @@ class WC_PSS_Scraper {
 	}
 
 	/**
-	 * Crawl a starting page following pagination and collecting product URLs.
+	 * Crawl a starting page following category sub-pages and pagination,
+	 * collecting all product URLs.
 	 */
 	private static function crawl_urls( array $source, WC_PSS_Http_Client $client ): array {
 		$base    = rtrim( $source['base_url'], '/' );
@@ -85,73 +86,69 @@ class WC_PSS_Scraper {
 		$visited = [];
 		$queue   = [ $start ];
 
+		// Path prefix of the crawl URL — sub-paths are treated as listing/category pages
+		$crawl_path = rtrim( wp_parse_url( $start, PHP_URL_PATH ) ?? '', '/' );
+
 		while ( ! empty( $queue ) && count( $urls ) < 60000 ) {
 			$page_url = array_shift( $queue );
+			// Normalise: strip query string from listing pages to avoid cycles
+			$page_url = explode( '?', $page_url )[0];
 			if ( in_array( $page_url, $visited, true ) ) continue;
 			$visited[] = $page_url;
 
 			$html = $client->get( $page_url );
 			if ( ! $html ) continue;
 
-			// Collect product URLs and all same-domain links
 			preg_match_all( '/href=["\']([^"\'#]+)["\']/i', $html, $hrefs );
 			foreach ( $hrefs[1] as $href ) {
 				$abs = self::to_absolute( html_entity_decode( trim( $href ) ), $base );
 				if ( ! $abs || ! str_starts_with( $abs, $base ) ) continue;
 
+				$abs_path  = wp_parse_url( $abs, PHP_URL_PATH ) ?? '';
+				$abs_clean = explode( '?', $abs )[0];
+
 				if ( str_contains( $abs, $pattern ) ) {
-					// Strip query strings from product URLs to avoid duplicates
-					$clean = strtok( $abs, '?' );
-					if ( $clean && ! in_array( $clean, $urls, true ) ) $urls[] = $clean;
+					// Product page — collect
+					if ( ! in_array( $abs_clean, $urls, true ) ) $urls[] = $abs_clean;
+				} elseif (
+					$crawl_path !== '' &&
+					str_starts_with( $abs_path, $crawl_path . '/' ) &&
+					! in_array( $abs_clean, $visited, true ) &&
+					! in_array( $abs_clean, $queue, true )
+				) {
+					// Category / sub-listing page under the crawl URL — follow it
+					$queue[] = $abs_clean;
 				}
 			}
 
-			// ---- Pagination detection (multiple strategies) ----
-
-			// Strategy 1: rel="next" (standard HTML)
-			if ( preg_match( '/(?:rel=["\']next["\']\s[^>]*href=["\']([^"\']+)["\']|href=["\']([^"\']+)["\']\s[^>]*rel=["\']next["\'])/i', $html, $m ) ) {
+			// Standard pagination: rel="next"
+			if ( preg_match(
+				'/(?:rel=["\']next["\']\s[^>]*href=["\']([^"\']+)["\']|href=["\']([^"\']+)["\']\s[^>]*rel=["\']next["\'])/i',
+				$html, $m
+			) ) {
 				$next_url = self::to_absolute( html_entity_decode( $m[1] ?: $m[2] ), $base );
-				if ( $next_url && ! in_array( $next_url, $visited, true ) ) {
+				if ( $next_url && ! in_array( $next_url, $visited, true ) && ! in_array( $next_url, $queue, true ) ) {
 					array_unshift( $queue, $next_url );
-					continue;
 				}
 			}
 
-			// Strategy 2: explicit next-button text (Turkish + universal)
+			// Next-button text (Turkish + universal)
 			if ( preg_match(
 				'/href=["\']([^"\']+)["\'][^>]*>\s*(?:&rsaquo;|›|&raquo;|»|>>|Sonraki|İleri|Next)\s*</i',
 				$html, $m
 			) ) {
 				$next_url = self::to_absolute( html_entity_decode( $m[1] ), $base );
-				if ( $next_url && ! in_array( $next_url, $visited, true ) ) {
+				if ( $next_url && ! in_array( $next_url, $visited, true ) && ! in_array( $next_url, $queue, true ) ) {
 					array_unshift( $queue, $next_url );
-					continue;
 				}
 			}
 
-			// Strategy 3: queue ALL numbered pagination links on this page
-			// Matches: ?page=N  ?p=N  /page/N/  /sayfa/N  /sayfa-N
-			preg_match_all(
-				'/href=["\']([^"\']*(?:[?&](?:page|sayfa|p)=\d+|\/(?:page|sayfa)\/\d+|\/sayfa-\d+)[^"\']*)["\']/',
-				$html, $pg
-			);
+			// Explicit ?page=N / ?sayfa=N pagination
+			preg_match_all( '/href=["\']([^"\']*[?&](?:page|sayfa|p)=\d+[^"\']*)["\']/', $html, $pg );
 			foreach ( $pg[1] as $plink ) {
 				$abs = self::to_absolute( html_entity_decode( trim( $plink ) ), $base );
 				if ( $abs && str_starts_with( $abs, $base ) && ! in_array( $abs, $visited, true ) && ! in_array( $abs, $queue, true ) ) {
 					$queue[] = $abs;
-				}
-			}
-
-			// Strategy 4: URL-increment fallback — if current URL already has ?page=N,
-			// check whether page N+1 exists in the HTML links
-			$qs = wp_parse_url( $page_url, PHP_URL_QUERY ) ?? '';
-			parse_str( $qs, $qp );
-			$param = isset( $qp['page'] ) ? 'page' : ( isset( $qp['sayfa'] ) ? 'sayfa' : ( isset( $qp['p'] ) ? 'p' : '' ) );
-			if ( $param !== '' ) {
-				$next_n    = (int) $qp[ $param ] + 1;
-				$candidate = str_replace( "{$param}=" . $qp[ $param ], "{$param}={$next_n}", $page_url );
-				if ( str_contains( $html, "{$param}={$next_n}" ) && ! in_array( $candidate, $visited, true ) ) {
-					$queue[] = $candidate;
 				}
 			}
 		}
