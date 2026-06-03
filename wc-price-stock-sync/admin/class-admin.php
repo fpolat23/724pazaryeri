@@ -603,6 +603,36 @@ class WC_PSS_Admin {
 
 		// URL discovery
 		$log[] = 'Ürün URL keşfi başlıyor (' . ( $source['discovery'] === 'crawl' ? 'Crawl' : 'Sitemap' ) . ' modu)…';
+
+		// Crawl diagnostic: fetch start page and show what pagination links exist
+		if ( ( $source['discovery'] ?? 'sitemap' ) === 'crawl' && ! empty( $source['crawl_url'] ) ) {
+			$crawl_html = $client->get( $source['crawl_url'] );
+			if ( $crawl_html ) {
+				preg_match_all( '/href=["\']([^"\']+)["\']/', $crawl_html, $all_hrefs );
+				$page_links = [];
+				foreach ( $all_hrefs[1] as $h ) {
+					if ( preg_match( '/(?:page|sayfa|p=)\d+|\/\d+\/?$/', $h ) ) {
+						$page_links[] = html_entity_decode( trim( $h ) );
+					}
+				}
+				$page_links = array_unique( $page_links );
+				if ( $page_links ) {
+					$log[] = '  Sayfa linkleri bulundu: ' . implode( ' | ', array_slice( $page_links, 0, 5 ) );
+				} else {
+					$log[] = '  ⚠ Sayfa linki bulunamadı — site AJAX/JavaScript ile sayfalama yapıyor olabilir.';
+					// Show all unique href domains/paths for clues
+					$sample = [];
+					foreach ( array_unique( $all_hrefs[1] ) as $h ) {
+						$dec = html_entity_decode( trim( $h ) );
+						if ( str_contains( $dec, $source['base_url'] ) || str_starts_with( $dec, '/' ) ) {
+							$sample[] = $dec;
+						}
+					}
+					$log[] = '  Sayfadaki linklerin örneği: ' . implode( ' | ', array_slice( $sample, 0, 8 ) );
+				}
+			}
+		}
+
 		$urls = WC_PSS_Scraper::discover_urls( $source, $client );
 
 		if ( empty( $urls ) ) {
