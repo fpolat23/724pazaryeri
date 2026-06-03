@@ -287,19 +287,26 @@ class WC_XML_Exporter {
 		$el->appendChild( $attrs_el );
 
 		foreach ( $product->get_attributes() as $key => $attribute ) {
+			$is_taxonomy = str_starts_with( $key, 'pa_' );
+
 			$attr = $dom->createElement( 'attribute' );
 			$this->add_text( $dom, $attr, 'name', $attribute->get_name() );
 			$this->add_text( $dom, $attr, 'slug', $key );
 			$this->add_text( $dom, $attr, 'position', $attribute->get_position() );
 			$this->add_text( $dom, $attr, 'visible', $attribute->get_visible() ? '1' : '0' );
 			$this->add_text( $dom, $attr, 'variation', $attribute->get_variation() ? '1' : '0' );
+			$this->add_text( $dom, $attr, 'is_taxonomy', $is_taxonomy ? '1' : '0' );
 
 			$vals_el = $dom->createElement( 'values' );
 			foreach ( $attribute->get_options() as $option ) {
 				$term = is_numeric( $option ) ? get_term( (int) $option ) : null;
-				$value_text = $term && ! is_wp_error( $term ) ? $term->name : $option;
-				$v = $dom->createElement( 'value' );
-				$v->appendChild( $dom->createTextNode( (string) $value_text ) );
+				$v    = $dom->createElement( 'value' );
+				if ( $term && ! is_wp_error( $term ) ) {
+					$v->setAttribute( 'slug', $term->slug );
+					$v->appendChild( $dom->createTextNode( $term->name ) );
+				} else {
+					$v->appendChild( $dom->createTextNode( (string) $option ) );
+				}
 				$vals_el->appendChild( $v );
 			}
 			$attr->appendChild( $vals_el );

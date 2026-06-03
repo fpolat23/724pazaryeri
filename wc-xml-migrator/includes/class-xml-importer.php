@@ -336,23 +336,45 @@ class WC_XML_Importer {
 			if ( ! ( $child instanceof DOMElement ) || $child->tagName !== 'attributes' ) continue;
 
 			foreach ( $child->getElementsByTagName( 'attribute' ) as $attr_node ) {
-				$name      = $this->get_text( $attr_node, 'name' );
-				$visible   = $this->get_text( $attr_node, 'visible' ) === '1';
-				$variation = $this->get_text( $attr_node, 'variation' ) === '1';
-				$position  = (int) $this->get_text( $attr_node, 'position' );
-
-				$values = [];
-				foreach ( $attr_node->getElementsByTagName( 'value' ) as $val_node ) {
-					$values[] = $val_node->nodeValue;
-				}
+				$name        = $this->get_text( $attr_node, 'name' );
+				$slug        = $this->get_text( $attr_node, 'slug' );
+				$visible     = $this->get_text( $attr_node, 'visible' ) === '1';
+				$variation   = $this->get_text( $attr_node, 'variation' ) === '1';
+				$position    = (int) $this->get_text( $attr_node, 'position' );
+				$is_taxonomy = $this->get_text( $attr_node, 'is_taxonomy' ) === '1'
+				               || str_starts_with( $slug, 'pa_' );
 
 				$attribute = new WC_Product_Attribute();
-				$attribute->set_name( $name );
-				$attribute->set_options( $values );
 				$attribute->set_visible( $visible );
 				$attribute->set_variation( $variation );
 				$attribute->set_position( $position );
-				$attrs[] = $attribute;
+
+				if ( $is_taxonomy && $slug ) {
+					$attr_id = $this->ensure_global_attribute( $name, $slug );
+					$attribute->set_id( $attr_id );
+					$attribute->set_name( $slug );
+
+					$term_ids = [];
+					foreach ( $attr_node->getElementsByTagName( 'value' ) as $val_node ) {
+						$term_slug = $val_node->getAttribute( 'slug' );
+						$term_name = trim( $val_node->nodeValue );
+						if ( ! $term_slug ) $term_slug = sanitize_title( $term_name );
+						if ( $term_name && $term_slug ) {
+							$term_id = $this->ensure_term( $slug, $term_name, $term_slug );
+							if ( $term_id ) $term_ids[] = $term_id;
+						}
+					}
+					$attribute->set_options( $term_ids );
+					$attrs[ $slug ] = $attribute;
+				} else {
+					$attribute->set_name( $name ?: $slug );
+					$values = [];
+					foreach ( $attr_node->getElementsByTagName( 'value' ) as $val_node ) {
+						$values[] = trim( $val_node->nodeValue );
+					}
+					$attribute->set_options( $values );
+					$attrs[ sanitize_title( $name ?: $slug ) ] = $attribute;
+				}
 			}
 			break;
 		}
@@ -360,6 +382,42 @@ class WC_XML_Importer {
 		if ( ! empty( $attrs ) ) {
 			$product->set_attributes( $attrs );
 		}
+	}
+
+	private function ensure_global_attribute( string $label, string $taxonomy ): int {
+		$attr_id = wc_attribute_taxonomy_id_by_name( $taxonomy );
+		if ( $attr_id ) return $attr_id;
+
+		$slug   = str_starts_with( $taxonomy, 'pa_' ) ? substr( $taxonomy, 3 ) : $taxonomy;
+		$result = wc_create_attribute( [
+			'name'         => $label,
+			'slug'         => $slug,
+			'type'         => 'select',
+			'order_by'     => 'menu_order',
+			'has_archives' => false,
+		] );
+
+		if ( is_wp_error( $result ) ) {
+			return wc_attribute_taxonomy_id_by_name( $taxonomy ) ?: 0;
+		}
+
+		wc_register_attribute_taxonomies();
+		return (int) $result;
+	}
+
+	private function ensure_term( string $taxonomy, string $name, string $slug ): int {
+		if ( ! taxonomy_exists( $taxonomy ) ) return 0;
+
+		$term = get_term_by( 'slug', $slug, $taxonomy );
+		if ( $term && ! is_wp_error( $term ) ) return $term->term_id;
+
+		$inserted = wp_insert_term( $name, $taxonomy, [ 'slug' => $slug ] );
+		if ( is_wp_error( $inserted ) ) {
+			$term = get_term_by( 'slug', $slug, $taxonomy );
+			return $term ? $term->term_id : 0;
+		}
+
+		return (int) $inserted['term_id'];
 	}
 
 	private function set_images( WC_Product $product, DOMElement $node ): void {

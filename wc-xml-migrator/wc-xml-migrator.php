@@ -3,7 +3,7 @@
  * Plugin Name: WC XML Migrator
  * Plugin URI:  https://724pazaryeri.com
  * Description: WooCommerce ürünlerini XML formatında dışa ve içe aktarır. Tarayıcı kapatılsa bile arka planda çalışır.
- * Version:     1.3.0
+ * Version:     1.4.0
  * Author:      724 Pazaryeri
  * Author URI:  https://724pazaryeri.com
  * Text Domain: wc-xml-migrator
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WC_XML_MIGRATOR_VERSION', '1.3.0' );
+define( 'WC_XML_MIGRATOR_VERSION', '1.4.0' );
 define( 'WC_XML_MIGRATOR_FILE', __FILE__ );
 define( 'WC_XML_MIGRATOR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WC_XML_MIGRATOR_URL', plugin_dir_url( __FILE__ ) );
