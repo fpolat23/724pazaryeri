@@ -1,0 +1,133 @@
+/* WC REST Migrator – Admin CSS */
+
+.wc-rm-wrap h1 { margin-bottom: 0; }
+.wc-rm-wrap .nav-tab-wrapper { margin-bottom: 0; }
+
+.wc-rm-content { padding-top: 20px; }
+
+.wc-rm-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px 24px;
+	max-width: 900px;
+}
+.wc-rm-card h2 { margin-top: 0; }
+
+/* Messages */
+.wc-rm-msg { min-height: 22px; font-weight: 500; }
+.wc-rm-msg.success { color: #1e6f3e; }
+.wc-rm-msg.error   { color: #dc3232; }
+
+/* Actions */
+.wc-rm-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Progress */
+.wc-rm-progress-wrap {
+	margin-top: 20px;
+	padding: 16px;
+	background: #f6f7f7;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+.wc-rm-bg-note {
+	background: #e8f5e9;
+	border-left: 4px solid #4caf50;
+	padding: 8px 12px;
+	margin-bottom: 12px;
+	font-size: 13px;
+	color: #1e6f3e;
+	border-radius: 2px;
+}
+.wc-rm-progress-outer {
+	background: #e0e0e0;
+	border-radius: 10px;
+	height: 14px;
+	overflow: hidden;
+	margin-bottom: 8px;
+}
+.wc-rm-progress-inner {
+	background: linear-gradient(90deg, #4caf50, #2e7d32);
+	height: 100%;
+	border-radius: 10px;
+	transition: width 0.5s ease;
+}
+.wc-rm-progress-text   { font-size: 13px; color: #555; }
+.wc-rm-progress-status { font-size: 13px; font-weight: 600; margin-top: 4px; color: #333; }
+.status-completed { color: #1e6f3e !important; }
+.status-failed    { color: #dc3232 !important; }
+
+/* Result grid */
+.wc-rm-result {
+	margin-top: 16px;
+	padding: 14px 16px;
+	background: #fff;
+	border: 1px solid #c8e6c9;
+	border-radius: 4px;
+}
+.wc-rm-result-grid {
+	display: flex;
+	gap: 16px;
+	flex-wrap: wrap;
+	margin-top: 10px;
+}
+.wc-rm-result-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 10px 18px;
+	background: #f9f9f9;
+	border: 1px solid #e0e0e0;
+	border-radius: 6px;
+	min-width: 90px;
+}
+.wc-rm-result-val { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.wc-rm-result-lbl { font-size: 11px; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+.wc-rm-result-item.created .wc-rm-result-val { color: #1e6f3e; }
+.wc-rm-result-item.updated .wc-rm-result-val { color: #856404; }
+.wc-rm-result-item.errors  .wc-rm-result-val { color: #dc3232; }
+
+/* Errors */
+.wc-rm-errors {
+	margin-top: 12px;
+	padding: 10px 14px;
+	background: #ffeaea;
+	border: 1px solid #f5c6cb;
+	border-radius: 4px;
+	font-size: 12px;
+}
+.wc-rm-errors ul { margin: 6px 0 0 16px; padding: 0; }
+.wc-rm-errors li { margin-bottom: 3px; word-break: break-word; }
+
+/* History badges */
+.wc-rm-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+}
+.wc-rm-badge-completed   { background: #d4edda; color: #155724; }
+.wc-rm-badge-processing  { background: #cce5ff; color: #004085; }
+.wc-rm-badge-discovering { background: #fff3cd; color: #856404; }
+.wc-rm-badge-failed      { background: #f8d7da; color: #721c24; }
+.wc-rm-badge-pending     { background: #f0f0f0; color: #555; }
+
+/* Mini progress bar in history */
+.wc-rm-mini-outer {
+	background: #e0e0e0;
+	border-radius: 4px;
+	height: 6px;
+	width: 100px;
+	display: inline-block;
+	vertical-align: middle;
+	margin-right: 4px;
+}
+.wc-rm-mini-inner {
+	background: #4caf50;
+	height: 100%;
+	border-radius: 4px;
+}
+
+/* Items row in history */
+.wc-rm-items-row td { padding: 0 !important; }
