@@ -374,11 +374,18 @@ class WC_PSS_Scraper {
 				}
 
 				$sku_clean = self::sanitize_sku( $sku );
-				if ( $price || $sku_clean ) {
+				// Validate price: must parse to a short positive number (reject canvas/fingerprint garbage)
+				$parsed_price = $price !== '' ? self::parse_price( $price ) : '';
+				if ( $parsed_price !== '' ) {
+					if ( strlen( $parsed_price ) > 12 || ! is_numeric( $parsed_price ) || (float) $parsed_price <= 0 ) {
+						$parsed_price = '';
+					}
+				}
+				if ( $parsed_price || $sku_clean ) {
 					return [
 						'name'          => mb_substr( trim( $name ), 0, 300 ),
 						'sku'           => $sku_clean,
-						'regular_price' => self::parse_price( $price ),
+						'regular_price' => $parsed_price,
 						'sale_price'    => '',
 						'stock_status'  => 'instock',
 					];
@@ -566,6 +573,7 @@ class WC_PSS_Scraper {
 
 	public static function parse_price( string $price ): string {
 		$price = trim( strip_tags( $price ) );
+		if ( strlen( $price ) > 40 ) return '';           // clearly not a price
 		$price = preg_replace( '/[^\d.,]/', '', $price );  // strip TL ₺ etc.
 		if ( $price === '' ) return '';
 
