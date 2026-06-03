@@ -2741,23 +2741,29 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-sku-copy:hover{color:var(--accent);border-color:var(--accent);}
 
 /* ═══ KARGO SEÇENEKLERİ BLOĞU ═══ */
-.pazaryeri-wrap .hb-cargo-opts{background:#fff;border:1px solid #ece8e1;border-radius:14px;overflow:hidden;margin-top:16px;}
-.pazaryeri-wrap .hb-cargo-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;padding:13px 16px 11px;border-bottom:1px solid #f0ece6;background:linear-gradient(90deg,#fdf9f5 0%,#fff 100%);}
-.pazaryeri-wrap .hb-cargo-list{padding:6px 0;}
-.pazaryeri-wrap .hb-cargo-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #f7f4f0;transition:background .12s;}
+.pazaryeri-wrap .hb-cargo-opts{background:#fff;border:1.5px solid #e8e3da;border-radius:16px;overflow:hidden;margin-top:18px;box-shadow:0 2px 12px rgba(0,0,0,.05);}
+.pazaryeri-wrap .hb-cargo-head{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;padding:13px 18px 12px;border-bottom:1.5px solid #f0ece6;background:linear-gradient(100deg,#faf7f3 0%,#fff 60%);}
+.pazaryeri-wrap .hb-cargo-head svg{color:var(--accent);flex-shrink:0;}
+.pazaryeri-wrap .hb-cargo-head-badge{margin-left:auto;font-size:10.5px;font-weight:800;color:#2e7d32;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:20px;padding:3px 10px;letter-spacing:0.2px;}
+.pazaryeri-wrap .hb-cargo-list{padding:4px 0;}
+.pazaryeri-wrap .hb-cargo-row{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid #f5f1ec;transition:background .14s;}
 .pazaryeri-wrap .hb-cargo-row:last-child{border-bottom:none;}
 .pazaryeri-wrap .hb-cargo-row:hover{background:#fdf9f5;}
-.pazaryeri-wrap .hb-cargo-logo{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:70px;}
-.pazaryeri-wrap .hb-cargo-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
-.pazaryeri-wrap .hb-cargo-name{font-size:13px;font-weight:700;color:var(--ink);}
-.pazaryeri-wrap .hb-cargo-days{font-size:11.5px;color:var(--muted);}
-.pazaryeri-wrap .hb-cargo-badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:12px;letter-spacing:0.3px;flex-shrink:0;}
-.pazaryeri-wrap .hb-cargo-free{background:#e8f5e9;color:#2e7d32;}
-.pazaryeri-wrap .hb-cargo-fast{background:#fff3e0;color:#e65100;}
-.pazaryeri-wrap .hb-cargo-std{background:#f0f4ff;color:#3d5af1;}
-.pazaryeri-wrap .hb-cargo-note{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:9px 16px;border-top:1px solid #f0ece6;background:#faf8f5;line-height:1.4;}
+.pazaryeri-wrap .hb-cargo-logo{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:72px;}
+.pazaryeri-wrap .hb-cargo-logo svg{border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.12);}
+.pazaryeri-wrap .hb-cargo-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.pazaryeri-wrap .hb-cargo-name{font-size:13.5px;font-weight:700;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;}
+.pazaryeri-wrap .hb-cargo-days{font-size:12px;color:var(--muted);font-weight:500;}
+/* Etiketler */
+.pazaryeri-wrap .hb-cargo-badge{display:inline-flex;align-items:center;justify-content:center;min-width:74px;font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px;letter-spacing:0.3px;flex-shrink:0;text-align:center;font-family:'Plus Jakarta Sans',sans-serif;}
+.pazaryeri-wrap .hb-cargo-free{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);color:#1b5e20;border:1px solid #a5d6a7;box-shadow:0 1px 4px rgba(27,94,32,.12);}
+.pazaryeri-wrap .hb-cargo-price{background:#f5f7ff;color:#3730a3;border:1px solid #c7d2fe;font-size:13px;}
+.pazaryeri-wrap .hb-cargo-price-expr{background:linear-gradient(135deg,#fff8f0,#ffe8cc);color:#b45309;border:1px solid #fcd34d;font-size:13px;}
+.pazaryeri-wrap .hb-cargo-note{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);padding:10px 18px;border-top:1.5px solid #f0ece6;background:linear-gradient(100deg,#faf7f3,#fdf9f5);line-height:1.5;}
+.pazaryeri-wrap .hb-cargo-note svg{flex-shrink:0;opacity:.7;}
 @media(max-width:860px){
-  .pazaryeri-wrap .hb-cargo-opts{border-radius:10px;margin-top:12px;}
-  .pazaryeri-wrap .hb-cargo-row{padding:9px 14px;gap:10px;}
-  .pazaryeri-wrap .hb-cargo-logo{width:60px;}
+  .pazaryeri-wrap .hb-cargo-opts{border-radius:12px;margin-top:14px;}
+  .pazaryeri-wrap .hb-cargo-row{padding:11px 14px;gap:10px;}
+  .pazaryeri-wrap .hb-cargo-logo{width:62px;}
+  .pazaryeri-wrap .hb-cargo-badge{min-width:64px;font-size:11.5px;padding:4px 10px;}
 }
