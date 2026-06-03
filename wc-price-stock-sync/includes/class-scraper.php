@@ -137,7 +137,10 @@ class WC_PSS_Scraper {
 		$html = $client->get( $url );
 		if ( ! $html ) return null;
 
-		$data = self::extract_json_ld( $html ) ?? [];
+		$data = self::extract_json_ld( $html )
+			?? self::extract_microdata( $html )
+			?? self::extract_script_json( $html )
+			?? [];
 
 		// Override with configured CSS selectors
 		if ( ! empty( $source['sku_sel'] ) ) {
@@ -221,6 +224,92 @@ class WC_PSS_Scraper {
 		}
 
 		return $result;
+	}
+
+	// ----------------------------------------------------------------
+	// Microdata (itemprop) Extraction
+	// ----------------------------------------------------------------
+
+	private static function extract_microdata( string $html ): ?array {
+		$doc = new DOMDocument();
+		libxml_use_internal_errors( true );
+		$doc->loadHTML( '<?xml encoding="UTF-8">' . $html );
+		libxml_clear_errors();
+		$xpath = new DOMXPath( $doc );
+
+		$get = function( string $prop ) use ( $xpath ): string {
+			// Try content attribute first (meta tags), then text content
+			$nodes = $xpath->query( '//*[@itemprop="' . $prop . '"]' );
+			if ( ! $nodes || ! $nodes->length ) return '';
+			$node = $nodes->item(0);
+			$val  = $node->getAttribute( 'content' );
+			return trim( $val !== '' ? $val : $node->textContent );
+		};
+
+		$price = $get( 'price' );
+		$sku   = $get( 'sku' );
+		$name  = $get( 'name' );
+		$avail = $get( 'availability' );
+
+		if ( ! $price && ! $sku ) return null;
+		return [
+			'name'          => $name,
+			'sku'           => $sku,
+			'regular_price' => self::parse_price( $price ),
+			'sale_price'    => '',
+			'stock_status'  => $avail ? self::parse_stock_avail( strtolower( $avail ) ) : 'instock',
+		];
+	}
+
+	// ----------------------------------------------------------------
+	// Script-embedded JSON Extraction
+	// ----------------------------------------------------------------
+
+	private static function extract_script_json( string $html ): ?array {
+		// Extract all <script> tag contents (not JSON-LD)
+		preg_match_all(
+			'/<script(?![^>]+type=["\']application\/ld\+json["\'])[^>]*>(.*?)<\/script>/si',
+			$html, $scripts
+		);
+
+		$price_keys = [ 'price', 'fiyat', 'satisFiyati', 'satis_fiyati', 'urunFiyati', 'urun_fiyati' ];
+		$sku_keys   = [ 'sku', 'stokKodu', 'stok_kodu', 'urunKodu', 'urun_kodu', 'productCode', 'modelNo' ];
+		$name_keys  = [ 'name', 'urunAdi', 'urun_adi', 'title', 'baslik' ];
+
+		foreach ( $scripts[1] as $js ) {
+			// Find JSON blobs embedded as JS variable assignments: var x = {...}; or window.x = {...};
+			preg_match_all( '/(?:var\s+\w+\s*=\s*|window\.\w+\s*=\s*|[a-zA-Z_$][\w$]*\s*[=:]\s*)(\{[^;]{50,}\})\s*;?/s', $js, $blobs );
+			foreach ( $blobs[1] as $blob ) {
+				// Quick check before parsing
+				if ( ! preg_match( '/price|fiyat|sku|stokKodu/i', $blob ) ) continue;
+				$d = json_decode( $blob, true );
+				if ( ! is_array( $d ) ) continue;
+
+				$price = '';
+				foreach ( $price_keys as $k ) {
+					if ( isset( $d[ $k ] ) && $d[ $k ] !== '' ) { $price = (string) $d[ $k ]; break; }
+				}
+				$sku = '';
+				foreach ( $sku_keys as $k ) {
+					if ( isset( $d[ $k ] ) && $d[ $k ] !== '' ) { $sku = (string) $d[ $k ]; break; }
+				}
+				$name = '';
+				foreach ( $name_keys as $k ) {
+					if ( isset( $d[ $k ] ) && $d[ $k ] !== '' ) { $name = (string) $d[ $k ]; break; }
+				}
+
+				if ( $price || $sku ) {
+					return [
+						'name'          => $name,
+						'sku'           => $sku,
+						'regular_price' => self::parse_price( $price ),
+						'sale_price'    => '',
+						'stock_status'  => 'instock',
+					];
+				}
+			}
+		}
+		return null;
 	}
 
 	// ----------------------------------------------------------------

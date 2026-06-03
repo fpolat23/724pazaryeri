@@ -646,6 +646,21 @@ class WC_PSS_Admin {
 								if ( $val ) $log[] = '  .' . str_replace( ' ', '.', $key ) . ' → "' . mb_substr( $val, 0, 80 ) . '"';
 							}
 						}
+						// Search for Turkish Lira price patterns (e.g. 125,00 or ₺125)
+						if ( preg_match_all( '/[\d]{1,6}[.,]\d{2}\s*(?:TL|₺)|(?:TL|₺)\s*[\d]{1,6}[.,]\d{2}/u', $html, $pm ) ) {
+							$prices_found = array_unique( array_slice( $pm[0], 0, 5 ) );
+							$log[] = '  --- Sayfada bulunan fiyat desenleri ---';
+							$log[] = '  ' . implode( ' | ', $prices_found );
+							$log[] = '  ⚠ Fiyatlar sayfada var ama scraper bulamadı. Sayfa kaynağında bu değerlerin etrafındaki HTML\'i inceleyip CSS seçici girin.';
+						} else {
+							$log[] = '  ⚠ Sayfada TL/₺ formatında fiyat bulunamadı — fiyatlar JavaScript ile yükleniyor olabilir.';
+							$log[] = '  Tarayıcıda F12 → Network sekmesini açıp sayfayı yenileyin. XHR/Fetch isteklerinde fiyat döndüren API endpoint\'ini arayın.';
+						}
+						// Check for itemprop attributes
+						if ( preg_match_all( '/itemprop=["\']([^"\']+)["\']/i', $html, $ipm ) ) {
+							$iprops = array_unique( $ipm[1] );
+							$log[]  = '  Sayfadaki itemprop değerleri: ' . implode( ', ', array_slice( $iprops, 0, 10 ) );
+						}
 						$ok = false;
 					}
 				} catch ( \Throwable $e ) {
