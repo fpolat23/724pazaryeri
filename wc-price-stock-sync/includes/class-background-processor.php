@@ -3,117 +3,155 @@ defined( 'ABSPATH' ) || exit;
 
 class WC_PSS_Background_Processor {
 
-	const HOOK       = 'wc_pss_process_batch';
-	const GROUP      = 'wc-pss';
-	const BATCH_SIZE = 50;
+	const HOOK_DISCOVER = 'wc_pss_discover';
+	const HOOK_SCRAPE   = 'wc_pss_scrape_batch';
+	const GROUP         = 'wc-pss';
+	const BATCH_SIZE    = 5; // HTTP requests per batch
 
 	public static function init(): void {
-		add_action( self::HOOK, [ __CLASS__, 'process_batch' ], 10, 2 );
+		add_action( self::HOOK_DISCOVER, [ __CLASS__, 'discover' ], 10, 1 );
+		add_action( self::HOOK_SCRAPE,   [ __CLASS__, 'scrape_batch' ], 10, 2 );
 	}
 
-	public static function start( string $file_path, array $options ): int {
-		$total = self::count_rows( $file_path );
-
-		$job_id = WC_PSS_Job_Manager::create( [
-			'status'    => 'processing',
-			'total'     => $total,
-			'file_path' => $file_path,
-			'options'   => $options,
-		] );
-
-		if ( $total === 0 ) {
-			WC_PSS_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
-		} else {
-			if ( ! function_exists( 'as_enqueue_async_action' ) ) {
-				WC_PSS_Job_Manager::fail( $job_id, 'Action Scheduler mevcut değil. WooCommerce\'in güncel olduğundan emin olun.' );
-				throw new \RuntimeException( 'Action Scheduler (as_enqueue_async_action) bu sitede mevcut değil.' );
-			}
-			as_enqueue_async_action( self::HOOK, [ 'job_id' => $job_id, 'offset' => 0 ], self::GROUP );
+	public static function start( string $source_id, array $options ): int {
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+			throw new \RuntimeException( 'Action Scheduler (as_enqueue_async_action) bu sitede mevcut değil. WooCommerce güncel olmalı.' );
 		}
 
+		$job_id = WC_PSS_Job_Manager::create( [
+			'status'  => 'discovering',
+			'total'   => 0,
+			'options' => array_merge( $options, [ 'source_id' => $source_id ] ),
+		] );
+
+		as_enqueue_async_action( self::HOOK_DISCOVER, [ 'job_id' => $job_id ], self::GROUP );
 		return $job_id;
 	}
 
-	public static function process_batch( int $job_id, int $offset ): void {
-		$job = WC_PSS_Job_Manager::get( $job_id );
-		if ( ! $job || $job->status !== 'processing' ) return;
+	// ----------------------------------------------------------------
+	// Phase 1: Discover product URLs
+	// ----------------------------------------------------------------
 
-		if ( ! file_exists( $job->file_path ) ) {
-			WC_PSS_Job_Manager::fail( $job_id, 'CSV dosyası bulunamadı.' );
+	public static function discover( int $job_id ): void {
+		$job = WC_PSS_Job_Manager::get( $job_id );
+		if ( ! $job || $job->status !== 'discovering' ) return;
+
+		$options   = json_decode( $job->options, true ) ?: [];
+		$source_id = $options['source_id'] ?? '';
+		$source    = WC_PSS_Source_Manager::get_with_pass( $source_id );
+
+		if ( ! $source ) {
+			WC_PSS_Job_Manager::fail( $job_id, 'Kaynak site bulunamadı: ' . $source_id );
 			return;
 		}
 
-		$options  = json_decode( $job->options, true ) ?: [];
-		$rows     = self::read_rows( $job->file_path, $offset, self::BATCH_SIZE );
-		$updater  = new WC_PSS_Updater( $options );
-		$errors   = [];
-		$updated  = 0;
-		$not_found = 0;
-		$skipped  = 0;
+		$client = new WC_PSS_Http_Client();
 
-		foreach ( $rows as $i => $row ) {
-			try {
-				$result = $updater->process_row( $row );
-				switch ( $result['status'] ) {
-					case 'updated':   $updated++;    break;
-					case 'not_found': $not_found++;  break;
-					default:          $skipped++;    break;
-				}
-			} catch ( Throwable $e ) {
-				$errors[] = 'Satır ' . ( $offset + $i + 1 ) . ': ' . $e->getMessage();
+		if ( ! empty( $source['username'] ) ) {
+			$logged_in = $client->login( $source );
+			if ( ! $logged_in ) {
+				WC_PSS_Job_Manager::fail( $job_id, 'Giriş başarısız: ' . $source['name'] );
+				return;
 			}
 		}
 
-		$new_processed = $offset + count( $rows );
+		$urls = WC_PSS_Scraper::discover_urls( $source, $client );
+
+		if ( empty( $urls ) ) {
+			WC_PSS_Job_Manager::fail( $job_id, "Kaynak sitede ürün URL'i bulunamadı. Sitemap yoksa \"Sayfa Crawl\" yöntemini seçip Crawl URL'i girin." );
+			return;
+		}
+
+		$upload    = wp_upload_dir();
+		$dir       = $upload['basedir'] . '/wc-pss';
+		wp_mkdir_p( $dir );
+		if ( ! file_exists( $dir . '/.htaccess' ) ) {
+			file_put_contents( $dir . '/.htaccess', "Options -Indexes\n" );
+		}
+		$urls_file = $dir . '/urls-' . $job_id . '.json';
+		file_put_contents( $urls_file, wp_json_encode( $urls ) );
 
 		WC_PSS_Job_Manager::update( $job_id, [
-			'processed' => $new_processed,
+			'status'    => 'processing',
+			'total'     => count( $urls ),
+			'file_path' => $urls_file,
+		] );
+
+		as_enqueue_async_action( self::HOOK_SCRAPE, [ 'job_id' => $job_id, 'offset' => 0 ], self::GROUP );
+	}
+
+	// ----------------------------------------------------------------
+	// Phase 2: Scrape batches
+	// ----------------------------------------------------------------
+
+	public static function scrape_batch( int $job_id, int $offset ): void {
+		$job = WC_PSS_Job_Manager::get( $job_id );
+		if ( ! $job || $job->status !== 'processing' ) return;
+
+		$urls_file = $job->file_path;
+		if ( ! $urls_file || ! file_exists( $urls_file ) ) {
+			WC_PSS_Job_Manager::fail( $job_id, 'URL listesi dosyası bulunamadı.' );
+			return;
+		}
+
+		$options   = json_decode( $job->options, true ) ?: [];
+		$source_id = $options['source_id'] ?? '';
+		$source    = WC_PSS_Source_Manager::get_with_pass( $source_id );
+
+		if ( ! $source ) {
+			WC_PSS_Job_Manager::fail( $job_id, 'Kaynak site silindi — iş iptal edildi.' );
+			return;
+		}
+
+		$all_urls = json_decode( file_get_contents( $urls_file ), true ) ?: [];
+		$batch    = array_slice( $all_urls, $offset, self::BATCH_SIZE );
+
+		if ( empty( $batch ) ) {
+			WC_PSS_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
+			return;
+		}
+
+		$client = new WC_PSS_Http_Client();
+		if ( ! empty( $source['username'] ) ) {
+			$client->login( $source );
+		}
+
+		$updater   = new WC_PSS_Updater( $options );
+		$updated   = 0;
+		$not_found = 0;
+		$skipped   = 0;
+		$errors    = [];
+
+		foreach ( $batch as $i => $url ) {
+			try {
+				$data = WC_PSS_Scraper::scrape_product( $url, $source, $client );
+				if ( ! $data ) {
+					$errors[] = ( $offset + $i + 1 ) . '. URL parse edilemedi: ' . $url;
+					continue;
+				}
+				$result = $updater->process_row( $data );
+				switch ( $result['status'] ) {
+					case 'updated':   $updated++;   break;
+					case 'not_found': $not_found++; break;
+					default:          $skipped++;   break;
+				}
+			} catch ( \Throwable $e ) {
+				$errors[] = ( $offset + $i + 1 ) . '. URL: ' . $e->getMessage();
+			}
+		}
+
+		$new_offset = $offset + count( $batch );
+
+		WC_PSS_Job_Manager::update( $job_id, [
+			'processed' => $new_offset,
 			'results'   => compact( 'updated', 'not_found', 'skipped' ),
 			'errors'    => $errors,
 		] );
 
-		if ( count( $rows ) < self::BATCH_SIZE ) {
+		if ( count( $batch ) < self::BATCH_SIZE ) {
 			WC_PSS_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
 		} else {
-			as_enqueue_async_action( self::HOOK, [ 'job_id' => $job_id, 'offset' => $new_processed ], self::GROUP );
+			as_enqueue_async_action( self::HOOK_SCRAPE, [ 'job_id' => $job_id, 'offset' => $new_offset ], self::GROUP );
 		}
-	}
-
-	private static function count_rows( string $file_path ): int {
-		$fp = @fopen( $file_path, 'r' ); // phpcs:ignore
-		if ( ! $fp ) return 0;
-		fgetcsv( $fp ); // başlık satırını atla
-		$count = 0;
-		while ( fgetcsv( $fp ) !== false ) $count++;
-		fclose( $fp );
-		return $count;
-	}
-
-	private static function read_rows( string $file_path, int $offset, int $limit ): array {
-		$fp = @fopen( $file_path, 'r' ); // phpcs:ignore
-		if ( ! $fp ) return [];
-
-		$header = fgetcsv( $fp );
-		if ( ! $header ) { fclose( $fp ); return []; }
-
-		// Başlık adlarını normalize et: küçük harf, boşluk temizle
-		$header = array_map( function ( $h ) { return strtolower( trim( $h ) ); }, $header );
-		$col_count = count( $header );
-
-		$rows    = [];
-		$current = 0;
-
-		while ( ( $row = fgetcsv( $fp ) ) !== false ) {
-			if ( $current < $offset ) { $current++; continue; }
-			if ( count( $rows ) >= $limit ) break;
-
-			if ( count( $row ) >= $col_count ) {
-				$rows[] = array_combine( $header, array_slice( $row, 0, $col_count ) );
-			}
-			$current++;
-		}
-
-		fclose( $fp );
-		return $rows;
 	}
 }

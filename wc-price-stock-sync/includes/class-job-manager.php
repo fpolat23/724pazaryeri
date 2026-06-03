@@ -51,6 +51,8 @@ class WC_PSS_Job_Manager {
 
 		if ( isset( $data['status'] ) )    $set['status']    = $data['status'];
 		if ( isset( $data['processed'] ) ) $set['processed'] = (int) $data['processed'];
+		if ( isset( $data['total'] ) )     $set['total']     = (int) $data['total'];
+		if ( isset( $data['file_path'] ) ) $set['file_path'] = $data['file_path'];
 
 		if ( isset( $data['results'] ) ) {
 			$job      = self::get( $id );

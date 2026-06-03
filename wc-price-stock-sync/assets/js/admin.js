@@ -1,43 +1,83 @@
-/* WC Price & Stock Sync – Admin JS */
+/* WC Price & Stock Sync – Admin JS v2 */
 /* global wcPss, jQuery */
 (function ($) {
 	'use strict';
 
-	var pollTimer = null;
+	var pollTimer    = null;
 	var currentJobId = null;
 
 	// ----------------------------------------------------------------
-	// Update form submit
+	// Sources: form submit (add/edit)
 	// ----------------------------------------------------------------
-	$('#wc-pss-update-form').on('submit', function (e) {
+	$('#wc-pss-source-form').on('submit', function (e) {
 		e.preventDefault();
+		var $form = $(this);
+		var $btn  = $form.find('button[type="submit"]');
+		var $spin = $form.find('.spinner');
+		var $msg  = $('#pss-source-msg');
 
-		var $form   = $(this);
-		var $btn    = $('#btn-update');
-		var $spin   = $form.find('.spinner');
-		var csvFile = document.getElementById('pss-csv-file').files[0];
+		$btn.prop('disabled', true);
+		$spin.addClass('is-active');
+		$msg.text('').removeClass('success error');
 
-		if (!csvFile) {
-			alert('Lütfen bir CSV dosyası seçin.');
-			return;
-		}
+		$.post(wcPss.ajaxUrl, $.extend({ action: 'wc_pss_save_source', nonce: wcPss.nonce }, formToObj($form)))
+		.done(function (res) {
+			if (res && res.success) {
+				$msg.addClass('success').text('Kaynak kaydedildi.');
+				setTimeout(function () { window.location.href = window.location.pathname + '?page=wc-pss&tab=sources'; }, 800);
+			} else {
+				var m = (res && res.data && res.data.message) ? res.data.message : 'Kayıt başarısız.';
+				$msg.addClass('error').text(m);
+				$btn.prop('disabled', false);
+				$spin.removeClass('is-active');
+			}
+		})
+		.fail(function () {
+			$msg.addClass('error').text('Sunucu bağlantı hatası.');
+			$btn.prop('disabled', false);
+			$spin.removeClass('is-active');
+		});
+	});
 
-		var fd = new FormData();
-		fd.append('action',        'wc_pss_start_update');
-		fd.append('nonce',         wcPss.nonce);
-		fd.append('csv_file',      csvFile);
-		fd.append('update_prices', $form.find('[name="update_prices"]').is(':checked') ? '1' : '');
-		fd.append('update_stock',  $form.find('[name="update_stock"]').is(':checked')  ? '1' : '');
+	// Discovery method toggle
+	$('input[name="discovery"]').on('change', function () {
+		$('.wc-pss-crawl-row').toggle($(this).val() === 'crawl');
+	});
+
+	// Delete source
+	$(document).on('click', '.js-pss-del-source', function () {
+		if (!confirm(wcPss.confirmDelete)) return;
+		var $btn = $(this);
+		$btn.prop('disabled', true);
+		$.post(wcPss.ajaxUrl, { action: 'wc_pss_delete_source', id: $btn.data('id'), nonce: wcPss.nonce })
+		.done(function (res) {
+			if (res && res.success) { window.location.reload(); }
+			else { alert((res && res.data && res.data.message) || 'Silinemedi.'); $btn.prop('disabled', false); }
+		});
+	});
+
+	// ----------------------------------------------------------------
+	// Sync form submit
+	// ----------------------------------------------------------------
+	$('#wc-pss-sync-form').on('submit', function (e) {
+		e.preventDefault();
+		var $form = $(this);
+		var $btn  = $('#btn-sync');
+		var $spin = $form.find('.spinner');
+
+		var sourceId = $form.find('[name="source_id"]').val();
+		if (!sourceId) { alert('Lütfen bir kaynak seçin.'); return; }
 
 		$btn.prop('disabled', true);
 		$spin.addClass('is-active');
 
-		$.ajax({
-			url:         wcPss.ajaxUrl,
-			type:        'POST',
-			data:        fd,
-			processData: false,
-			contentType: false
+		$.post(wcPss.ajaxUrl, {
+			action:        'wc_pss_start_sync',
+			nonce:         wcPss.nonce,
+			source_id:     sourceId,
+			update_prices: $form.find('[name="update_prices"]').is(':checked') ? '1' : '',
+			update_stock:  $form.find('[name="update_stock"]').is(':checked')  ? '1' : '',
+			match_by_name: $form.find('[name="match_by_name"]').is(':checked') ? '1' : '',
 		})
 		.done(function (res) {
 			if (res && res.success && res.data && res.data.job_id) {
@@ -45,8 +85,8 @@
 				$('#pss-progress').show();
 				startPolling(currentJobId);
 			} else {
-				var msg = (res && res.data && res.data.message) ? res.data.message : 'Bilinmeyen hata.';
-				alert('Hata: ' + msg);
+				var m = (res && res.data && res.data.message) ? res.data.message : 'Bilinmeyen hata.';
+				alert('Hata: ' + m);
 				$btn.prop('disabled', false);
 				$spin.removeClass('is-active');
 			}
@@ -79,73 +119,65 @@
 			updateProgress(d);
 			if (d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled') {
 				stopPolling();
-				$('#btn-update').prop('disabled', false);
-				$('#wc-pss-update-form .spinner').removeClass('is-active');
-				if (d.status === 'completed') {
-					showResult(d);
-				}
+				$('#btn-sync').prop('disabled', false);
+				$('#wc-pss-sync-form .spinner').removeClass('is-active');
+				if (d.status === 'completed') showResult(d);
 			}
 		});
 	}
 
-	// ----------------------------------------------------------------
-	// Progress UI
-	// ----------------------------------------------------------------
 	function updateProgress(d) {
-		var pct = d.percent || 0;
-		$('#pss-progress .wc-pss-progress-inner').css('width', pct + '%');
-		$('#pss-progress .wc-pss-progress-text').text(d.processed + ' / ' + d.total + ' (' + pct + '%)');
-
-		var $status = $('#pss-progress .wc-pss-progress-status');
-		$status.removeClass('status-completed status-failed status-cancelled');
 		var labels = {
-			pending:    'Sıraya alındı…',
-			processing: 'İşleniyor…',
-			completed:  'Tamamlandı!',
-			failed:     'Hata oluştu.',
-			cancelled:  'İptal edildi.'
+			discovering: 'Ürün URL\'leri keşfediliyor…',
+			pending:     'Sıraya alındı…',
+			processing:  'Ürün sayfaları işleniyor…',
+			completed:   'Tamamlandı!',
+			failed:      'Hata oluştu.',
+			cancelled:   'İptal edildi.'
 		};
-		$status.text(labels[d.status] || d.status);
-		if (d.status === 'completed')  $status.addClass('status-completed');
-		if (d.status === 'failed')     $status.addClass('status-failed');
-		if (d.status === 'cancelled')  $status.addClass('status-cancelled');
+		var pct = d.percent || 0;
+
+		if (d.status === 'discovering') {
+			$('#pss-progress .wc-pss-progress-inner').css('width', '5%');
+			$('#pss-progress .wc-pss-progress-text').text('URL listesi alınıyor…');
+		} else {
+			$('#pss-progress .wc-pss-progress-inner').css('width', pct + '%');
+			$('#pss-progress .wc-pss-progress-text').text(d.processed + ' / ' + d.total + ' (' + pct + '%)');
+		}
+
+		var $st = $('#pss-progress .wc-pss-progress-status');
+		$st.removeClass('status-completed status-failed status-cancelled')
+		   .text(labels[d.status] || d.status);
+		if (d.status === 'completed') $st.addClass('status-completed');
+		if (d.status === 'failed')    $st.addClass('status-failed');
+		if (d.status === 'cancelled') $st.addClass('status-cancelled');
 	}
 
 	function showResult(d) {
-		var html =
-			'<div class="wc-pss-result">' +
-			'<strong>Sonuç:</strong>' +
-			'<div class="wc-pss-result-grid">' +
-			resultItem(d.updated,   'Güncellendi', 'updated') +
-			resultItem(d.not_found, 'Bulunamadı',  'not-found') +
-			resultItem(d.skipped,   'Atlandı',     'skipped') +
-			resultItem(d.errors ? d.errors.length : 0, 'Hata', 'errors') +
-			'</div></div>';
+		var errCnt = d.errors ? d.errors.length : 0;
+		var html = '<div class="wc-pss-result"><strong>Sonuç:</strong>'
+			+ '<div class="wc-pss-result-grid">'
+			+ resultItem(d.updated,   'Güncellendi', 'updated')
+			+ resultItem(d.not_found, 'Bulunamadı',  'not-found')
+			+ resultItem(d.skipped,   'Atlandı',     'skipped')
+			+ resultItem(errCnt,      'Hata',        'errors')
+			+ '</div></div>';
 
-		if (d.errors && d.errors.length) {
+		if (errCnt) {
 			html += '<div class="wc-pss-errors"><strong>Hatalar:</strong><ul>';
 			for (var i = 0; i < d.errors.length; i++) {
 				html += '<li>' + escHtml(d.errors[i]) + '</li>';
 			}
 			html += '</ul></div>';
 		}
-
 		$('#pss-progress').append(html);
 	}
 
 	function resultItem(val, lbl, cls) {
-		return '<div class="wc-pss-result-item ' + cls + '">' +
-			'<span class="wc-pss-result-val">' + val + '</span>' +
-			'<span class="wc-pss-result-lbl">' + lbl + '</span>' +
-			'</div>';
-	}
-
-	function escHtml(s) {
-		return String(s)
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;');
+		return '<div class="wc-pss-result-item ' + cls + '">'
+			+ '<span class="wc-pss-result-val">' + val + '</span>'
+			+ '<span class="wc-pss-result-lbl">' + lbl + '</span>'
+			+ '</div>';
 	}
 
 	// ----------------------------------------------------------------
@@ -155,28 +187,19 @@
 		if (!confirm(wcPss.confirmCancel)) return;
 		jobAction($(this), 'cancel');
 	});
-
 	$(document).on('click', '.js-pss-delete', function () {
 		if (!confirm(wcPss.confirmDelete)) return;
 		jobAction($(this), 'delete');
 	});
 
 	function jobAction($btn, action) {
-		var jobId = $btn.data('job-id');
-		var $row  = $btn.closest('tr');
+		var $row = $btn.closest('tr');
 		$row.find('button').prop('disabled', true);
-
-		$.post(wcPss.ajaxUrl, {
-			action:  'wc_pss_' + action + '_job',
-			job_id:  jobId,
-			nonce:   wcPss.nonce
-		})
+		$.post(wcPss.ajaxUrl, { action: 'wc_pss_' + action + '_job', job_id: $btn.data('job-id'), nonce: wcPss.nonce })
 		.done(function (res) {
-			if (res && res.success) {
-				window.location.reload();
-			} else {
-				var msg = (res && res.data && res.data.message) ? res.data.message : 'İşlem başarısız.';
-				alert(msg);
+			if (res && res.success) { window.location.reload(); }
+			else {
+				alert((res && res.data && res.data.message) || 'İşlem başarısız.');
 				$row.find('button').prop('disabled', false);
 			}
 		})
@@ -184,6 +207,22 @@
 			alert('Sunucu bağlantı hatası.');
 			$row.find('button').prop('disabled', false);
 		});
+	}
+
+	// ----------------------------------------------------------------
+	// Helpers
+	// ----------------------------------------------------------------
+	function formToObj($form) {
+		var obj = {};
+		$form.serializeArray().forEach(function (f) { obj[f.name] = f.value; });
+		// Checkboxes not in serializeArray if unchecked – that's fine, PHP handles absent = false
+		return obj;
+	}
+
+	function escHtml(s) {
+		return String(s)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 	}
 
 }(jQuery));

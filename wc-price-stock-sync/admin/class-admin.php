@@ -6,8 +6,9 @@ class WC_PSS_Admin {
 	public static function init(): void {
 		add_action( 'admin_menu', [ __CLASS__, 'register_menu' ], 99 );
 		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
-		add_action( 'admin_post_wc_pss_export',    [ __CLASS__, 'handle_export' ] );
-		add_action( 'wp_ajax_wc_pss_start_update', [ __CLASS__, 'ajax_start_update' ] );
+		add_action( 'wp_ajax_wc_pss_save_source',  [ __CLASS__, 'ajax_save_source' ] );
+		add_action( 'wp_ajax_wc_pss_delete_source', [ __CLASS__, 'ajax_delete_source' ] );
+		add_action( 'wp_ajax_wc_pss_start_sync',   [ __CLASS__, 'ajax_start_sync' ] );
 		add_action( 'wp_ajax_wc_pss_job_status',   [ __CLASS__, 'ajax_job_status' ] );
 		add_action( 'wp_ajax_wc_pss_cancel_job',   [ __CLASS__, 'ajax_cancel_job' ] );
 		add_action( 'wp_ajax_wc_pss_delete_job',   [ __CLASS__, 'ajax_delete_job' ] );
@@ -35,161 +36,270 @@ class WC_PSS_Admin {
 		wp_localize_script( 'wc-pss', 'wcPss', [
 			'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
 			'nonce'         => wp_create_nonce( 'wc_pss' ),
-			'confirmCancel' => 'Bu işlemi iptal etmek istediğinizden emin misiniz?',
 			'confirmDelete' => 'Bu kaydı kalıcı olarak silmek istediğinizden emin misiniz?',
+			'confirmCancel' => 'Bu işlemi iptal etmek istediğinizden emin misiniz?',
 		] );
 	}
 
 	// ----------------------------------------------------------------
-	// Sayfa render
+	// Page render
 	// ----------------------------------------------------------------
 
 	public static function render_page(): void {
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'export';
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'sources';
+		$page_url = menu_page_url( 'wc-pss', false );
 		?>
 		<div class="wrap wc-pss-wrap">
 			<h1>🔄 WooCommerce Fiyat &amp; Stok Senkronizasyonu</h1>
 			<nav class="nav-tab-wrapper">
-				<?php foreach ( [ 'export' => 'Dışa Aktar', 'update' => 'Fiyat &amp; Stok Güncelle', 'history' => 'İşlem Geçmişi' ] as $slug => $label ) : ?>
-				<a href="<?php echo esc_url( add_query_arg( 'tab', $slug, menu_page_url( 'wc-pss', false ) ) ); ?>"
+				<?php foreach ( [ 'sources' => 'Kaynak Siteler', 'sync' => 'Senkronizasyon', 'history' => 'İşlem Geçmişi' ] as $slug => $label ) : ?>
+				<a href="<?php echo esc_url( add_query_arg( 'tab', $slug, $page_url ) ); ?>"
 				   class="nav-tab <?php echo $tab === $slug ? 'nav-tab-active' : ''; ?>">
-					<?php echo wp_kses_post( $label ); ?>
+					<?php echo esc_html( $label ); ?>
 				</a>
 				<?php endforeach; ?>
 			</nav>
 			<div class="wc-pss-content">
 				<?php
-				if ( $tab === 'export' )      self::render_export();
-				elseif ( $tab === 'update' )  self::render_update();
-				else                          self::render_history();
+				if ( $tab === 'sources' )      self::render_sources();
+				elseif ( $tab === 'sync' )     self::render_sync();
+				else                           self::render_history();
 				?>
 			</div>
 		</div>
 		<?php
 	}
 
-	private static function render_export(): void {
-		global $wpdb;
-		$total = (int) $wpdb->get_var(
-			"SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p
-			 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_sku' AND pm.meta_value != ''
-			 WHERE p.post_type IN ('product','product_variation') AND p.post_status IN ('publish','private')"
-		);
+	// ----------------------------------------------------------------
+	// Sources tab
+	// ----------------------------------------------------------------
+
+	private static function render_sources(): void {
+		$sources  = WC_PSS_Source_Manager::all();
+		$edit_id  = isset( $_GET['edit'] ) ? sanitize_key( $_GET['edit'] ) : '';
+		$edit_src = $edit_id === 'new' ? [] : ( $edit_id ? ( WC_PSS_Source_Manager::get( $edit_id ) ?? [] ) : null );
 		?>
 		<div class="wc-pss-card">
-			<h2>Mevcut Fiyat &amp; Stok Verilerini CSV Olarak Dışa Aktar</h2>
-			<p class="description">
-				Bu CSV dosyasını <strong>kaynak siteden</strong> indirin ve hedef sitenin
-				<em>Fiyat &amp; Stok Güncelle</em> sekmesine yükleyerek güncelleme yapabilirsiniz.
-			</p>
-			<div class="wc-pss-stat">
-				Toplam <strong><?php echo esc_html( number_format_i18n( $total ) ); ?></strong> ürün &amp; varyasyon (SKU'lu)
+			<div style="display:flex;justify-content:space-between;align-items:center;">
+				<h2 style="margin:0">Kaynak Siteler</h2>
+				<?php if ( $edit_src === null ) : ?>
+				<a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'sources', 'edit' => 'new' ], menu_page_url( 'wc-pss', false ) ) ); ?>"
+				   class="button button-primary">+ Kaynak Ekle</a>
+				<?php endif; ?>
 			</div>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<?php wp_nonce_field( 'wc_pss_export', '_wpnonce_export' ); ?>
-				<input type="hidden" name="action" value="wc_pss_export">
+			<?php if ( $edit_src !== null ) : ?>
+			<!-- Add/Edit form -->
+			<form id="wc-pss-source-form" style="margin-top:20px">
+				<input type="hidden" name="id" value="<?php echo esc_attr( $edit_src['id'] ?? '' ); ?>">
 				<table class="form-table">
 					<tr>
-						<th>Dahil Et</th>
+						<th>Kaynak Adı <span class="description">(zorunlu)</span></th>
+						<td><input type="text" name="name" class="regular-text" required value="<?php echo esc_attr( $edit_src['name'] ?? '' ); ?>" placeholder="Tedarikçi A"></td>
+					</tr>
+					<tr>
+						<th>Site URL'si</th>
+						<td><input type="url" name="base_url" class="regular-text" required value="<?php echo esc_attr( $edit_src['base_url'] ?? '' ); ?>" placeholder="https://tedarikci.com"></td>
+					</tr>
+					<tr>
+						<th>Giriş Sayfası URL</th>
 						<td>
-							<label><input type="checkbox" name="inc_prices" value="1" checked> Fiyat bilgileri (regular_price, sale_price)</label><br>
-							<label><input type="checkbox" name="inc_stock"  value="1" checked> Stok bilgileri (stock_quantity, stock_status)</label>
+							<input type="url" name="login_url" class="regular-text" value="<?php echo esc_attr( $edit_src['login_url'] ?? '' ); ?>" placeholder="https://tedarikci.com/giris">
+							<p class="description">Boş bırakılırsa Site URL + /my-account veya /login denenir.</p>
+						</td>
+					</tr>
+					<tr>
+						<th>Kullanıcı Adı (Form Alanı)</th>
+						<td><input type="text" name="user_field" class="small-text" value="<?php echo esc_attr( $edit_src['user_field'] ?? 'username' ); ?>" placeholder="username"></td>
+					</tr>
+					<tr>
+						<th>Şifre (Form Alanı)</th>
+						<td><input type="text" name="pass_field" class="small-text" value="<?php echo esc_attr( $edit_src['pass_field'] ?? 'password' ); ?>" placeholder="password"></td>
+					</tr>
+					<tr>
+						<th>Kullanıcı Adı (Değer)</th>
+						<td><input type="text" name="username" class="regular-text" value="<?php echo esc_attr( $edit_src['username'] ?? '' ); ?>" autocomplete="off"></td>
+					</tr>
+					<tr>
+						<th>Şifre (Değer)</th>
+						<td>
+							<input type="password" name="password" class="regular-text" value="" autocomplete="new-password" placeholder="<?php echo ! empty( $edit_src['password_enc'] ) ? '(kayıtlı — değiştirmek için girin)' : ''; ?>">
+							<p class="description">Şifre WordPress veritabanında şifrelenmiş olarak saklanır.</p>
+						</td>
+					</tr>
+					<tr>
+						<th>Ürün URL Keşfi</th>
+						<td>
+							<label><input type="radio" name="discovery" value="sitemap" <?php checked( ( $edit_src['discovery'] ?? 'sitemap' ) === 'sitemap' ); ?>> Sitemap (otomatik — önerilen)</label><br>
+							<label><input type="radio" name="discovery" value="crawl" <?php checked( ( $edit_src['discovery'] ?? '' ) === 'crawl' ); ?>> Sayfa Crawl (sitemap yoksa)</label>
+						</td>
+					</tr>
+					<tr class="wc-pss-crawl-row" style="<?php echo ( ( $edit_src['discovery'] ?? 'sitemap' ) !== 'crawl' ) ? 'display:none' : ''; ?>">
+						<th>Crawl Başlangıç URL</th>
+						<td>
+							<input type="url" name="crawl_url" class="regular-text" value="<?php echo esc_attr( $edit_src['crawl_url'] ?? '' ); ?>" placeholder="https://tedarikci.com/urunler">
+							<p class="description">Ürünlerin listelendiği sayfa (sayfalama takip edilir).</p>
+						</td>
+					</tr>
+					<tr class="wc-pss-crawl-row" style="<?php echo ( ( $edit_src['discovery'] ?? 'sitemap' ) !== 'crawl' ) ? 'display:none' : ''; ?>">
+						<th>Ürün URL Deseni</th>
+						<td>
+							<input type="text" name="url_pattern" class="regular-text" value="<?php echo esc_attr( $edit_src['url_pattern'] ?? '/urun/' ); ?>" placeholder="/urun/">
+							<p class="description">URL'de bu metin geçen sayfalar ürün sayfası sayılır (ör. <code>/urun/</code>, <code>/product/</code>).</p>
 						</td>
 					</tr>
 				</table>
+
+				<details style="margin-top:8px;">
+					<summary style="cursor:pointer;font-weight:600;">Gelişmiş: CSS Seçiciler (isteğe bağlı)</summary>
+					<p class="description" style="margin:8px 0">Sayfada JSON-LD schema yoksa ve otomatik algılama çalışmıyorsa, bu alanlarla hangi elementin fiyat/stok/SKU içerdiğini belirtin.<br>
+					Örnekler: <code>.product-price</code>, <code>#sku-val</code>, <code>span.price ins</code></p>
+					<table class="form-table" style="margin-top:0">
+						<tr><th>SKU Seçici</th><td><input type="text" name="sku_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['sku_sel'] ?? '' ); ?>"></td></tr>
+						<tr><th>Güncel Fiyat Seçici</th><td><input type="text" name="price_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['price_sel'] ?? '' ); ?>"></td></tr>
+						<tr><th>Asıl Fiyat Seçici <small>(indirimli varsa)</small></th><td><input type="text" name="reg_price_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['reg_price_sel'] ?? '' ); ?>"></td></tr>
+						<tr><th>Stok Seçici</th><td><input type="text" name="stock_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['stock_sel'] ?? '' ); ?>"></td></tr>
+					</table>
+				</details>
+
 				<p class="submit">
-					<button type="submit" class="button button-primary button-large">⬇ CSV İndir</button>
+					<button type="submit" class="button button-primary button-large">💾 Kaydet</button>
+					<a href="<?php echo esc_url( add_query_arg( 'tab', 'sources', menu_page_url( 'wc-pss', false ) ) ); ?>" class="button">İptal</a>
+					<span class="spinner"></span>
 				</p>
+				<div id="pss-source-msg"></div>
 			</form>
 
-			<div class="wc-pss-info-box">
-				<strong>CSV Sütun Yapısı</strong>
-				<p><code>sku, name, regular_price, sale_price, stock_quantity, stock_status, manage_stock</code></p>
-				<table class="widefat" style="margin-top:8px">
-					<thead><tr><th>Sütun</th><th>Açıklama</th><th>Örnek</th></tr></thead>
-					<tbody>
-						<tr><td><code>sku</code></td><td>Ürün SKU (eşleştirme için zorunlu)</td><td>URUN-001</td></tr>
-						<tr><td><code>regular_price</code></td><td>Normal fiyat</td><td>199.90</td></tr>
-						<tr><td><code>sale_price</code></td><td>İndirimli fiyat (boş = indirim kaldır)</td><td>149.90</td></tr>
-						<tr><td><code>stock_quantity</code></td><td>Stok adedi</td><td>50</td></tr>
-						<tr><td><code>stock_status</code></td><td>Stok durumu</td><td>instock / outofstock / onbackorder</td></tr>
-						<tr><td><code>manage_stock</code></td><td>Stok takibi</td><td>yes / no</td></tr>
-					</tbody>
-				</table>
-			</div>
+			<?php else : ?>
+			<!-- Sources list -->
+			<?php if ( empty( $sources ) ) : ?>
+			<p style="margin-top:16px">Henüz kaynak site eklenmemiş. <a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'sources', 'edit' => 'new' ], menu_page_url( 'wc-pss', false ) ) ); ?>">İlk kaynağı ekleyin →</a></p>
+			<?php else : ?>
+			<table class="wp-list-table widefat fixed striped" style="margin-top:16px">
+				<thead>
+					<tr><th>Ad</th><th>URL</th><th>Giriş</th><th>Keşif</th><th>İşlemler</th></tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $sources as $src ) : ?>
+				<tr>
+					<td><strong><?php echo esc_html( $src['name'] ?? '' ); ?></strong></td>
+					<td><?php echo esc_html( $src['base_url'] ?? '' ); ?></td>
+					<td><?php echo ! empty( $src['username'] ) ? esc_html( $src['username'] ) : '<span style="color:#888">—</span>'; ?></td>
+					<td><?php echo ( $src['discovery'] ?? '' ) === 'crawl' ? 'Crawl' : 'Sitemap'; ?></td>
+					<td class="wc-pss-actions">
+						<a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'sources', 'edit' => $src['id'] ], menu_page_url( 'wc-pss', false ) ) ); ?>" class="button button-small">✏ Düzenle</a>
+						<button class="button button-small js-pss-del-source" data-id="<?php echo esc_attr( $src['id'] ); ?>" style="color:#dc3232">🗑 Sil</button>
+					</td>
+				</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php endif; ?>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
 
-	private static function render_update(): void {
+	// ----------------------------------------------------------------
+	// Sync tab
+	// ----------------------------------------------------------------
+
+	private static function render_sync(): void {
+		$sources = WC_PSS_Source_Manager::all();
 		?>
 		<div class="wc-pss-card">
-			<h2>CSV ile Fiyat &amp; Stok Güncelle</h2>
+			<h2>Senkronizasyon Başlat</h2>
+
+			<?php if ( empty( $sources ) ) : ?>
+			<p>Önce <a href="<?php echo esc_url( add_query_arg( 'tab', 'sources', menu_page_url( 'wc-pss', false ) ) ); ?>">Kaynak Siteler</a> sekmesinden en az bir kaynak ekleyin.</p>
+			<?php else : ?>
 			<p class="description">
-				CSV yüklendikten sonra işlem <strong>arka planda</strong> çalışır — tarayıcıyı kapatabilirsiniz.
-				Tamamlandığında <a href="<?php echo esc_url( add_query_arg( 'tab', 'history', menu_page_url( 'wc-pss', false ) ) ); ?>">İşlem Geçmişi</a> sekmesinden sonucu görebilirsiniz.
+				Seçilen kaynak sitenin ürün sayfaları arka planda tek tek çekilir. Tarayıcıyı kapatabilirsiniz.<br>
+				Tamamlanınca <a href="<?php echo esc_url( add_query_arg( 'tab', 'history', menu_page_url( 'wc-pss', false ) ) ); ?>">İşlem Geçmişi</a>'nden sonucu görebilirsiniz.
 			</p>
 
-			<form id="wc-pss-update-form" enctype="multipart/form-data">
+			<form id="wc-pss-sync-form" style="margin-top:16px">
 				<table class="form-table">
 					<tr>
-						<th>CSV Dosyası</th>
+						<th>Kaynak Site</th>
 						<td>
-							<input type="file" name="csv_file" id="pss-csv-file" accept=".csv,.txt" required>
-							<p class="description">İlk satır başlık olmalı. Zorunlu sütun: <code>sku</code></p>
+							<select name="source_id" id="pss-source-select" required>
+								<option value="">— Seçin —</option>
+								<?php foreach ( $sources as $src ) : ?>
+								<option value="<?php echo esc_attr( $src['id'] ); ?>"><?php echo esc_html( $src['name'] . ' (' . $src['base_url'] . ')' ); ?></option>
+								<?php endforeach; ?>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<th>Eşleştirme</th>
+						<td>
+							<label><input type="checkbox" name="match_by_name" value="1"> SKU bulunamazsa <strong>ürün adıyla</strong> da eşleştir</label>
+							<p class="description">Varsayılan: yalnızca SKU ile eşleştirme.</p>
 						</td>
 					</tr>
 					<tr>
 						<th>Güncelleme Kapsamı</th>
 						<td>
-							<label><input type="checkbox" name="update_prices" value="1" checked> <strong>Fiyatları güncelle</strong> (regular_price, sale_price)</label><br>
-							<label><input type="checkbox" name="update_stock"  value="1" checked> <strong>Stoğu güncelle</strong> (stock_quantity, stock_status, manage_stock)</label>
+							<label><input type="checkbox" name="update_prices" value="1" checked> <strong>Fiyatları güncelle</strong></label><br>
+							<label><input type="checkbox" name="update_stock"  value="1" checked> <strong>Stoğu güncelle</strong></label>
 						</td>
 					</tr>
 				</table>
 				<p class="submit">
-					<button type="submit" id="btn-update" class="button button-primary button-large">▶ Güncellemeyi Başlat</button>
+					<button type="submit" id="btn-sync" class="button button-primary button-large">▶ Senkronizasyonu Başlat</button>
 					<span class="spinner"></span>
 				</p>
 			</form>
 
 			<div id="pss-progress" class="wc-pss-progress-wrap" style="display:none;">
-				<div class="wc-pss-bg-note">İşlem arka planda devam ediyor. Sayfayı kapatabilirsiniz.</div>
+				<div class="wc-pss-bg-note">İşlem arka planda devam ediyor — sayfayı kapatabilirsiniz.</div>
 				<div class="wc-pss-progress-outer"><div class="wc-pss-progress-inner" style="width:0%"></div></div>
-				<div class="wc-pss-progress-text">0 / 0</div>
+				<div class="wc-pss-progress-text">Başlatılıyor…</div>
 				<div class="wc-pss-progress-status"></div>
 			</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
 
+	// ----------------------------------------------------------------
+	// History tab
+	// ----------------------------------------------------------------
+
 	private static function render_history(): void {
-		$jobs = WC_PSS_Job_Manager::get_recent( 20 );
+		$jobs = WC_PSS_Job_Manager::get_recent( 30 );
 		?>
 		<div class="wc-pss-card">
 			<h2>İşlem Geçmişi</h2>
 			<?php if ( empty( $jobs ) ) : ?>
-				<p>Henüz hiç güncelleme başlatılmamış.</p>
+				<p>Henüz senkronizasyon başlatılmamış.</p>
 			<?php else : ?>
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
 					<tr>
-						<th style="width:40px">#</th>
+						<th style="width:36px">#</th>
+						<th>Kaynak</th>
 						<th>Durum</th>
 						<th>İlerleme</th>
 						<th>Güncellendi</th>
 						<th>Bulunamadı</th>
 						<th>Hata</th>
 						<th>Tarih</th>
-						<th>İşlemler</th>
+						<th>İşlem</th>
 					</tr>
 				</thead>
 				<tbody>
 				<?php foreach ( $jobs as $job ) :
-					$pct     = $job->total > 0 ? round( $job->processed / $job->total * 100 ) : ( $job->status === 'completed' ? 100 : 0 );
-					$results = json_decode( $job->results ?: '{}', true ) ?: [];
-					$errors  = json_decode( $job->errors  ?: '[]', true ) ?: [];
+					$pct      = $job->total > 0 ? round( $job->processed / $job->total * 100 ) : ( $job->status === 'completed' ? 100 : 0 );
+					$results  = json_decode( $job->results ?: '{}', true ) ?: [];
+					$errors   = json_decode( $job->errors  ?: '[]', true ) ?: [];
+					$options  = json_decode( $job->options ?: '{}', true ) ?: [];
+					$src_name = '';
+					if ( ! empty( $options['source_id'] ) ) {
+						$src = WC_PSS_Source_Manager::get( $options['source_id'] );
+						$src_name = $src ? $src['name'] : '(silindi)';
+					}
 					try {
 						$tz = new DateTimeZone( wp_timezone_string() );
 						$dt = new DateTime( $job->created_at, new DateTimeZone( 'UTC' ) );
@@ -201,6 +311,7 @@ class WC_PSS_Admin {
 				?>
 				<tr>
 					<td><?php echo esc_html( $job->id ); ?></td>
+					<td><?php echo esc_html( $src_name ); ?></td>
 					<td>
 						<span class="wc-pss-badge wc-pss-badge-<?php echo esc_attr( $job->status ); ?>">
 							<?php echo esc_html( self::status_label( $job->status ) ); ?>
@@ -215,7 +326,7 @@ class WC_PSS_Admin {
 					<td><?php echo $errors ? '<span style="color:#dc3232">' . esc_html( count( $errors ) ) . ' hata</span>' : '—'; ?></td>
 					<td><?php echo esc_html( $date_str ); ?></td>
 					<td class="wc-pss-actions">
-						<?php if ( $job->status === 'processing' ) : ?>
+						<?php if ( in_array( $job->status, [ 'discovering', 'processing' ], true ) ) : ?>
 							<button class="button button-small js-pss-cancel" data-job-id="<?php echo esc_attr( $job->id ); ?>" style="color:#dc3232">✕ İptal</button>
 						<?php else : ?>
 							<button class="button button-small js-pss-delete" data-job-id="<?php echo esc_attr( $job->id ); ?>">🗑 Sil</button>
@@ -232,125 +343,91 @@ class WC_PSS_Admin {
 
 	private static function status_label( string $s ): string {
 		return [
-			'pending'    => 'Bekliyor',
-			'processing' => 'İşleniyor',
-			'completed'  => 'Tamamlandı',
-			'failed'     => 'Hatalı',
-			'cancelled'  => 'İptal Edildi',
+			'discovering' => 'URL Keşfi',
+			'pending'     => 'Bekliyor',
+			'processing'  => 'İşleniyor',
+			'completed'   => 'Tamamlandı',
+			'failed'      => 'Hatalı',
+			'cancelled'   => 'İptal Edildi',
 		][ $s ] ?? $s;
 	}
 
 	// ----------------------------------------------------------------
-	// Handlers
+	// AJAX: Sources
 	// ----------------------------------------------------------------
 
-	public static function handle_export(): void {
-		check_admin_referer( 'wc_pss_export', '_wpnonce_export' );
-		if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Yetkiniz yok.' );
+	public static function ajax_save_source(): void {
+		check_ajax_referer( 'wc_pss', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [], 403 );
 
-		$inc_prices = ! empty( $_POST['inc_prices'] );
-		$inc_stock  = ! empty( $_POST['inc_stock'] );
-		$filename   = 'fiyat-stok-' . date( 'Ymd-His' ) . '.csv';
+		$raw = $_POST;
+		$data = [
+			'id'          => sanitize_key( $raw['id'] ?? '' ),
+			'name'        => sanitize_text_field( $raw['name'] ?? '' ),
+			'base_url'    => esc_url_raw( $raw['base_url'] ?? '' ),
+			'login_url'   => esc_url_raw( $raw['login_url'] ?? '' ),
+			'user_field'  => sanitize_key( $raw['user_field'] ?? 'username' ),
+			'pass_field'  => sanitize_key( $raw['pass_field'] ?? 'password' ),
+			'username'    => sanitize_text_field( $raw['username'] ?? '' ),
+			'discovery'   => in_array( $raw['discovery'] ?? '', [ 'sitemap', 'crawl' ] ) ? $raw['discovery'] : 'sitemap',
+			'crawl_url'   => esc_url_raw( $raw['crawl_url'] ?? '' ),
+			'url_pattern' => sanitize_text_field( $raw['url_pattern'] ?? '/urun/' ),
+			'sku_sel'     => sanitize_text_field( $raw['sku_sel']     ?? '' ),
+			'price_sel'   => sanitize_text_field( $raw['price_sel']   ?? '' ),
+			'reg_price_sel' => sanitize_text_field( $raw['reg_price_sel'] ?? '' ),
+			'stock_sel'   => sanitize_text_field( $raw['stock_sel']   ?? '' ),
+		];
 
-		header( 'Content-Type: text/csv; charset=UTF-8' );
-		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-		header( 'Cache-Control: no-cache, no-store, must-revalidate' );
-
-		$output = fopen( 'php://output', 'w' );
-		fprintf( $output, chr( 0xEF ) . chr( 0xBB ) . chr( 0xBF ) ); // UTF-8 BOM (Excel için)
-
-		$cols = [ 'sku', 'name' ];
-		if ( $inc_prices ) { $cols[] = 'regular_price'; $cols[] = 'sale_price'; }
-		if ( $inc_stock  ) { $cols[] = 'stock_quantity'; $cols[] = 'stock_status'; $cols[] = 'manage_stock'; }
-		fputcsv( $output, $cols );
-
-		global $wpdb;
-		$page = 0;
-		$per  = 200;
-
-		while ( true ) {
-			$rows = $wpdb->get_results( $wpdb->prepare(
-				"SELECT p.ID, p.post_title AS name,
-				    MAX(CASE WHEN pm.meta_key = '_sku'           THEN pm.meta_value END) AS sku,
-				    MAX(CASE WHEN pm.meta_key = '_regular_price' THEN pm.meta_value END) AS regular_price,
-				    MAX(CASE WHEN pm.meta_key = '_sale_price'    THEN pm.meta_value END) AS sale_price,
-				    MAX(CASE WHEN pm.meta_key = '_stock'         THEN pm.meta_value END) AS stock_quantity,
-				    MAX(CASE WHEN pm.meta_key = '_stock_status'  THEN pm.meta_value END) AS stock_status,
-				    MAX(CASE WHEN pm.meta_key = '_manage_stock'  THEN pm.meta_value END) AS manage_stock
-				FROM {$wpdb->posts} p
-				INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
-				WHERE p.post_type IN ('product', 'product_variation')
-				AND p.post_status IN ('publish', 'private')
-				GROUP BY p.ID
-				HAVING sku != '' AND sku IS NOT NULL
-				ORDER BY p.ID
-				LIMIT %d OFFSET %d",
-				$per, $page * $per
-			) );
-
-			if ( empty( $rows ) ) break;
-
-			foreach ( $rows as $r ) {
-				$row = [ $r->sku ?? '', $r->name ?? '' ];
-				if ( $inc_prices ) {
-					$row[] = $r->regular_price ?? '';
-					$row[] = $r->sale_price    ?? '';
-				}
-				if ( $inc_stock ) {
-					$row[] = $r->stock_quantity ?? '';
-					$row[] = $r->stock_status   ?? '';
-					$row[] = ( $r->manage_stock === 'yes' ) ? 'yes' : 'no';
-				}
-				fputcsv( $output, $row );
-			}
-
-			if ( count( $rows ) < $per ) break;
-			$page++;
-
-			if ( ob_get_level() > 0 ) ob_flush();
-			flush();
+		if ( $data['name'] === '' || $data['base_url'] === '' ) {
+			wp_send_json_error( [ 'message' => 'Ad ve Site URL zorunludur.' ] );
 		}
 
-		fclose( $output );
-		exit;
+		// Handle password
+		$password = $raw['password'] ?? '';
+		if ( $password !== '' ) {
+			$data['password_enc'] = WC_PSS_Source_Manager::encrypt( $password );
+		} elseif ( $data['id'] ) {
+			// Keep existing encrypted password
+			$existing = WC_PSS_Source_Manager::get( $data['id'] );
+			if ( $existing ) $data['password_enc'] = $existing['password_enc'] ?? '';
+		}
+
+		$id = WC_PSS_Source_Manager::save( $data );
+		wp_send_json_success( [ 'id' => $id ] );
 	}
 
-	public static function ajax_start_update(): void {
+	public static function ajax_delete_source(): void {
+		check_ajax_referer( 'wc_pss', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [], 403 );
+		$id = sanitize_key( $_POST['id'] ?? '' );
+		if ( ! $id ) wp_send_json_error( [ 'message' => 'ID gerekli.' ] );
+		WC_PSS_Source_Manager::delete( $id );
+		wp_send_json_success();
+	}
+
+	// ----------------------------------------------------------------
+	// AJAX: Sync
+	// ----------------------------------------------------------------
+
+	public static function ajax_start_sync(): void {
 		check_ajax_referer( 'wc_pss', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [ 'message' => 'Yetkiniz yok.' ], 403 );
 
-		if ( empty( $_FILES['csv_file']['tmp_name'] ) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK ) {
-			wp_send_json_error( [ 'message' => 'Dosya yüklenemedi.' ] );
-		}
-
-		$file = $_FILES['csv_file'];
-		$ext  = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
-		if ( ! in_array( $ext, [ 'csv', 'txt' ], true ) ) {
-			wp_send_json_error( [ 'message' => 'Yalnızca .csv veya .txt dosyası kabul edilir.' ] );
-		}
-
-		$upload = wp_upload_dir();
-		$dir    = $upload['basedir'] . '/wc-pss';
-		wp_mkdir_p( $dir );
-
-		if ( ! file_exists( $dir . '/.htaccess' ) ) {
-			file_put_contents( $dir . '/.htaccess', "Options -Indexes\n" );
-		}
-
-		$dest = $dir . '/update-' . wp_generate_password( 8, false ) . '.csv';
-		if ( ! move_uploaded_file( $file['tmp_name'], $dest ) ) {
-			wp_send_json_error( [ 'message' => 'Dosya kaydedilemedi.' ] );
+		$source_id = sanitize_key( $_POST['source_id'] ?? '' );
+		if ( ! $source_id || ! WC_PSS_Source_Manager::get( $source_id ) ) {
+			wp_send_json_error( [ 'message' => 'Geçerli bir kaynak seçin.' ] );
 		}
 
 		$options = [
 			'update_prices' => ! empty( $_POST['update_prices'] ),
 			'update_stock'  => ! empty( $_POST['update_stock'] ),
+			'match_by_name' => ! empty( $_POST['match_by_name'] ),
 		];
 
 		try {
-			$job_id = WC_PSS_Background_Processor::start( $dest, $options );
+			$job_id = WC_PSS_Background_Processor::start( $source_id, $options );
 			wp_send_json_success( [ 'job_id' => $job_id ] );
-		} catch ( Throwable $e ) {
+		} catch ( \Throwable $e ) {
 			wp_send_json_error( [ 'message' => $e->getMessage() ] );
 		}
 	}
@@ -381,14 +458,11 @@ class WC_PSS_Admin {
 	public static function ajax_cancel_job(): void {
 		check_ajax_referer( 'wc_pss', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [], 403 );
-
 		$job = WC_PSS_Job_Manager::get( (int) ( $_POST['job_id'] ?? 0 ) );
 		if ( ! $job ) wp_send_json_error( [ 'message' => 'İş bulunamadı.' ] );
-
-		if ( in_array( $job->status, [ 'completed', 'cancelled' ], true ) ) {
-			wp_send_json_error( [ 'message' => 'Zaten tamamlanmış veya iptal edilmiş.' ] );
+		if ( in_array( $job->status, [ 'completed', 'cancelled', 'failed' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'Bu iş iptal edilemez.' ] );
 		}
-
 		WC_PSS_Job_Manager::update( (int) $job->id, [ 'status' => 'cancelled' ] );
 		wp_send_json_success();
 	}
@@ -396,14 +470,11 @@ class WC_PSS_Admin {
 	public static function ajax_delete_job(): void {
 		check_ajax_referer( 'wc_pss', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [], 403 );
-
 		$job = WC_PSS_Job_Manager::get( (int) ( $_POST['job_id'] ?? 0 ) );
 		if ( ! $job ) wp_send_json_error( [ 'message' => 'İş bulunamadı.' ] );
-
-		if ( $job->status === 'processing' ) {
-			wp_send_json_error( [ 'message' => 'İşlenmekte olan bir iş silinemez. Önce iptal edin.' ] );
+		if ( in_array( $job->status, [ 'discovering', 'processing' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'Aktif iş silinemez. Önce iptal edin.' ] );
 		}
-
 		WC_PSS_Job_Manager::delete( (int) $job->id );
 		wp_send_json_success();
 	}
