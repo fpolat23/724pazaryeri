@@ -178,6 +178,11 @@ class WC_PSS_Scraper {
 			$data['sku'] = self::extract_sku_html( $html );
 		}
 
+		// Fallback name (needed for name-based matching when SKU is absent/unmatched)
+		if ( empty( $data['name'] ) ) {
+			$data['name'] = self::extract_name_html( $html );
+		}
+
 		if ( empty( $data['sku'] ) && empty( $data['name'] ) ) return null;
 
 		return $data;
@@ -370,6 +375,37 @@ class WC_PSS_Scraper {
 			if ( $candidate !== '' ) return $candidate;
 		}
 		return '';
+	}
+
+	private static function extract_name_html( string $html ): string {
+		// 1. og:title meta (most reliable — already trimmed by site)
+		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) ) {
+			return self::clean_name( $m[1] );
+		}
+		if ( preg_match( '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/i', $html, $m ) ) {
+			return self::clean_name( $m[1] );
+		}
+		// 2. itemprop="name" (schema.org)
+		if ( preg_match( '/<[^>]+itemprop=["\']name["\'][^>]*content=["\']([^"\']{3,200})["\']/i', $html, $m ) ) {
+			return self::clean_name( $m[1] );
+		}
+		// 3. First <h1>
+		if ( preg_match( '/<h1[^>]*>(.*?)<\/h1>/si', $html, $m ) ) {
+			$v = self::clean_name( $m[1] );
+			if ( strlen( $v ) >= 3 ) return $v;
+		}
+		// 4. <title> minus " | site" suffix
+		if ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $html, $m ) ) {
+			$v = self::clean_name( preg_replace( '/\s*[|–-].*$/u', '', $m[1] ) );
+			if ( strlen( $v ) >= 3 ) return $v;
+		}
+		return '';
+	}
+
+	private static function clean_name( string $raw ): string {
+		$raw = trim( strip_tags( html_entity_decode( $raw ) ) );
+		$raw = preg_replace( '/\s+/', ' ', $raw );
+		return mb_substr( $raw, 0, 300 );
 	}
 
 	/** Strip, trim, max 80 chars. Returns '' if result looks like HTML/JS junk. */
