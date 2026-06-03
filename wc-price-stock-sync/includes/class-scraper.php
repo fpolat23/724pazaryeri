@@ -332,6 +332,13 @@ class WC_PSS_Scraper {
 		) ) {
 			return [ 'regular' => self::parse_price( $m[1] ), 'sale' => '' ];
 		}
+		// Turkish B2B: "480.00 ₺ - 10 % 432.00 ₺" pattern (list price, discount, net price)
+		if ( preg_match(
+			'/([\d.,]+)\s*[₺TL]\s*[-–]\s*[\d.,]+\s*%\s*([\d.,]+)\s*[₺TL]/u',
+			$html, $m
+		) ) {
+			return [ 'regular' => self::parse_price( $m[1] ), 'sale' => self::parse_price( $m[2] ) ];
+		}
 		return null;
 	}
 
@@ -350,6 +357,14 @@ class WC_PSS_Scraper {
 			$html, $m
 		) ) {
 			return self::sanitize_sku( $m[1] );
+		}
+		// Turkish B2B pattern: "Kod : 075.93386" or "Kod Код Code : 075.93386"
+		// Look for "Kod" label (possibly multilingual) followed by a value
+		$text = preg_replace( '/<[^>]+>/', ' ', $html );
+		$text = html_entity_decode( $text );
+		if ( preg_match( '/\bKod\b[^:]*:\s*([\w.#-]{3,30})/u', $text, $m ) ) {
+			$candidate = self::sanitize_sku( $m[1] );
+			if ( $candidate !== '' ) return $candidate;
 		}
 		return '';
 	}
