@@ -18,7 +18,7 @@ class WC_XML_Exporter {
 		$this->batch_size         = (int) ( $options['batch_size'] ?? 50 );
 		$this->include_images     = (bool) ( $options['include_images'] ?? true );
 		$this->include_variations = (bool) ( $options['include_variations'] ?? true );
-		$this->include_meta       = (bool) ( $options['include_meta'] ?? false );
+		$this->include_meta       = (bool) ( $options['include_meta'] ?? true );
 		$this->include_term_images = (bool) ( $options['include_term_images'] ?? true );
 		$this->category_filter    = array_filter( (array) ( $options['categories'] ?? [] ) );
 		$this->status_filter      = $options['status'] ?? 'publish';
@@ -222,6 +222,17 @@ class WC_XML_Exporter {
 		$this->add_text( $dom, $el, 'visibility', $product->get_catalog_visibility() );
 		$this->add_text( $dom, $el, 'featured', $product->get_featured() ? '1' : '0' );
 		$this->add_text( $dom, $el, 'sold_individually', $product->get_sold_individually() ? '1' : '0' );
+		$this->add_text( $dom, $el, 'backorders',        $product->get_backorders() );
+		$this->add_text( $dom, $el, 'low_stock_amount',  $product->get_low_stock_amount() );
+		$this->add_text( $dom, $el, 'purchase_note',     $product->get_purchase_note() );
+		$this->add_text( $dom, $el, 'reviews_allowed',   $product->get_reviews_allowed() ? '1' : '0' );
+		$this->add_text( $dom, $el, 'menu_order',        $product->get_menu_order() );
+		$this->add_text( $dom, $el, 'shipping_class',    $product->get_shipping_class() );
+
+		$post        = get_post( $product->get_id() );
+		$author_user = $post ? get_user_by( 'id', (int) $post->post_author ) : null;
+		$this->add_text( $dom, $el, 'author_login', $author_user ? $author_user->user_login : '' );
+		$this->add_text( $dom, $el, 'author_email', $author_user ? $author_user->user_email : '' );
 
 		if ( $product->get_type() === 'external' ) {
 			/** @var WC_Product_External $product */
@@ -232,6 +243,7 @@ class WC_XML_Exporter {
 		$this->append_categories( $dom, $el, $product );
 		$this->append_tags( $dom, $el, $product );
 		$this->append_attributes( $dom, $el, $product );
+		$this->append_related( $dom, $el, $product );
 
 		if ( $this->include_images ) {
 			$this->append_images( $dom, $el, $product );
@@ -356,9 +368,18 @@ class WC_XML_Exporter {
 			$this->add_text( $dom, $var, 'stock_status', $variation->get_stock_status() );
 			$this->add_text( $dom, $var, 'stock_quantity', $variation->get_stock_quantity() );
 			$this->add_text( $dom, $var, 'manage_stock', $variation->get_manage_stock() ? '1' : '0' );
-			$this->add_text( $dom, $var, 'weight', $variation->get_weight() );
-			$this->add_text( $dom, $var, 'description', $variation->get_description() );
-			$this->add_text( $dom, $var, 'status', $variation->get_status() );
+			$this->add_text( $dom, $var, 'weight',         $variation->get_weight() );
+			$this->add_text( $dom, $var, 'length',         $variation->get_length() );
+			$this->add_text( $dom, $var, 'width',          $variation->get_width() );
+			$this->add_text( $dom, $var, 'height',         $variation->get_height() );
+			$this->add_text( $dom, $var, 'tax_class',      $variation->get_tax_class() );
+			$this->add_text( $dom, $var, 'shipping_class', $variation->get_shipping_class() );
+			$this->add_text( $dom, $var, 'backorders',     $variation->get_backorders() );
+			$this->add_text( $dom, $var, 'menu_order',     $variation->get_menu_order() );
+			$this->add_text( $dom, $var, 'virtual',        $variation->get_virtual()      ? '1' : '0' );
+			$this->add_text( $dom, $var, 'downloadable',   $variation->get_downloadable() ? '1' : '0' );
+			$this->add_text( $dom, $var, 'description',    $variation->get_description() );
+			$this->add_text( $dom, $var, 'status',         $variation->get_status() );
 
 			if ( $this->include_images ) {
 				$img_id = $variation->get_image_id();
@@ -382,13 +403,59 @@ class WC_XML_Exporter {
 		}
 	}
 
+	private function append_related( DOMDocument $dom, DOMElement $el, WC_Product $product ): void {
+		$upsell_ids    = $product->get_upsell_ids();
+		$crosssell_ids = $product->get_cross_sell_ids();
+
+		if ( ! empty( $upsell_ids ) ) {
+			$up_el = $dom->createElement( 'upsells' );
+			foreach ( $upsell_ids as $id ) {
+				$rel = wc_get_product( $id );
+				if ( ! $rel ) continue;
+				$ref = $dom->createElement( 'product_ref' );
+				$this->add_text( $dom, $ref, 'sku', $rel->get_sku() );
+				$up_el->appendChild( $ref );
+			}
+			$el->appendChild( $up_el );
+		}
+
+		if ( ! empty( $crosssell_ids ) ) {
+			$cs_el = $dom->createElement( 'crosssells' );
+			foreach ( $crosssell_ids as $id ) {
+				$rel = wc_get_product( $id );
+				if ( ! $rel ) continue;
+				$ref = $dom->createElement( 'product_ref' );
+				$this->add_text( $dom, $ref, 'sku', $rel->get_sku() );
+				$cs_el->appendChild( $ref );
+			}
+			$el->appendChild( $cs_el );
+		}
+	}
+
 	private function append_meta( DOMDocument $dom, DOMElement $el, WC_Product $product ): void {
 		$meta_el = $dom->createElement( 'meta_data' );
 		$el->appendChild( $meta_el );
 
 		$skip_keys = [
-			'_thumbnail_id', '_product_image_gallery', '_price', '_regular_price',
-			'_sale_price', '_wc_rating_count', '_wc_review_count', '_wc_average_rating',
+			// Images — exported via <images>
+			'_thumbnail_id', '_product_image_gallery',
+			// Prices — exported directly
+			'_price', '_regular_price', '_sale_price',
+			'_min_variation_price', '_max_variation_price',
+			'_min_variation_regular_price', '_max_variation_regular_price',
+			'_min_variation_sale_price', '_max_variation_sale_price',
+			// Ratings — calculated
+			'_wc_rating_count', '_wc_review_count', '_wc_average_rating',
+			// Stock — exported directly
+			'_stock', '_stock_status', '_sku', '_manage_stock', '_backorders', '_low_stock_amount',
+			// Dimensions — exported directly
+			'_weight', '_length', '_width', '_height',
+			// Tax, visibility — exported directly
+			'_tax_status', '_tax_class', '_visibility', '_featured',
+			// Misc WC — exported directly or not portable
+			'_sold_individually', '_virtual', '_downloadable', '_purchase_note',
+			'_default_attributes', '_product_attributes', '_children',
+			'_product_version', 'total_sales', '_edit_lock', '_edit_last',
 		];
 
 		foreach ( $product->get_meta_data() as $meta ) {

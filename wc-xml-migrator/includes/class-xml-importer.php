@@ -192,9 +192,19 @@ class WC_XML_Importer {
 
 			$product->save();
 
+			$this->set_meta( $product->get_id(), $node );
+			$this->set_author( $product->get_id(), $node );
+
 			if ( $type === 'variable' ) {
 				$this->set_variations( $product, $node );
+				// Recalculate min/max prices from saved variations
+				$synced = wc_get_product( $product->get_id() );
+				if ( $synced instanceof WC_Product_Variable ) {
+					WC_Product_Variable::sync( $synced );
+				}
 			}
+
+			$this->set_related( $product, $node );
 
 			if ( $existing_id ) {
 				$this->results['updated']++;
@@ -263,6 +273,27 @@ class WC_XML_Importer {
 		$product->set_length( $this->get_text( $node, 'length' ) );
 		$product->set_width( $this->get_text( $node, 'width' ) );
 		$product->set_height( $this->get_text( $node, 'height' ) );
+
+		$backorders = $this->get_text( $node, 'backorders' );
+		if ( $backorders !== '' ) $product->set_backorders( $backorders );
+
+		$low_stock = $this->get_text( $node, 'low_stock_amount' );
+		if ( $low_stock !== '' ) $product->set_low_stock_amount( (int) $low_stock );
+
+		$purchase_note = $this->get_text( $node, 'purchase_note' );
+		if ( $purchase_note !== '' ) $product->set_purchase_note( $purchase_note );
+
+		$reviews = $this->get_text( $node, 'reviews_allowed' );
+		if ( $reviews !== '' ) $product->set_reviews_allowed( $reviews !== '0' );
+
+		$menu_order = $this->get_text( $node, 'menu_order' );
+		if ( $menu_order !== '' ) $product->set_menu_order( (int) $menu_order );
+
+		$shipping_class = $this->get_text( $node, 'shipping_class' );
+		if ( $shipping_class !== '' ) {
+			$sc_term = get_term_by( 'slug', $shipping_class, 'product_shipping_class' );
+			if ( $sc_term ) $product->set_shipping_class_id( $sc_term->term_id );
+		}
 
 		if ( $product instanceof WC_Product_External ) {
 			$product->set_product_url( $this->get_text( $node, 'external_url' ) );
@@ -488,6 +519,28 @@ class WC_XML_Importer {
 				$weight = $this->get_text( $var_node, 'weight' );
 				if ( $weight !== '' ) $variation->set_weight( $weight );
 
+				$vlen = $this->get_text( $var_node, 'length' );
+				if ( $vlen !== '' ) $variation->set_length( $vlen );
+				$vwid = $this->get_text( $var_node, 'width' );
+				if ( $vwid !== '' ) $variation->set_width( $vwid );
+				$vhgt = $this->get_text( $var_node, 'height' );
+				if ( $vhgt !== '' ) $variation->set_height( $vhgt );
+
+				$vtax = $this->get_text( $var_node, 'tax_class' );
+				if ( $vtax !== '' ) $variation->set_tax_class( $vtax );
+
+				$vbo = $this->get_text( $var_node, 'backorders' );
+				if ( $vbo !== '' ) $variation->set_backorders( $vbo );
+
+				$vmo = $this->get_text( $var_node, 'menu_order' );
+				if ( $vmo !== '' ) $variation->set_menu_order( (int) $vmo );
+
+				$vsc = $this->get_text( $var_node, 'shipping_class' );
+				if ( $vsc !== '' ) {
+					$vsc_term = get_term_by( 'slug', $vsc, 'product_shipping_class' );
+					if ( $vsc_term ) $variation->set_shipping_class_id( $vsc_term->term_id );
+				}
+
 				// Varyasyon öznitelikleri
 				$var_attrs = [];
 				foreach ( $var_node->getElementsByTagName( 'attributes' ) as $vatts_el ) {
@@ -516,6 +569,75 @@ class WC_XML_Importer {
 				$variation->save();
 			}
 		}
+	}
+
+	private function set_meta( int $product_id, DOMElement $node ): void {
+		$skip = [
+			'_thumbnail_id', '_product_image_gallery',
+			'_price', '_regular_price', '_sale_price',
+			'_min_variation_price', '_max_variation_price',
+			'_min_variation_regular_price', '_max_variation_regular_price',
+			'_min_variation_sale_price', '_max_variation_sale_price',
+			'_wc_rating_count', '_wc_review_count', '_wc_average_rating',
+			'_stock', '_stock_status', '_sku', '_manage_stock', '_backorders', '_low_stock_amount',
+			'_weight', '_length', '_width', '_height',
+			'_tax_status', '_tax_class', '_sold_individually', '_featured',
+			'_virtual', '_downloadable', '_visibility', '_purchase_note',
+			'_default_attributes', '_product_attributes', '_children',
+			'_product_version', 'total_sales', '_edit_lock', '_edit_last',
+		];
+
+		foreach ( $node->childNodes as $child ) {
+			if ( ! ( $child instanceof DOMElement ) || $child->tagName !== 'meta_data' ) continue;
+			foreach ( $child->getElementsByTagName( 'meta' ) as $meta_node ) {
+				$key   = $this->get_text( $meta_node, 'key' );
+				$value = $this->get_text( $meta_node, 'value' );
+				if ( ! $key || in_array( $key, $skip, true ) ) continue;
+				if ( str_starts_with( $key, '_edit_' ) ) continue;
+				update_post_meta( $product_id, $key, $value );
+			}
+			break;
+		}
+	}
+
+	private function set_author( int $product_id, DOMElement $node ): void {
+		$login = $this->get_text( $node, 'author_login' );
+		if ( ! $login ) return;
+
+		$user = get_user_by( 'login', $login );
+		if ( ! $user ) {
+			$email = $this->get_text( $node, 'author_email' );
+			if ( $email ) $user = get_user_by( 'email', $email );
+		}
+
+		if ( $user ) {
+			wp_update_post( [ 'ID' => $product_id, 'post_author' => $user->ID ] );
+		}
+	}
+
+	private function set_related( WC_Product $product, DOMElement $node ): void {
+		$upsell_ids    = $this->resolve_product_refs( $node, 'upsells' );
+		$crosssell_ids = $this->resolve_product_refs( $node, 'crosssells' );
+
+		if ( ! empty( $upsell_ids ) )    $product->set_upsell_ids( $upsell_ids );
+		if ( ! empty( $crosssell_ids ) ) $product->set_cross_sell_ids( $crosssell_ids );
+		if ( ! empty( $upsell_ids ) || ! empty( $crosssell_ids ) ) $product->save();
+	}
+
+	private function resolve_product_refs( DOMElement $node, string $tag ): array {
+		$ids = [];
+		foreach ( $node->childNodes as $child ) {
+			if ( ! ( $child instanceof DOMElement ) || $child->tagName !== $tag ) continue;
+			foreach ( $child->getElementsByTagName( 'product_ref' ) as $ref_node ) {
+				$sku = $this->get_text( $ref_node, 'sku' );
+				if ( $sku ) {
+					$id = wc_get_product_id_by_sku( $sku );
+					if ( $id ) $ids[] = $id;
+				}
+			}
+			break;
+		}
+		return $ids;
 	}
 
 	/**
