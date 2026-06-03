@@ -68,18 +68,43 @@
 .pzv-dash .button-hero{padding:12px 24px;font-size:15px;font-weight:600;}
 
 @media(max-width:768px){
-  .pzv-dash{padding:0 12px;margin:14px auto;}
-  .pzv-dash-header{padding:16px 18px;}
-  .pzv-dash-balance{text-align:left;}
-  .pzv-dash-content{padding:16px;}
-  .pzv-table{font-size:12.5px;}
-  .pzv-table thead th, .pzv-table tbody td{padding:8px 6px;}
-  .pzv-table img{width:40px;height:40px;}
-  .pzv-dash-tabs{grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;}
-  .pzv-tab{padding:10px 4px;}
+  .pzv-dash{padding:0 10px;margin:12px auto;}
+
+  /* HEADER */
+  .pzv-dash-header{padding:14px 16px;gap:12px;flex-direction:column;align-items:flex-start;}
+  .pzv-dash-store-name{font-size:18px;}
+  .pzv-dash-balance{text-align:left;width:100%;background:rgba(255,255,255,.08);border-radius:8px;padding:10px 14px;}
+  .pzv-dash-balance-n{font-size:22px;}
+
+  /* TABS — yatay kaydırmalı (6 sekme sığar) */
+  .pzv-dash-tabs{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:6px;padding:10px;scrollbar-width:none;grid-template-columns:none;}
+  .pzv-dash-tabs::-webkit-scrollbar{display:none;}
+  .pzv-tab{flex:0 0 auto;min-width:72px;padding:10px 8px;gap:4px;border-radius:10px;}
   .pzv-tab-icon{font-size:20px;}
-  .pzv-tab-label{font-size:11px;}
-  .pzv-stats{grid-template-columns:repeat(2,1fr);}
+  .pzv-tab-label{font-size:11px;white-space:nowrap;}
+
+  /* STATS — 2 sütun kart */
+  .pzv-stats{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px;}
+  .pzv-stat{padding:14px 12px;border-radius:10px;}
+  .pzv-stat-n{font-size:20px;}
+  .pzv-stat-n bdi, .pzv-stat-n span{font-size:inherit;}
+  .pzv-stat-l{font-size:11.5px;}
+
+  /* CONTENT */
+  .pzv-dash-content{padding:14px 12px;border-radius:10px;}
+  .pzv-dash-content h3{font-size:16px;margin-bottom:12px;}
+
+  /* TABLE — yatay kaydırmalı wrapper */
+  .pzv-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:0 12px;}
+  .pzv-table{min-width:520px;font-size:12px;}
+  .pzv-table thead th{padding:9px 8px;font-size:11.5px;white-space:nowrap;}
+  .pzv-table tbody td{padding:10px 8px;font-size:12px;}
+  .pzv-table img{width:36px;height:36px;}
+  .pzv-dash .button-small{padding:4px 8px;font-size:11px;white-space:nowrap;}
+
+  /* SECTION HEAD */
+  .pzv-section-head{flex-direction:column;align-items:flex-start;gap:8px;}
+  .pzv-section-head .pzv-btn-primary,.pzv-section-head .pzv-btn-secondary{width:100%;justify-content:center;}
 }
 
 /* ═══ HİYERARŞİK KATEGORİ FİLTRESİ ═══ */

@@ -121,19 +121,19 @@ class PZV_Dashboard {
             echo '<p>Henüz sipariş yok.</p>';
             return;
         }
-        echo '<table class="pzv-table"><thead><tr><th>Sipariş</th><th>Tarih</th><th>Müşteri</th><th>Tutar</th><th>Durum</th><th></th></tr></thead><tbody>';
+        echo '<div class="pzv-table-wrap"><table class="pzv-table"><thead><tr><th>Sipariş</th><th>Tarih</th><th>Müşteri</th><th>Tutar</th><th>Durum</th><th></th></tr></thead><tbody>';
         foreach ( $order_ids as $oid ) {
             $o = wc_get_order( $oid ); if ( ! $o ) continue;
             echo '<tr>';
             echo '<td><strong>#' . esc_html( $o->get_order_number() ) . '</strong></td>';
-            echo '<td>' . esc_html( $o->get_date_created()->date_i18n( 'd.m.Y' ) ) . '</td>';
+            echo '<td style="white-space:nowrap">' . esc_html( $o->get_date_created()->date_i18n( 'd.m.Y' ) ) . '</td>';
             echo '<td>' . esc_html( $o->get_formatted_billing_full_name() ) . '</td>';
-            echo '<td>' . wp_kses_post( $o->get_formatted_order_total() ) . '</td>';
+            echo '<td style="white-space:nowrap">' . wp_kses_post( $o->get_formatted_order_total() ) . '</td>';
             echo '<td><span class="pzv-status pzv-status-' . esc_attr( $o->get_status() ) . '">' . esc_html( wc_get_order_status_name( $o->get_status() ) ) . '</span></td>';
-            echo '<td><a class="button button-small" href="' . esc_url( add_query_arg( array( 'tab' => 'orders', 'view' => $oid ), get_permalink() ) ) . '">Detay →</a></td>';
+            echo '<td style="white-space:nowrap"><a class="button button-small" href="' . esc_url( add_query_arg( array( 'tab' => 'orders', 'view' => $oid ), get_permalink() ) ) . '">Detay →</a></td>';
             echo '</tr>';
         }
-        echo '</tbody></table>';
+        echo '</tbody></table></div>';
     }
 
     private static function tab_products( $user_id ) {
@@ -323,7 +323,7 @@ class PZV_Dashboard {
                 <?php if ( $has_filter ) : ?><a href="<?php echo esc_url( $clear_url ); ?>" class="pzv-btn-secondary">Filtreleri Temizle</a><?php endif; ?>
             </div>
         <?php else : ?>
-            <table class="pzv-table">
+            <div class="pzv-table-wrap"><table class="pzv-table">
                 <thead><tr><th>Görsel</th><th>Ürün</th><th>SKU</th><th>Fiyat (₺)</th><th>Stok</th><th>Durum</th><th>İşlem</th></tr></thead>
                 <tbody>
                 <?php while ( $q->have_posts() ) : $q->the_post();
@@ -355,7 +355,7 @@ class PZV_Dashboard {
                     </tr>
                 <?php endwhile; wp_reset_postdata(); ?>
                 </tbody>
-            </table>
+            </table></div>
 
             <?php if ( $total_pages > 1 ) :
                 $from    = ( $cur_page - 1 ) * $per_page + 1;
@@ -675,7 +675,7 @@ class PZV_Dashboard {
         <?php if ( empty( $order_ids ) ) : ?>
             <p>Henüz sipariş yok.</p>
         <?php else : ?>
-            <table class="pzv-table">
+            <div class="pzv-table-wrap"><table class="pzv-table">
                 <thead><tr><th>#</th><th>Tarih</th><th>Müşteri</th><th>Ürünüm</th><th>Kazancım</th><th>Durum</th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ( $order_ids as $oid ) :
@@ -693,7 +693,7 @@ class PZV_Dashboard {
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         <?php endif;
     }
 
@@ -798,7 +798,7 @@ class PZV_Dashboard {
         <?php if ( empty( $records ) ) : ?>
             <p>Henüz kazanç yok.</p>
         <?php else : ?>
-            <table class="pzv-table">
+            <div class="pzv-table-wrap"><table class="pzv-table">
                 <thead><tr><th>Tarih</th><th>Sipariş</th><th>Ürün</th><th>Satış</th><th>Komisyon</th><th>Kazancınız</th><th>Durum</th></tr></thead>
                 <tbody>
                 <?php foreach ( $records as $r ) :
@@ -816,7 +816,7 @@ class PZV_Dashboard {
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
-            </table>
+            </table></div>
         <?php endif;
     }
 
