@@ -480,14 +480,36 @@ class WC_PSS_Admin {
 
 		// Login
 		if ( ! empty( $source['username'] ) ) {
-			$login_url = $source['login_url'] ?: $source['base_url'];
+			$login_url  = $source['login_url'] ?: $source['base_url'];
+			$user_field = $source['user_field'] ?: 'username';
+			$pass_field = $source['pass_field'] ?: 'password';
 			$log[] = 'Giriş deneniyor: ' . $login_url;
+			$log[] = '  Kullanıcı alanı: "' . $user_field . '"  |  Şifre alanı: "' . $pass_field . '"';
 			$login_ok = $client->login( $source );
-			if ( $login_ok ) {
-				$log[] = '✓ Giriş HTTP isteği tamamlandı (kimlik sunucuda doğrulandıysa oturum açıktır)';
-			} else {
+			if ( ! $login_ok ) {
 				$log[] = '✗ Giriş isteği başarısız — URL erişilemiyor veya HTTP hatası';
 				$ok = false;
+			} else {
+				// Verify login by checking if home/base URL now has logged-in content
+				$base    = rtrim( $source['base_url'], '/' );
+				$chk     = $client->get_info( $base );
+				$chk_url = $chk['url'];
+				$is_login_page = $chk_url && (
+					str_contains( $chk_url, 'giris' ) ||
+					str_contains( $chk_url, 'login' ) ||
+					str_contains( $chk_url, 'signin' )
+				);
+				if ( $is_login_page ) {
+					$log[] = '✗ Giriş başarısız — kimlik bilgileri yanlış veya alan adları hatalı';
+					$log[] = '  Yönlendirilen URL: ' . $chk_url;
+					$log[] = '  → Kullanıcı adı/şifre ile "Kullanıcı Alanı" ve "Şifre Alanı" isimlerini kontrol edin.';
+					$ok    = false;
+				} else {
+					$log[] = '✓ Giriş başarılı (oturum aktif)';
+					if ( $chk_url && $chk_url !== $base && $chk_url !== $base . '/' ) {
+						$log[] = '  Yönlendirilen URL: ' . $chk_url;
+					}
+				}
 			}
 		} else {
 			$log[] = 'ℹ Giriş bilgisi girilmemiş — anonim erişim';
@@ -515,23 +537,44 @@ class WC_PSS_Admin {
 			$log[] = '  İlk 3: ' . implode( ' | ', array_slice( $urls, 0, 3 ) );
 
 			// Try parsing first product
-			$first = $urls[0];
-			$log[] = 'İlk ürün parse ediliyor: ' . $first;
-			try {
-				$data = WC_PSS_Scraper::scrape_product( $first, $source, $client );
-				if ( $data ) {
-					$log[] = '✓ Parse başarılı';
-					$log[] = '  SKU: '   . ( $data['sku']           ?: '(boş — SKU bulunamadı)' );
-					$log[] = '  Ad: '    . ( $data['name']          ?: '(boş)' );
-					$log[] = '  Fiyat: ' . ( $data['regular_price'] ?: '(boş)' );
-					$log[] = '  Stok: '  . ( $data['stock_status']  ?: '(boş)' );
-				} else {
-					$log[] = '✗ İlk ürün sayfası parse edilemedi (HTTP hatası veya URL erişilemiyor).';
+			$first    = $urls[0];
+			$log[]    = 'İlk ürün parse ediliyor: ' . $first;
+			$raw      = $client->get_info( $first );
+			$log[]    = '  HTTP durum kodu: ' . $raw['code'] . '  |  Yönlendirilen URL: ' . ( $raw['url'] ?: '—' );
+			$is_login = $raw['url'] && (
+				str_contains( $raw['url'], 'giris' ) ||
+				str_contains( $raw['url'], 'login' ) ||
+				str_contains( $raw['url'], 'signin' )
+			);
+			if ( $is_login ) {
+				$log[] = '✗ Ürün sayfası giriş sayfasına yönlendirdi — oturum geçersiz.';
+				$log[] = '  → Giriş bilgileri ve alan adlarını kontrol edin.';
+				$ok    = false;
+			} elseif ( $raw['code'] === 0 || $raw['body'] === null ) {
+				$log[] = '✗ Ürün sayfasına erişilemiyor (HTTP ' . $raw['code'] . ')';
+				$ok    = false;
+			} else {
+				try {
+					$data = WC_PSS_Scraper::scrape_product( $first, $source, $client );
+					if ( $data ) {
+						$log[] = '✓ Parse başarılı';
+						$log[] = '  SKU: '   . ( $data['sku']           ?: '(boş — SKU bulunamadı, CSS seçici ekleyin)' );
+						$log[] = '  Ad: '    . ( $data['name']          ?: '(boş)' );
+						$log[] = '  Fiyat: ' . ( $data['regular_price'] ?: '(boş — fiyat bulunamadı, CSS seçici ekleyin)' );
+						$log[] = '  Stok: '  . ( $data['stock_status']  ?: '(boş)' );
+						if ( ! $data['sku'] || ! $data['regular_price'] ) {
+							$log[] = '  ⚠ Eksik alanlar için "Gelişmiş CSS Seçicileri" bölümünden özel seçici girin.';
+						}
+					} else {
+						$log[] = '✗ Sayfa erişilebilir ancak ürün verisi parse edilemedi.';
+						$log[] = '  Sayfa başlığı: ' . ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $raw['body'], $tm ) ? trim( $tm[1] ) : '(bulunamadı)' );
+						$log[] = '  → JSON-LD şeması yok. "Gelişmiş CSS Seçicileri" bölümünden SKU, fiyat ve stok seçicilerini girin.';
+						$ok    = false;
+					}
+				} catch ( \Throwable $e ) {
+					$log[] = '✗ Parse hatası: ' . $e->getMessage();
 					$ok    = false;
 				}
-			} catch ( \Throwable $e ) {
-				$log[] = '✗ Parse hatası: ' . $e->getMessage();
-				$ok    = false;
 			}
 		}
 

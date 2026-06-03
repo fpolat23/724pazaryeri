@@ -64,16 +64,22 @@ class WC_PSS_Http_Client {
 	}
 
 	public function get( string $url ): ?string {
-		return $this->request( 'GET', $url );
+		return $this->request( 'GET', $url )['body'];
 	}
 
 	public function post( string $url, array $body ): ?string {
-		return $this->request( 'POST', $url, $body );
+		return $this->request( 'POST', $url, $body )['body'];
 	}
 
-	private function request( string $method, string $url, array $post_body = [] ): ?string {
+	/** Returns ['code' => int, 'url' => string, 'body' => ?string] */
+	public function get_info( string $url ): array {
+		return $this->request( 'GET', $url );
+	}
+
+	private function request( string $method, string $url, array $post_body = [] ): array {
 		if ( ! function_exists( 'curl_init' ) ) {
-			return $this->wp_request( $method, $url, $post_body );
+			$body = $this->wp_request( $method, $url, $post_body );
+			return [ 'code' => $body !== null ? 200 : 0, 'url' => $url, 'body' => $body ];
 		}
 
 		$ch = curl_init();
@@ -100,12 +106,15 @@ class WC_PSS_Http_Client {
 			curl_setopt( $ch, CURLOPT_HTTPGET, true );
 		}
 
-		$body = curl_exec( $ch );
-		$code = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+		$body     = curl_exec( $ch );
+		$code     = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+		$eff_url  = (string) curl_getinfo( $ch, CURLINFO_EFFECTIVE_URL );
 		curl_close( $ch );
 
-		if ( $body === false || $code < 200 || $code >= 400 ) return null;
-		return $body;
+		if ( $body === false || $code < 200 || $code >= 400 ) {
+			return [ 'code' => $code, 'url' => $eff_url, 'body' => null ];
+		}
+		return [ 'code' => $code, 'url' => $eff_url, 'body' => $body ];
 	}
 
 	private function wp_request( string $method, string $url, array $post_body = [] ): ?string {
