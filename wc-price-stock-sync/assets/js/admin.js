@@ -211,6 +211,47 @@
 	}
 
 	// ----------------------------------------------------------------
+	// Test source connection
+	// ----------------------------------------------------------------
+	$(document).on('click', '.js-pss-test-source', function () {
+		var $btn     = $(this);
+		var sourceId = $btn.data('id');
+		$btn.prop('disabled', true).text('Test ediliyor…');
+		$('#pss-test-result').hide().empty();
+
+		$.post(wcPss.ajaxUrl, {
+			action:    'wc_pss_test_source',
+			source_id: sourceId,
+			nonce:     wcPss.nonce
+		})
+		.done(function (res) {
+			$btn.prop('disabled', false).text('🔍 Test Et');
+			var $div = $('#pss-test-result').show();
+			if (res && res.success && res.data && res.data.log) {
+				var ok    = res.data.ok;
+				var color = ok ? '#155724' : '#721c24';
+				var bg    = ok ? '#d4edda' : '#f8d7da';
+				var bdr   = ok ? '#c3e6cb' : '#f5c6cb';
+				var html  = '<div style="background:' + bg + ';border:1px solid ' + bdr + ';border-radius:4px;padding:14px 16px;margin-top:10px">';
+				html += '<strong style="color:' + color + '">' + (ok ? '✓ Test başarılı' : '✗ Test başarısız') + '</strong>';
+				html += '<ul style="margin:8px 0 0;padding-left:20px;">';
+				res.data.log.forEach(function (line) {
+					html += '<li style="font-family:monospace;font-size:12px;margin-bottom:2px">' + escHtml(line) + '</li>';
+				});
+				html += '</ul></div>';
+				$div.html(html);
+			} else {
+				var m = (res && res.data && res.data.message) ? res.data.message : 'Test başarısız.';
+				$div.html('<div style="color:#dc3232;margin-top:10px">' + escHtml(m) + '</div>');
+			}
+		})
+		.fail(function () {
+			$btn.prop('disabled', false).text('🔍 Test Et');
+			$('#pss-test-result').show().html('<div style="color:#dc3232;margin-top:10px">Sunucu bağlantı hatası.</div>');
+		});
+	});
+
+	// ----------------------------------------------------------------
 	// History: cancel / delete
 	// ----------------------------------------------------------------
 	$(document).on('click', '.js-pss-cancel', function () {

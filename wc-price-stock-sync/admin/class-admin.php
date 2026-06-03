@@ -6,12 +6,13 @@ class WC_PSS_Admin {
 	public static function init(): void {
 		add_action( 'admin_menu', [ __CLASS__, 'register_menu' ], 99 );
 		add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue' ] );
-		add_action( 'wp_ajax_wc_pss_save_source',  [ __CLASS__, 'ajax_save_source' ] );
+		add_action( 'wp_ajax_wc_pss_save_source',   [ __CLASS__, 'ajax_save_source' ] );
 		add_action( 'wp_ajax_wc_pss_delete_source', [ __CLASS__, 'ajax_delete_source' ] );
-		add_action( 'wp_ajax_wc_pss_start_sync',   [ __CLASS__, 'ajax_start_sync' ] );
-		add_action( 'wp_ajax_wc_pss_job_status',   [ __CLASS__, 'ajax_job_status' ] );
-		add_action( 'wp_ajax_wc_pss_cancel_job',   [ __CLASS__, 'ajax_cancel_job' ] );
-		add_action( 'wp_ajax_wc_pss_delete_job',   [ __CLASS__, 'ajax_delete_job' ] );
+		add_action( 'wp_ajax_wc_pss_test_source',   [ __CLASS__, 'ajax_test_source' ] );
+		add_action( 'wp_ajax_wc_pss_start_sync',    [ __CLASS__, 'ajax_start_sync' ] );
+		add_action( 'wp_ajax_wc_pss_job_status',    [ __CLASS__, 'ajax_job_status' ] );
+		add_action( 'wp_ajax_wc_pss_cancel_job',    [ __CLASS__, 'ajax_cancel_job' ] );
+		add_action( 'wp_ajax_wc_pss_delete_job',    [ __CLASS__, 'ajax_delete_job' ] );
 	}
 
 	public static function register_menu(): void {
@@ -218,6 +219,7 @@ class WC_PSS_Admin {
 					<td><?php echo ( $src['discovery'] ?? '' ) === 'crawl' ? 'Crawl' : 'Sitemap'; ?></td>
 					<td class="wc-pss-actions">
 						<a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'sources', 'edit' => $src['id'] ], menu_page_url( 'wc-pss', false ) ) ); ?>" class="button button-small">✏ Düzenle</a>
+						<button class="button button-small js-pss-test-source" data-id="<?php echo esc_attr( $src['id'] ); ?>">🔍 Test Et</button>
 						<button class="button button-small js-pss-del-source" data-id="<?php echo esc_attr( $src['id'] ); ?>" style="color:#dc3232">🗑 Sil</button>
 					</td>
 				</tr>
@@ -225,6 +227,7 @@ class WC_PSS_Admin {
 				</tbody>
 			</table>
 			<?php endif; ?>
+			<div id="pss-test-result" style="display:none;margin-top:16px;"></div>
 			<?php endif; ?>
 		</div>
 		<?php
@@ -454,6 +457,85 @@ class WC_PSS_Admin {
 		if ( ! $id ) wp_send_json_error( [ 'message' => 'ID gerekli.' ] );
 		WC_PSS_Source_Manager::delete( $id );
 		wp_send_json_success();
+	}
+
+	/**
+	 * Synchronous connection test — runs inline (no background), returns step-by-step log.
+	 * Used for diagnosing login / URL discovery issues.
+	 */
+	public static function ajax_test_source(): void {
+		check_ajax_referer( 'wc_pss', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [], 403 );
+
+		$id     = preg_replace( '/[^a-zA-Z0-9_-]/', '', $_POST['source_id'] ?? '' );
+		$source = WC_PSS_Source_Manager::get_with_pass( $id );
+		if ( ! $source ) wp_send_json_error( [ 'message' => 'Kaynak bulunamadı.' ] );
+
+		$log    = [];
+		$ok     = true;
+		$client = new WC_PSS_Http_Client();
+
+		// cURL availability
+		$log[] = function_exists( 'curl_init' ) ? '✓ cURL mevcut' : '⚠ cURL yok — wp_remote_get fallback kullanılacak (cookie oturumu olmayabilir)';
+
+		// Login
+		if ( ! empty( $source['username'] ) ) {
+			$login_url = $source['login_url'] ?: $source['base_url'];
+			$log[] = 'Giriş deneniyor: ' . $login_url;
+			$login_ok = $client->login( $source );
+			if ( $login_ok ) {
+				$log[] = '✓ Giriş HTTP isteği tamamlandı (kimlik sunucuda doğrulandıysa oturum açıktır)';
+			} else {
+				$log[] = '✗ Giriş isteği başarısız — URL erişilemiyor veya HTTP hatası';
+				$ok = false;
+			}
+		} else {
+			$log[] = 'ℹ Giriş bilgisi girilmemiş — anonim erişim';
+		}
+
+		// URL discovery
+		$log[] = 'Ürün URL keşfi başlıyor (' . ( $source['discovery'] === 'crawl' ? 'Crawl' : 'Sitemap' ) . ' modu)…';
+		$urls = WC_PSS_Scraper::discover_urls( $source, $client );
+
+		if ( empty( $urls ) ) {
+			$log[] = '✗ Ürün URL\'i bulunamadı.';
+			if ( ( $source['discovery'] ?? 'sitemap' ) !== 'crawl' ) {
+				$log[] = '  Denendi: /product-sitemap.xml, /wp-sitemap.xml, /wp-sitemap-posts-product-*.xml, /sitemap_index.xml';
+				$log[] = '  → Çözüm: Kaynak ayarlarında keşif yöntemini "Sayfa Crawl" seçin.';
+				$log[] = '  → Crawl URL: Giriş yaptıktan sonra ürünlerin listelendiği sayfa.';
+				$log[] = '  → URL Deseni: URL\'de geçen ürün tanımlayıcı (ör. /urun/, /product/).';
+			} else {
+				$log[] = '  Crawl başlangıç URL: ' . ( $source['crawl_url'] ?: '(girilmemiş)' );
+				$log[] = '  URL deseni: ' . ( $source['url_pattern'] ?: '(girilmemiş)' );
+				$log[] = '  → Crawl URL\'nin doğru olduğundan ve giriş gerektiren bir sayfaysa oturumun açıldığından emin olun.';
+			}
+			$ok = false;
+		} else {
+			$log[] = '✓ ' . count( $urls ) . ' ürün URL\'i bulundu.';
+			$log[] = '  İlk 3: ' . implode( ' | ', array_slice( $urls, 0, 3 ) );
+
+			// Try parsing first product
+			$first = $urls[0];
+			$log[] = 'İlk ürün parse ediliyor: ' . $first;
+			try {
+				$data = WC_PSS_Scraper::scrape_product( $first, $source, $client );
+				if ( $data ) {
+					$log[] = '✓ Parse başarılı';
+					$log[] = '  SKU: '   . ( $data['sku']           ?: '(boş — SKU bulunamadı)' );
+					$log[] = '  Ad: '    . ( $data['name']          ?: '(boş)' );
+					$log[] = '  Fiyat: ' . ( $data['regular_price'] ?: '(boş)' );
+					$log[] = '  Stok: '  . ( $data['stock_status']  ?: '(boş)' );
+				} else {
+					$log[] = '✗ İlk ürün sayfası parse edilemedi (HTTP hatası veya URL erişilemiyor).';
+					$ok    = false;
+				}
+			} catch ( \Throwable $e ) {
+				$log[] = '✗ Parse hatası: ' . $e->getMessage();
+				$ok    = false;
+			}
+		}
+
+		wp_send_json_success( [ 'log' => $log, 'ok' => $ok ] );
 	}
 
 	// ----------------------------------------------------------------
