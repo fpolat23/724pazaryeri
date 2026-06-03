@@ -228,6 +228,7 @@ class WC_XML_Exporter {
 		$this->add_text( $dom, $el, 'reviews_allowed',   $product->get_reviews_allowed() ? '1' : '0' );
 		$this->add_text( $dom, $el, 'menu_order',        $product->get_menu_order() );
 		$this->add_text( $dom, $el, 'shipping_class',    $product->get_shipping_class() );
+		$this->add_text( $dom, $el, 'currency',          $this->get_product_currency( $product ) );
 
 		$post        = get_post( $product->get_id() );
 		$author_user = $post ? get_user_by( 'id', (int) $post->post_author ) : null;
@@ -378,6 +379,7 @@ class WC_XML_Exporter {
 			$this->add_text( $dom, $var, 'menu_order',     $variation->get_menu_order() );
 			$this->add_text( $dom, $var, 'virtual',        $variation->get_virtual()      ? '1' : '0' );
 			$this->add_text( $dom, $var, 'downloadable',   $variation->get_downloadable() ? '1' : '0' );
+			$this->add_text( $dom, $var, 'currency',       $this->get_product_currency( $variation ) );
 			$this->add_text( $dom, $var, 'description',    $variation->get_description() );
 			$this->add_text( $dom, $var, 'status',         $variation->get_status() );
 
@@ -469,6 +471,27 @@ class WC_XML_Exporter {
 			$this->add_text( $dom, $m, 'value', (string) $data['value'] );
 			$meta_el->appendChild( $m );
 		}
+	}
+
+	/**
+	 * Ürüne ait para birimini döner. Yaygın multi-currency plugin meta anahtarlarını dener,
+	 * bulamazsa mağaza varsayılanını kullanır.
+	 */
+	private function get_product_currency( WC_Product $product ): string {
+		$keys = [
+			'_currency',          // Generic / custom
+			'_product_currency',  // WooCommerce Currency Switcher (WOOCS)
+			'_wmc_price_currency', // VillaTheme Multi-Currency
+			'_wc_price_currency', // Aelia / WC Currency Converter
+			'_wcfm_product_currency', // WCFM Marketplace
+		];
+		foreach ( $keys as $key ) {
+			$val = $product->get_meta( $key );
+			if ( $val && is_string( $val ) && strlen( $val ) >= 2 && strlen( $val ) <= 5 ) {
+				return strtoupper( $val );
+			}
+		}
+		return (string) get_option( 'woocommerce_currency', 'TRY' );
 	}
 
 	private function add_text( DOMDocument $dom, DOMElement $parent, string $tag, $value ): void {

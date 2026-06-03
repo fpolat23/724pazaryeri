@@ -193,6 +193,7 @@ class WC_XML_Importer {
 			$product->save();
 
 			$this->set_meta( $product->get_id(), $node );
+			$this->set_currency( $product->get_id(), $node );
 			$this->set_author( $product->get_id(), $node );
 
 			if ( $type === 'variable' ) {
@@ -542,6 +543,7 @@ class WC_XML_Importer {
 				}
 
 				// Varyasyon öznitelikleri
+				// Para birimi — variation kaydedildikten sonra işlenir
 				$var_attrs = [];
 				foreach ( $var_node->getElementsByTagName( 'attributes' ) as $vatts_el ) {
 					foreach ( $vatts_el->getElementsByTagName( 'attribute' ) as $att_node ) {
@@ -567,7 +569,36 @@ class WC_XML_Importer {
 				}
 
 				$variation->save();
+
+				// Para birimi — kayıt sonrası set_currency ile aynı mantık
+				$this->set_currency( $variation->get_id(), $var_node );
 			}
+		}
+	}
+
+	private function set_currency( int $product_id, DOMElement $node ): void {
+		$currency = trim( $this->get_text( $node, 'currency' ) );
+		if ( ! $currency || strlen( $currency ) > 5 ) return;
+		$currency = strtoupper( $currency );
+
+		// Hedef sitede hangi multi-currency plugin'i aktifse onun meta anahtarına yaz.
+		// Mevcut olan anahtarları güncelle; hiç yoksa ve mağaza dövizinden farklıysa generic key'i oluştur.
+		$keys = [
+			'_currency',
+			'_product_currency',
+			'_wmc_price_currency',
+			'_wc_price_currency',
+			'_wcfm_product_currency',
+		];
+		$wrote = false;
+		foreach ( $keys as $key ) {
+			if ( metadata_exists( 'post', $product_id, $key ) ) {
+				update_post_meta( $product_id, $key, $currency );
+				$wrote = true;
+			}
+		}
+		if ( ! $wrote && $currency !== (string) get_option( 'woocommerce_currency', 'TRY' ) ) {
+			update_post_meta( $product_id, '_currency', $currency );
 		}
 	}
 
