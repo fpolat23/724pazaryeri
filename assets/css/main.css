@@ -1833,6 +1833,10 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-variants{display:flex!important;flex-wrap:wrap;gap:8px;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-color{display:inline-block!important;width:42px!important;height:42px!important;}
   .pazaryeri-wrap .hb-right-col .hb-info .hb-var{display:inline-flex!important;min-height:42px;padding:10px 16px;}
+  /* Varyant kapsayıcı: mobilde yükseklik sınırı yok, tümü görünür ve seçilebilir */
+  .pazaryeri-wrap .hb-attrs-outer{max-height:none!important;overflow:visible!important;}
+  .pazaryeri-wrap .hb-attrs-fade{display:none!important;}
+  .pazaryeri-wrap .hb-attrs-more{display:none!important;}
 }
 
 /* ═══ SON GEZİLEN ÜRÜNLER ═══ */
