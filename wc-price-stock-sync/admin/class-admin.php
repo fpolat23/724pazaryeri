@@ -647,11 +647,37 @@ class WC_PSS_Admin {
 							}
 						}
 						// Search for Turkish Lira price patterns (e.g. 125,00 or ₺125)
-						if ( preg_match_all( '/[\d]{1,6}[.,]\d{2}\s*(?:TL|₺)|(?:TL|₺)\s*[\d]{1,6}[.,]\d{2}/u', $html, $pm ) ) {
-							$prices_found = array_unique( array_slice( $pm[0], 0, 5 ) );
+						if ( preg_match_all( '/([\d]{1,6}[.,]\d{2})\s*(?:TL|₺)|(?:TL|₺)\s*([\d]{1,6}[.,]\d{2})/u', $html, $pm, PREG_OFFSET_CAPTURE ) ) {
+							$prices_found = [];
+							foreach ( $pm[0] as $match ) {
+								$prices_found[] = trim( $match[0] );
+							}
+							$prices_found = array_unique( array_slice( $prices_found, 0, 5 ) );
 							$log[] = '  --- Sayfada bulunan fiyat desenleri ---';
 							$log[] = '  ' . implode( ' | ', $prices_found );
-							$log[] = '  ⚠ Fiyatlar sayfada var ama scraper bulamadı. Sayfa kaynağında bu değerlerin etrafındaki HTML\'i inceleyip CSS seçici girin.';
+							// Show HTML context around the first found price
+							$first_price_raw = $pm[0][0][0];
+							$first_offset    = $pm[0][0][1];
+							$ctx_start = max( 0, $first_offset - 300 );
+							$ctx       = substr( $html, $ctx_start, 700 );
+							// Extract tag/class surrounding the price
+							if ( preg_match_all( '/<([a-z][a-z0-9]*)[^>]*class=["\']([^"\']+)["\'][^>]*>(?:[^<]{0,80}' . preg_quote( trim( $first_price_raw ), '/' ) . '|[^<]{0,80})<\/\1>/i', $ctx, $tag_m ) ) {
+								$log[] = '  --- İlk fiyat değerini içeren elementler ---';
+								$shown_tags = [];
+								foreach ( $tag_m[0] as $i => $tag_html ) {
+									$cls = $tag_m[2][ $i ];
+									if ( in_array( $cls, $shown_tags, true ) ) continue;
+									$shown_tags[] = $cls;
+									$tag = $tag_m[1][ $i ];
+									$log[] = '  <' . $tag . ' class="' . $cls . '"> → CSS seçici: ' . $tag . '.' . str_replace( ' ', '.', trim( $cls ) );
+								}
+							}
+							if ( empty( $shown_tags ?? [] ) ) {
+								// Fallback: show raw context stripped
+								$stripped = mb_substr( preg_replace( '/\s+/', ' ', strip_tags( $ctx ) ), 0, 300 );
+								$log[] = '  Ham bağlam (strip_tags): ' . $stripped;
+							}
+							$log[] = '  → "Gelişmiş CSS Seçicileri" bölümüne "Fiyat Seçici" olarak üstteki seçiciyi girin.';
 						} else {
 							$log[] = '  ⚠ Sayfada TL/₺ formatında fiyat bulunamadı — fiyatlar JavaScript ile yükleniyor olabilir.';
 							$log[] = '  Tarayıcıda F12 → Network sekmesini açıp sayfayı yenileyin. XHR/Fetch isteklerinde fiyat döndüren API endpoint\'ini arayın.';

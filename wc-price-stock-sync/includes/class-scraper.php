@@ -393,7 +393,7 @@ class WC_PSS_Scraper {
 
 	public static function parse_price( string $price ): string {
 		$price = trim( strip_tags( $price ) );
-		$price = preg_replace( '/[^\d.,]/', '', $price );
+		$price = preg_replace( '/[^\d.,]/', '', $price );  // strip TL ₺ etc.
 		if ( $price === '' ) return '';
 
 		if ( str_contains( $price, '.' ) && str_contains( $price, ',' ) ) {
