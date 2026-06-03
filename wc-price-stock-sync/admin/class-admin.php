@@ -392,7 +392,7 @@ class WC_PSS_Admin {
 
 		$raw = $_POST;
 		$data = [
-			'id'          => sanitize_key( $raw['id'] ?? '' ),
+			'id'          => preg_replace( '/[^a-zA-Z0-9_-]/', '', $raw['id'] ?? '' ),
 			'name'        => sanitize_text_field( $raw['name'] ?? '' ),
 			'base_url'    => esc_url_raw( $raw['base_url'] ?? '' ),
 			'login_url'   => esc_url_raw( $raw['login_url'] ?? '' ),
@@ -443,7 +443,7 @@ class WC_PSS_Admin {
 	public static function ajax_delete_source(): void {
 		check_ajax_referer( 'wc_pss', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [], 403 );
-		$id = sanitize_key( $_POST['id'] ?? '' );
+		$id = preg_replace( '/[^a-zA-Z0-9_-]/', '', $_POST['id'] ?? '' );
 		if ( ! $id ) wp_send_json_error( [ 'message' => 'ID gerekli.' ] );
 		WC_PSS_Source_Manager::delete( $id );
 		wp_send_json_success();
@@ -457,7 +457,7 @@ class WC_PSS_Admin {
 		check_ajax_referer( 'wc_pss', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( [ 'message' => 'Yetkiniz yok.' ], 403 );
 
-		$source_id = sanitize_key( $_POST['source_id'] ?? '' );
+		$source_id = preg_replace( '/[^a-zA-Z0-9_-]/', '', $_POST['source_id'] ?? '' );
 		if ( ! $source_id || ! WC_PSS_Source_Manager::get( $source_id ) ) {
 			wp_send_json_error( [ 'message' => 'Geçerli bir kaynak seçin.' ] );
 		}

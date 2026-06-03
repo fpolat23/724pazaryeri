@@ -10,25 +10,26 @@ class WC_PSS_Source_Manager {
 	}
 
 	public static function get( string $id ): ?array {
+		$id = strtolower( $id );
 		foreach ( self::all() as $src ) {
-			if ( ( $src['id'] ?? '' ) === $id ) return $src;
+			if ( strtolower( $src['id'] ?? '' ) === $id ) return $src;
 		}
 		return null;
 	}
 
 	public static function save( array $data ): string {
 		$sources = self::all();
-		$id = $data['id'] ?? '';
+		$id      = strtolower( $data['id'] ?? '' );
 
 		if ( $id ) {
 			foreach ( $sources as &$src ) {
-				if ( $src['id'] === $id ) { $src = array_merge( $src, $data ); break; }
+				if ( strtolower( $src['id'] ?? '' ) === $id ) { $src = array_merge( $src, $data ); break; }
 			}
 			unset( $src );
 		} else {
-			$id = 'src_' . wp_generate_password( 8, false );
+			$id         = 'src_' . strtolower( wp_generate_password( 8, false ) );
 			$data['id'] = $id;
-			$sources[] = $data;
+			$sources[]  = $data;
 		}
 
 		update_option( self::OPTION, $sources, false );
