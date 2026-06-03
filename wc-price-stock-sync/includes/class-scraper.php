@@ -3,6 +3,9 @@ defined( 'ABSPATH' ) || exit;
 
 class WC_PSS_Scraper {
 
+	/** Populated by crawl_urls() for test diagnostics. */
+	public static array $crawl_debug = [];
+
 	// ----------------------------------------------------------------
 	// URL Discovery
 	// ----------------------------------------------------------------
@@ -81,14 +84,12 @@ class WC_PSS_Scraper {
 	private static function crawl_urls( array $source, WC_PSS_Http_Client $client ): array {
 		$base    = rtrim( $source['base_url'], '/' );
 		$start   = $source['crawl_url'] ?: $base;
-		// Support comma-separated patterns; take only the first clean token as the primary pattern
+		// Support comma-separated patterns; filter out full URLs and specific pages (ending in a number)
 		$raw_patterns = array_filter( array_map( 'trim', explode( ',', $source['url_pattern'] ?: '/urun/' ) ) );
-		// Keep only short path-like patterns (ignore anything that looks like a full URL or category ID)
-		$patterns = [];
+		$patterns     = [];
 		foreach ( $raw_patterns as $p ) {
-			// Drop entries that are full URLs or look like /segment/NNN (category IDs, not patterns)
-			if ( filter_var( $p, FILTER_VALIDATE_URL ) ) continue;
-			if ( preg_match( '#^/[^/]+/\d+$#', $p ) ) continue;
+			if ( filter_var( $p, FILTER_VALIDATE_URL ) ) continue; // drop full URLs
+			if ( preg_match( '/\d+\/?$/', $p ) )         continue; // drop /path/NNN (specific page IDs)
 			$patterns[] = $p;
 		}
 		if ( empty( $patterns ) ) $patterns = [ '/urun/' ];
@@ -97,7 +98,8 @@ class WC_PSS_Scraper {
 		$queue   = [ $start ];
 
 		// Path prefix of the crawl URL — sub-paths are treated as listing/category pages
-		$crawl_path = rtrim( wp_parse_url( $start, PHP_URL_PATH ) ?? '', '/' );
+		$crawl_path      = rtrim( wp_parse_url( $start, PHP_URL_PATH ) ?? '', '/' );
+		self::$crawl_debug = [ 'patterns' => $patterns, 'crawl_path' => $crawl_path, 'pages' => [] ];
 
 		while ( ! empty( $queue ) && count( $urls ) < 60000 ) {
 			$page_url = array_shift( $queue );
@@ -107,6 +109,7 @@ class WC_PSS_Scraper {
 			$visited[] = $page_url;
 
 			$html = $client->get( $page_url );
+			self::$crawl_debug['pages'][] = $page_url . ' → ' . ( $html ? mb_strlen( $html ) . ' bytes' : 'NULL (erişim başarısız)' );
 			if ( ! $html ) continue;
 
 			preg_match_all( '/href=["\']([^"\'#]+)["\']/i', $html, $hrefs );

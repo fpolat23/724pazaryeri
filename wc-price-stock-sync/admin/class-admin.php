@@ -604,36 +604,24 @@ class WC_PSS_Admin {
 		// URL discovery
 		$log[] = 'Ürün URL keşfi başlıyor (' . ( $source['discovery'] === 'crawl' ? 'Crawl' : 'Sitemap' ) . ' modu)…';
 
-		// Crawl diagnostic: fetch start page and show what pagination links exist
-		if ( ( $source['discovery'] ?? 'sitemap' ) === 'crawl' && ! empty( $source['crawl_url'] ) ) {
-			$crawl_html = $client->get( $source['crawl_url'] );
-			if ( $crawl_html ) {
-				preg_match_all( '/href=["\']([^"\']+)["\']/', $crawl_html, $all_hrefs );
-				$page_links = [];
-				foreach ( $all_hrefs[1] as $h ) {
-					if ( preg_match( '/(?:page|sayfa|p=)\d+|\/\d+\/?$/', $h ) ) {
-						$page_links[] = html_entity_decode( trim( $h ) );
-					}
-				}
-				$page_links = array_unique( $page_links );
-				if ( $page_links ) {
-					$log[] = '  Sayfa linkleri bulundu: ' . implode( ' | ', array_slice( $page_links, 0, 5 ) );
-				} else {
-					$log[] = '  ⚠ Sayfa linki bulunamadı — site AJAX/JavaScript ile sayfalama yapıyor olabilir.';
-					// Show all unique href domains/paths for clues
-					$sample = [];
-					foreach ( array_unique( $all_hrefs[1] ) as $h ) {
-						$dec = html_entity_decode( trim( $h ) );
-						if ( str_contains( $dec, $source['base_url'] ) || str_starts_with( $dec, '/' ) ) {
-							$sample[] = $dec;
-						}
-					}
-					$log[] = '  Sayfadaki linklerin örneği: ' . implode( ' | ', array_slice( $sample, 0, 8 ) );
-				}
-			}
+		if ( ( $source['discovery'] ?? 'sitemap' ) === 'crawl' ) {
+			$log[] = '  Crawl URL: ' . ( $source['crawl_url'] ?: '(girilmemiş)' );
+			$log[] = '  URL deseni (ham): ' . ( $source['url_pattern'] ?: '(girilmemiş)' );
 		}
 
 		$urls = WC_PSS_Scraper::discover_urls( $source, $client );
+
+		// Show crawl diagnostics
+		$cd = WC_PSS_Scraper::$crawl_debug;
+		if ( ! empty( $cd['patterns'] ) ) {
+			$log[] = '  Aktif kalıplar: ' . implode( ', ', $cd['patterns'] );
+		}
+		if ( ! empty( $cd['pages'] ) ) {
+			$log[] = '  Ziyaret edilen sayfalar (' . count( $cd['pages'] ) . '):';
+			foreach ( array_slice( $cd['pages'], 0, 10 ) as $dp ) {
+				$log[] = '    ' . $dp;
+			}
+		}
 
 		if ( empty( $urls ) ) {
 			$log[] = '✗ Ürün URL\'i bulunamadı.';
@@ -643,9 +631,8 @@ class WC_PSS_Admin {
 				$log[] = '  → Crawl URL: Giriş yaptıktan sonra ürünlerin listelendiği sayfa.';
 				$log[] = '  → URL Deseni: URL\'de geçen ürün tanımlayıcı (ör. /urun/, /product/).';
 			} else {
-				$log[] = '  Crawl başlangıç URL: ' . ( $source['crawl_url'] ?: '(girilmemiş)' );
-				$log[] = '  URL deseni: ' . ( $source['url_pattern'] ?: '(girilmemiş)' );
-				$log[] = '  → Crawl URL\'nin doğru olduğundan ve giriş gerektiren bir sayfaysa oturumun açıldığından emin olun.';
+				$log[] = '  → Crawl URL\'nin doğru olduğundan ve URL deseninin ürün sayfalarını yakaladığından emin olun.';
+				$log[] = '  → Örnek doğru URL deseni: /urunler/detay/ (tek kalıp, sonda slash)';
 			}
 			$ok = false;
 		} else {
