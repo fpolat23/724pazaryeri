@@ -162,6 +162,36 @@ class WC_PSS_Admin {
 					</table>
 				</details>
 
+				<div class="wc-pss-rules-section">
+					<h3>Fiyat Artış Kuralları <span class="description" style="font-size:13px;font-weight:400">(isteğe bağlı)</span></h3>
+					<p class="description">Kaynak sitedeki fiyat aralığına göre % artış uygula. Aynı oran indirimli fiyata da uygulanır. Boş bırakılırsa fiyatlar olduğu gibi aktarılır.</p>
+					<table class="wc-pss-rules-table">
+						<thead>
+							<tr>
+								<th>Min Fiyat (₺)</th>
+								<th>Max Fiyat (₺)</th>
+								<th>Artış (%)</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody id="pss-rules-body">
+						<?php
+						$existing_rules = $edit_src['price_rules'] ?? [];
+						foreach ( $existing_rules as $ri => $rule ) :
+						?>
+						<tr>
+							<td><input type="number" name="price_rules[<?php echo $ri; ?>][min]" value="<?php echo esc_attr( $rule['min'] ?? '0' ); ?>" min="0" step="0.01" class="small-text" placeholder="0"></td>
+							<td><input type="number" name="price_rules[<?php echo $ri; ?>][max]" value="<?php echo esc_attr( $rule['max'] ?? '' ); ?>" min="0" step="0.01" class="small-text" placeholder="∞"></td>
+							<td><input type="number" name="price_rules[<?php echo $ri; ?>][pct]" value="<?php echo esc_attr( $rule['pct'] ?? '' ); ?>" min="-100" max="10000" step="0.1" class="small-text"> %</td>
+							<td><button type="button" class="button button-small js-remove-rule">✕</button></td>
+						</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+					<button type="button" id="add-price-rule" class="button" style="margin-top:8px;">+ Kural Ekle</button>
+					<p class="description" style="margin-top:6px;">Max fiyat boş = üst sınır yok. Kurallar yukarıdan aşağıya kontrol edilir, ilk eşleşen uygulanır.</p>
+				</div>
+
 				<p class="submit">
 					<button type="submit" class="button button-primary button-large">💾 Kaydet</button>
 					<a href="<?php echo esc_url( add_query_arg( 'tab', 'sources', menu_page_url( 'wc-pss', false ) ) ); ?>" class="button">İptal</a>
@@ -387,10 +417,24 @@ class WC_PSS_Admin {
 		if ( $password !== '' ) {
 			$data['password_enc'] = WC_PSS_Source_Manager::encrypt( $password );
 		} elseif ( $data['id'] ) {
-			// Keep existing encrypted password
 			$existing = WC_PSS_Source_Manager::get( $data['id'] );
 			if ( $existing ) $data['password_enc'] = $existing['password_enc'] ?? '';
 		}
+
+		// Handle price rules
+		$price_rules = [];
+		if ( ! empty( $raw['price_rules'] ) && is_array( $raw['price_rules'] ) ) {
+			foreach ( $raw['price_rules'] as $rule ) {
+				$pct = (float) ( $rule['pct'] ?? 0 );
+				if ( $pct == 0 ) continue;
+				$price_rules[] = [
+					'min' => max( 0, (float) ( $rule['min'] ?? 0 ) ),
+					'max' => ( isset( $rule['max'] ) && $rule['max'] !== '' ) ? (float) $rule['max'] : '',
+					'pct' => $pct,
+				];
+			}
+		}
+		$data['price_rules'] = $price_rules;
 
 		$id = WC_PSS_Source_Manager::save( $data );
 		wp_send_json_success( [ 'id' => $id ] );
@@ -418,10 +462,12 @@ class WC_PSS_Admin {
 			wp_send_json_error( [ 'message' => 'Geçerli bir kaynak seçin.' ] );
 		}
 
+		$source  = WC_PSS_Source_Manager::get( $source_id );
 		$options = [
 			'update_prices' => ! empty( $_POST['update_prices'] ),
 			'update_stock'  => ! empty( $_POST['update_stock'] ),
 			'match_by_name' => ! empty( $_POST['match_by_name'] ),
+			'price_rules'   => $source['price_rules'] ?? [],
 		];
 
 		try {

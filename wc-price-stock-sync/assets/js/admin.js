@@ -20,7 +20,9 @@
 		$spin.addClass('is-active');
 		$msg.text('').removeClass('success error');
 
-		$.post(wcPss.ajaxUrl, $.extend({ action: 'wc_pss_save_source', nonce: wcPss.nonce }, formToObj($form)))
+		// serialize() properly encodes price_rules[N][min] etc. as PHP-parseable arrays
+		var data = $form.serialize() + '&action=wc_pss_save_source&nonce=' + encodeURIComponent(wcPss.nonce);
+		$.post(wcPss.ajaxUrl, data)
 		.done(function (res) {
 			if (res && res.success) {
 				$msg.addClass('success').text('Kaynak kaydedildi.');
@@ -42,6 +44,25 @@
 	// Discovery method toggle
 	$('input[name="discovery"]').on('change', function () {
 		$('.wc-pss-crawl-row').toggle($(this).val() === 'crawl');
+	});
+
+	// Price rules: add row
+	var ruleIdx = $('#pss-rules-body tr').length;
+	$('#add-price-rule').on('click', function () {
+		var i = ruleIdx++;
+		$('#pss-rules-body').append(
+			'<tr>' +
+			'<td><input type="number" name="price_rules[' + i + '][min]" min="0" step="0.01" class="small-text" placeholder="0"></td>' +
+			'<td><input type="number" name="price_rules[' + i + '][max]" min="0" step="0.01" class="small-text" placeholder="∞"></td>' +
+			'<td><input type="number" name="price_rules[' + i + '][pct]" min="-100" max="10000" step="0.1" class="small-text" placeholder="20"> %</td>' +
+			'<td><button type="button" class="button button-small js-remove-rule">✕</button></td>' +
+			'</tr>'
+		);
+	});
+
+	// Price rules: remove row
+	$(document).on('click', '.js-remove-rule', function () {
+		$(this).closest('tr').remove();
 	});
 
 	// Delete source

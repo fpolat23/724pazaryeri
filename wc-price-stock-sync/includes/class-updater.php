@@ -3,14 +3,34 @@ defined( 'ABSPATH' ) || exit;
 
 class WC_PSS_Updater {
 
-	private bool $update_prices;
-	private bool $update_stock;
-	private bool $match_by_name;
+	private bool  $update_prices;
+	private bool  $update_stock;
+	private bool  $match_by_name;
+	private array $price_rules;
 
 	public function __construct( array $options = [] ) {
-		$this->update_prices = (bool) ( $options['update_prices'] ?? true );
-		$this->update_stock  = (bool) ( $options['update_stock']  ?? true );
-		$this->match_by_name = (bool) ( $options['match_by_name'] ?? false );
+		$this->update_prices = (bool)  ( $options['update_prices'] ?? true );
+		$this->update_stock  = (bool)  ( $options['update_stock']  ?? true );
+		$this->match_by_name = (bool)  ( $options['match_by_name'] ?? false );
+		$this->price_rules   = (array) ( $options['price_rules']   ?? [] );
+	}
+
+	/**
+	 * Apply percentage markup based on configured price ranges.
+	 * Range check: min <= price < max (max empty = no upper limit).
+	 * Same ratio applied to both regular and sale prices so discount is preserved.
+	 */
+	private function apply_markup( float $price ): float {
+		if ( empty( $this->price_rules ) || $price <= 0 ) return $price;
+		foreach ( $this->price_rules as $rule ) {
+			$min = (float) ( $rule['min'] ?? 0 );
+			$max = ( isset( $rule['max'] ) && $rule['max'] !== '' ) ? (float) $rule['max'] : PHP_FLOAT_MAX;
+			if ( $price >= $min && $price < $max ) {
+				$pct = (float) ( $rule['pct'] ?? 0 );
+				return round( $price * ( 1 + $pct / 100 ), 2 );
+			}
+		}
+		return $price;
 	}
 
 	/**
@@ -41,12 +61,12 @@ class WC_PSS_Updater {
 		if ( $this->update_prices ) {
 			$reg = WC_PSS_Scraper::parse_price( $row['regular_price'] ?? '' );
 			if ( $reg !== '' ) {
-				$product->set_regular_price( wc_format_decimal( $reg ) );
+				$product->set_regular_price( wc_format_decimal( $this->apply_markup( (float) $reg ) ) );
 				$changed = true;
 			}
 			if ( array_key_exists( 'sale_price', $row ) ) {
 				$sale = WC_PSS_Scraper::parse_price( $row['sale_price'] ?? '' );
-				$product->set_sale_price( $sale !== '' ? wc_format_decimal( $sale ) : '' );
+				$product->set_sale_price( $sale !== '' ? wc_format_decimal( $this->apply_markup( (float) $sale ) ) : '' );
 				$changed = true;
 			}
 		}

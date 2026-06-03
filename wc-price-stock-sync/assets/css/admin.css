@@ -99,3 +99,25 @@
 #pss-source-msg { margin-top: 8px; }
 #pss-source-msg.success { color: #155724; }
 #pss-source-msg.error   { color: #dc3232; }
+
+/* Price rules section */
+.wc-pss-rules-section {
+	margin-top: 20px;
+	padding-top: 18px;
+	border-top: 1px solid #eee;
+}
+.wc-pss-rules-section h3 { margin: 0 0 6px; font-size: 14px; }
+
+.wc-pss-rules-table {
+	border-collapse: collapse;
+	margin-top: 10px;
+}
+.wc-pss-rules-table th,
+.wc-pss-rules-table td {
+	padding: 5px 8px;
+	text-align: left;
+	font-size: 13px;
+}
+.wc-pss-rules-table th { color: #555; font-weight: 600; border-bottom: 1px solid #ddd; }
+.wc-pss-rules-table td input.small-text { width: 90px; }
+.wc-pss-rules-table tbody tr:hover { background: #f9f9f9; }
