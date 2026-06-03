@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.122' );
+define( 'PAZARYERI_VERSION', '9.9.123' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -989,7 +989,7 @@ add_action( 'wp_ajax_nopriv_pz_get_comp_attrs', 'pz_get_comp_attrs_handler' );
 /* ──────────────────────────────────────────────
    Canlı Arama: ürün, kategori, marka AJAX
    Türkçe karakter normalizasyonu, doğrudan SQL,
-   SKU + başlık eşleşmesi, 5 dk transient önbellek.
+   SKU + başlık eşleşmesi.
    Nonce kontrolü yok — okuma-only, herkese açık.
 ────────────────────────────────────────────── */
 function pz_normalize_tr( $str ) {
@@ -1001,25 +1001,15 @@ function pz_normalize_tr( $str ) {
 }
 
 function pz_ai_search_handler() {
-    // Okuma-only endpoint: nonce zorunlu değil (public ürün verisi)
     $q = sanitize_text_field( wp_unslash( $_POST['q'] ?? '' ) );
     $q = trim( $q );
-
     if ( mb_strlen( $q ) < 2 ) {
         wp_send_json_success( array( 'products' => array(), 'categories' => array(), 'brands' => array() ) );
     }
 
-    // Önbellek — aynı sorgu 5 dk içinde tekrar gelirse anında yanıt
-    $cache_key = 'pzs_' . md5( mb_strtolower( $q, 'UTF-8' ) );
-    $cached    = get_transient( $cache_key );
-    if ( false !== $cached ) {
-        wp_send_json_success( $cached );
-    }
-
     global $wpdb;
-    $result   = array( 'products' => array(), 'categories' => array(), 'brands' => array() );
-    $like_raw = '%' . $wpdb->esc_like( $q ) . '%';
-    $q_norm   = pz_normalize_tr( $q );
+    $result = array( 'products' => array(), 'categories' => array(), 'brands' => array() );
+    $like   = '%' . $wpdb->esc_like( $q ) . '%';
 
     /* ── 1. KATEGORİLER ── */
     $cats = get_terms( array(
@@ -1037,7 +1027,7 @@ function pz_ai_search_handler() {
         }
     }
 
-    /* ── 2. MARKALAR (product_brand veya pa_marka taksonomisi) ── */
+    /* ── 2. MARKALAR ── */
     foreach ( array( 'product_brand', 'pa_marka', 'pa_brand' ) as $brand_tax ) {
         if ( ! taxonomy_exists( $brand_tax ) ) continue;
         $brands = get_terms( array( 'taxonomy' => $brand_tax, 'hide_empty' => true, 'search' => $q, 'number' => 3 ) );
@@ -1049,77 +1039,81 @@ function pz_ai_search_handler() {
         break;
     }
 
-    /* ── 3. ÜRÜNLER: doğrudan SQL ile başlık LIKE araması ── */
+    /* ── 3. BAŞLIK araması ── */
     $title_ids = $wpdb->get_col( $wpdb->prepare(
         "SELECT ID FROM {$wpdb->posts}
-         WHERE post_type = 'product' AND post_status = 'publish'
-           AND post_title LIKE %s
+         WHERE post_type = 'product' AND post_status = 'publish' AND post_title LIKE %s
          ORDER BY CASE WHEN post_title LIKE %s THEN 0 ELSE 1 END, ID DESC
-         LIMIT 8",
-        $like_raw,
-        $wpdb->esc_like( $q ) . '%'
+         LIMIT 6",
+        $like, $wpdb->esc_like( $q ) . '%'
     ) );
 
-    /* ── 4. SKU araması: hem basit ürün hem varyasyon SKU'su ── */
-    $sku_rows = $wpdb->get_results( $wpdb->prepare(
-        "SELECT pm.post_id, p.post_type, p.post_parent
-         FROM {$wpdb->postmeta} pm
-         INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-         WHERE pm.meta_key = '_sku' AND pm.meta_value LIKE %s
-           AND p.post_type IN ('product','product_variation')
-         LIMIT 16",
-        $like_raw
+    /* ── 4a. SKU araması — basit ürünler ── */
+    $sku_simple = $wpdb->get_col( $wpdb->prepare(
+        "SELECT DISTINCT p.ID
+         FROM {$wpdb->posts} p
+         INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+         WHERE p.post_type = 'product' AND p.post_status = 'publish'
+           AND pm.meta_key = '_sku' AND pm.meta_value != '' AND pm.meta_value LIKE %s
+         LIMIT 6",
+        $like
     ) );
-    $sku_ids = array();
-    foreach ( (array) $sku_rows as $row ) {
-        if ( $row->post_type === 'product_variation' ) {
-            // Varyasyonun ana ürününü al
-            $parent = (int) $row->post_parent;
-            if ( $parent && get_post_status( $parent ) === 'publish' ) {
-                $sku_ids[] = $parent;
-            }
-        } elseif ( get_post_status( $row->post_id ) === 'publish' ) {
-            $sku_ids[] = (int) $row->post_id;
+
+    /* ── 4b. SKU araması — varyasyonlar (ana ürün ID'si döner) ── */
+    $sku_var_parents = $wpdb->get_col( $wpdb->prepare(
+        "SELECT DISTINCT p.post_parent
+         FROM {$wpdb->posts} p
+         INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+         WHERE p.post_type = 'product_variation' AND p.post_status = 'publish'
+           AND pm.meta_key = '_sku' AND pm.meta_value != '' AND pm.meta_value LIKE %s
+           AND p.post_parent > 0
+         LIMIT 6",
+        $like
+    ) );
+    $sku_variation = array();
+    foreach ( (array) $sku_var_parents as $pid ) {
+        if ( get_post_status( (int) $pid ) === 'publish' ) {
+            $sku_variation[] = (int) $pid;
         }
     }
-    $sku_ids = array_unique( $sku_ids );
 
-    /* ── 5. Türkçe normalize edilmiş başlık araması (ör. "gömlek" → "gomlek") ── */
+    /* ── 5. Türkçe normalize araması ── */
     $norm_ids = array();
+    $q_norm   = pz_normalize_tr( $q );
     if ( $q_norm !== mb_strtolower( $q, 'UTF-8' ) ) {
-        $like_norm = '%' . $wpdb->esc_like( $q_norm ) . '%';
-        $all_titles = $wpdb->get_results(
+        $rows = $wpdb->get_results(
             "SELECT ID, post_title FROM {$wpdb->posts}
-             WHERE post_type='product' AND post_status='publish'
-             LIMIT 2000"
+             WHERE post_type = 'product' AND post_status = 'publish' LIMIT 2000"
         );
-        foreach ( $all_titles as $row ) {
+        foreach ( (array) $rows as $row ) {
             if ( strpos( pz_normalize_tr( $row->post_title ), $q_norm ) !== false ) {
                 $norm_ids[] = (int) $row->ID;
             }
         }
     }
 
-    /* ── Sonuçları birleştir ve ürün bilgilerini doldur ── */
-    $all_ids   = array_unique( array_merge( (array) $title_ids, (array) $sku_ids, $norm_ids ) );
-    $all_ids   = array_slice( $all_ids, 0, 8 );
+    /* ── Birleştir ── */
+    $all_ids = array_unique( array_merge(
+        (array) $title_ids,
+        (array) $sku_simple,
+        $sku_variation,
+        $norm_ids
+    ) );
+    $all_ids = array_slice( array_filter( array_map( 'intval', $all_ids ) ), 0, 8 );
 
     foreach ( $all_ids as $pid ) {
-        $pid     = (int) $pid;
         $product = wc_get_product( $pid );
-        if ( ! $product ) continue;
-        $img = get_the_post_thumbnail_url( $pid, 'woocommerce_thumbnail' );
-        if ( ! $img ) $img = wc_placeholder_img_src();
+        if ( ! $product || $product->get_status() !== 'publish' ) continue;
+        $img = get_the_post_thumbnail_url( $pid, 'woocommerce_thumbnail' ) ?: wc_placeholder_img_src();
         $result['products'][] = array(
-            'title' => get_the_title( $pid ),
+            'title' => $product->get_name(),
             'url'   => get_permalink( $pid ),
-            'img'   => $img ?: '',
+            'img'   => $img,
             'price' => wp_strip_all_tags( $product->get_price_html() ),
             'sku'   => $product->get_sku(),
         );
     }
 
-    set_transient( $cache_key, $result, 5 * MINUTE_IN_SECONDS );
     wp_send_json_success( $result );
 }
 add_action( 'wp_ajax_pz_ai_search',        'pz_ai_search_handler' );
