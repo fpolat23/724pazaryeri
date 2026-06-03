@@ -762,6 +762,19 @@ function pzCopyLink(url){
     document.body.removeChild(ta);
   }
 }
+function pzCopySku(sku){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(sku).then(function(){
+      if(typeof showToast==='function')showToast('📋 SKU kopyalandı: '+sku);
+    });
+  } else {
+    var ta=document.createElement('textarea');
+    ta.value=sku;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');if(typeof showToast==='function')showToast('📋 SKU kopyalandı: '+sku);}catch(e){}
+    document.body.removeChild(ta);
+  }
+}
 /* ═══ HEPSIBURADA ÜRÜN DETAY GALERİ ═══ */
 /* eski hbSetImg kaldırıldı; yeni window.hbSetImg kullanılıyor */
 

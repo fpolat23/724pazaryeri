@@ -185,6 +185,16 @@ while ( have_posts() ) : the_post();
 
       <h1 class="hb-title"><?php the_title(); ?></h1>
 
+      <?php $pz_sku = $product->get_sku(); if ( $pz_sku ) : ?>
+      <div class="hb-sku-line">
+        <span class="hb-sku-lbl">SKU:</span>
+        <span class="hb-sku-val"><?php echo esc_html( $pz_sku ); ?></span>
+        <button class="hb-sku-copy" title="Kopyala" onclick="pzCopySku('<?php echo esc_js( $pz_sku ); ?>')">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <?php endif; ?>
+
       <div class="hb-rating-row">
         <?php $avg = $product->get_average_rating(); $count = $product->get_review_count(); ?>
         <span class="hb-stars"><?php echo str_repeat('★', round($avg)) . str_repeat('☆', 5 - round($avg)); ?></span>
@@ -679,6 +689,82 @@ while ( have_posts() ) : the_post();
           </button>
         </div>
       </div>
+
+      <!-- Kargo Seçenekleri -->
+      <div class="hb-cargo-opts">
+        <div class="hb-cargo-head">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Kargo Seçenekleri
+        </div>
+        <div class="hb-cargo-list">
+
+          <!-- Yurtiçi Kargo -->
+          <div class="hb-cargo-row">
+            <div class="hb-cargo-logo hb-cargo-yurtici">
+              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
+                <rect width="80" height="28" rx="4" fill="#E8001C"/>
+                <text x="40" y="19" font-family="Arial,sans-serif" font-size="9.5" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="0.3">YURTİÇİ KARGO</text>
+              </svg>
+            </div>
+            <div class="hb-cargo-info">
+              <span class="hb-cargo-name">Yurtiçi Kargo</span>
+              <span class="hb-cargo-days">1 – 3 İş Günü</span>
+            </div>
+            <span class="hb-cargo-badge hb-cargo-free">ÜCRETSİZ</span>
+          </div>
+
+          <!-- DHL Kargo -->
+          <div class="hb-cargo-row">
+            <div class="hb-cargo-logo hb-cargo-dhl">
+              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
+                <rect width="80" height="28" rx="4" fill="#FFCC00"/>
+                <text x="40" y="19.5" font-family="Arial,sans-serif" font-size="13" font-weight="900" fill="#D40511" text-anchor="middle" letter-spacing="1">DHL</text>
+              </svg>
+            </div>
+            <div class="hb-cargo-info">
+              <span class="hb-cargo-name">DHL Express</span>
+              <span class="hb-cargo-days">1 – 2 İş Günü</span>
+            </div>
+            <span class="hb-cargo-badge hb-cargo-fast">HIZLI</span>
+          </div>
+
+          <!-- Aras Kargo -->
+          <div class="hb-cargo-row">
+            <div class="hb-cargo-logo hb-cargo-aras">
+              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
+                <rect width="80" height="28" rx="4" fill="#003087"/>
+                <text x="40" y="19" font-family="Arial,sans-serif" font-size="9.5" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="0.5">ARAS KARGO</text>
+              </svg>
+            </div>
+            <div class="hb-cargo-info">
+              <span class="hb-cargo-name">Aras Kargo</span>
+              <span class="hb-cargo-days">1 – 3 İş Günü</span>
+            </div>
+            <span class="hb-cargo-badge hb-cargo-std">STANDART</span>
+          </div>
+
+          <!-- PTT Kargo -->
+          <div class="hb-cargo-row">
+            <div class="hb-cargo-logo hb-cargo-ptt">
+              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
+                <rect width="80" height="28" rx="4" fill="#FFD100"/>
+                <text x="40" y="19" font-family="Arial,sans-serif" font-size="10.5" font-weight="800" fill="#00539B" text-anchor="middle" letter-spacing="0.8">PTT KARGO</text>
+              </svg>
+            </div>
+            <div class="hb-cargo-info">
+              <span class="hb-cargo-name">PTT Kargo</span>
+              <span class="hb-cargo-days">2 – 4 İş Günü</span>
+            </div>
+            <span class="hb-cargo-badge hb-cargo-std">STANDART</span>
+          </div>
+
+        </div>
+        <div class="hb-cargo-note">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Teslimat süreleri, sipariş saatine ve adresinize göre değişebilir.
+        </div>
+      </div>
+
     </div>
 
   </div>
