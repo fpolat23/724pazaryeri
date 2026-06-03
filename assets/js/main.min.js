@@ -2010,13 +2010,21 @@ window.addEventListener('popstate', function(){
       if (e.key==='ArrowDown'){ e.preventDefault(); activeIndex=Math.min(activeIndex+1,items.length-1); updateActive(items); }
       else if (e.key==='ArrowUp'){ e.preventDefault(); activeIndex=Math.max(activeIndex-1,-1); updateActive(items); }
       else if (e.key==='Enter'){
-        if (activeIndex>=0 && items[activeIndex]){ e.preventDefault(); window.location.href=items[activeIndex].getAttribute('href'); }
-        else { addHistory(input.value.trim()); }
+        e.preventDefault();
+        if (activeIndex>=0 && items[activeIndex]){
+          window.location.href=items[activeIndex].getAttribute('href');
+        } else {
+          var q2=input.value.trim();
+          if (q2){ addHistory(q2); window.location.href=getHomeUrl()+'?s='+encodeURIComponent(q2)+'&post_type=product'; }
+        }
       }
       else if (e.key==='Escape'){ dd.classList.remove('pz-open'); input.blur(); }
     });
 
-    if (form.tagName==='FORM') form.addEventListener('submit', function(){ addHistory(input.value.trim()); });
+    /* Form submit (mobil) — History kaydet, sayfaya git */
+    if (form.tagName==='FORM') {
+      form.addEventListener('submit', function(){ addHistory(input.value.trim()); });
+    }
     document.addEventListener('click', function(e){ if (!form.contains(e.target)) dd.classList.remove('pz-open'); });
   }
 

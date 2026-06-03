@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.121' );
+define( 'PAZARYERI_VERSION', '9.9.122' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -1060,16 +1060,29 @@ function pz_ai_search_handler() {
         $wpdb->esc_like( $q ) . '%'
     ) );
 
-    /* ── 4. SKU araması (tam + kısmi) ── */
-    $sku_ids = $wpdb->get_col( $wpdb->prepare(
-        "SELECT DISTINCT pm.post_id
+    /* ── 4. SKU araması: hem basit ürün hem varyasyon SKU'su ── */
+    $sku_rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT pm.post_id, p.post_type, p.post_parent
          FROM {$wpdb->postmeta} pm
          INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
          WHERE pm.meta_key = '_sku' AND pm.meta_value LIKE %s
-           AND p.post_type = 'product' AND p.post_status = 'publish'
-         LIMIT 8",
+           AND p.post_type IN ('product','product_variation')
+         LIMIT 16",
         $like_raw
     ) );
+    $sku_ids = array();
+    foreach ( (array) $sku_rows as $row ) {
+        if ( $row->post_type === 'product_variation' ) {
+            // Varyasyonun ana ürününü al
+            $parent = (int) $row->post_parent;
+            if ( $parent && get_post_status( $parent ) === 'publish' ) {
+                $sku_ids[] = $parent;
+            }
+        } elseif ( get_post_status( $row->post_id ) === 'publish' ) {
+            $sku_ids[] = (int) $row->post_id;
+        }
+    }
+    $sku_ids = array_unique( $sku_ids );
 
     /* ── 5. Türkçe normalize edilmiş başlık araması (ör. "gömlek" → "gomlek") ── */
     $norm_ids = array();
