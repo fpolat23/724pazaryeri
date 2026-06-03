@@ -206,7 +206,20 @@ while ( have_posts() ) : the_post();
       <!-- Varyantlar -->
       <?php
         $attributes = $product->get_attributes();
-        $color_map  = array('siyah'=>'#1a1917','beyaz'=>'#f5f5f5','gri'=>'#888','kirmizi'=>'#c0392b','mavi'=>'#1a4fa0','yesil'=>'#1a7a4a','kahve'=>'#6b3f1a','bej'=>'#d4b896','sari'=>'#f5c518','pembe'=>'#e84393','mor'=>'#8e44ad','turuncu'=>'#ff6a00');
+        $color_map  = array(
+          'siyah'=>'#1a1917','beyaz'=>'#f5f5f5','gri'=>'#888','kirmizi'=>'#c0392b',
+          'mavi'=>'#1a4fa0','yesil'=>'#1a7a4a','kahve'=>'#6b3f1a','bej'=>'#d4b896',
+          'sari'=>'#f5c518','pembe'=>'#e84393','mor'=>'#8e44ad','turuncu'=>'#ff6a00',
+          'lacivert'=>'#001f5b','krem'=>'#f5edd6','ekru'=>'#f0e2c8','haki'=>'#6b6b3a',
+          'bordo'=>'#7d0a0a','antrasit'=>'#2c3035','vizon'=>'#9e7b65','lila'=>'#b07db5',
+          'fusya'=>'#e0006a','fuşya'=>'#e0006a','hardal'=>'#c8920a','nane'=>'#5ecb8b',
+          'mercan'=>'#e05c47','petrol'=>'#1a4a5c','indigo'=>'#3730a3','fildisi'=>'#f5f0e0',
+          'kiremit'=>'#bf4c3c','gumush'=>'#aab0b7','gümüş'=>'#aab0b7','altin'=>'#c9a84c',
+          'altın'=>'#c9a84c','acik-gri'=>'#c8c8c8','koyu-gri'=>'#555','acik-mavi'=>'#6fa8d6',
+          'koyu-mavi'=>'#0d2b6e','acik-yesil'=>'#7dc88b','koyu-yesil'=>'#1b5e20',
+          'somon'=>'#f4936b','buz-mavisi'=>'#b8d8e8','limon'=>'#f0e040','leylak'=>'#b39ddb',
+          'deve-tuyu'=>'#c19a6b','taba'=>'#b8876b','kot'=>'#3a5f80',
+        );
         // Variable ürün: gerçek varyasyon verisini hazırla (stok, fiyat, resim, attribute eşlemesi)
         $pz_variations = array();
         $pz_is_variable_prod = $product->is_type('variable');
