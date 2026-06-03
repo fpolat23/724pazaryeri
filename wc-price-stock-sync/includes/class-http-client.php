@@ -104,8 +104,19 @@ class WC_PSS_Http_Client {
 			}
 		}
 
-		$result = $this->post( $post_url, $fields );
-		return $result !== null;
+		// Build Referer / Origin from the login URL
+		$parsed = wp_parse_url( $login_url );
+		$origin  = ( $parsed['scheme'] ?? 'https' ) . '://' . ( $parsed['host'] ?? '' );
+
+		$result = $this->request( 'POST', $post_url, $fields, [
+			'Referer: ' . $login_url,
+			'Origin: '  . $origin,
+			'Sec-Fetch-Site: same-origin',
+			'Sec-Fetch-Mode: navigate',
+			'Sec-Fetch-Dest: document',
+			'Sec-Fetch-User: ?1',
+		] );
+		return $result['body'] !== null;
 	}
 
 	public function get( string $url ): ?string {
@@ -116,16 +127,23 @@ class WC_PSS_Http_Client {
 		return $this->request( 'POST', $url, $body )['body'];
 	}
 
-	/** Returns ['code' => int, 'url' => string, 'body' => ?string] */
+	/** Returns ['code' => int, 'url' => string, 'body' => ?string, 'error' => string] */
 	public function get_info( string $url ): array {
 		return $this->request( 'GET', $url );
 	}
 
-	private function request( string $method, string $url, array $post_body = [] ): array {
+	private function request( string $method, string $url, array $post_body = [], array $extra_headers = [] ): array {
 		if ( ! function_exists( 'curl_init' ) ) {
 			$body = $this->wp_request( $method, $url, $post_body );
-			return [ 'code' => $body !== null ? 200 : 0, 'url' => $url, 'body' => $body ];
+			return [ 'code' => $body !== null ? 200 : 0, 'url' => $url, 'body' => $body, 'error' => '' ];
 		}
+
+		$base_headers = [
+			'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+			'Accept-Language: tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+			'Upgrade-Insecure-Requests: 1',
+			'Cache-Control: max-age=0',
+		];
 
 		$ch = curl_init();
 		curl_setopt_array( $ch, [
@@ -139,9 +157,9 @@ class WC_PSS_Http_Client {
 			CURLOPT_SSL_VERIFYHOST => false,
 			CURLOPT_COOKIEFILE     => $this->cookie_file,
 			CURLOPT_COOKIEJAR      => $this->cookie_file,
-			CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124',
+			CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 			CURLOPT_ENCODING       => '',
-			CURLOPT_HTTPHEADER     => [ 'Accept-Language: tr-TR,tr;q=0.9,en;q=0.8' ],
+			CURLOPT_HTTPHEADER     => array_merge( $base_headers, $extra_headers ),
 		] );
 
 		if ( $method === 'POST' ) {
@@ -154,12 +172,13 @@ class WC_PSS_Http_Client {
 		$body     = curl_exec( $ch );
 		$code     = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
 		$eff_url  = (string) curl_getinfo( $ch, CURLINFO_EFFECTIVE_URL );
+		$error    = $body === false ? curl_error( $ch ) : '';
 		curl_close( $ch );
 
 		if ( $body === false || $code < 200 || $code >= 400 ) {
-			return [ 'code' => $code, 'url' => $eff_url, 'body' => null ];
+			return [ 'code' => $code, 'url' => $eff_url, 'body' => null, 'error' => $error ];
 		}
-		return [ 'code' => $code, 'url' => $eff_url, 'body' => $body ];
+		return [ 'code' => $code, 'url' => $eff_url, 'body' => $body, 'error' => '' ];
 	}
 
 	private function wp_request( string $method, string $url, array $post_body = [] ): ?string {

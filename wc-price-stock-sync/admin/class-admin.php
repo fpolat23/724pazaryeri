@@ -540,9 +540,28 @@ class WC_PSS_Admin {
 			$log[] = 'Giriş deneniyor: ' . $login_url;
 			$log[] = '  Kullanıcı alanı: "' . $user_field . '"  |  Şifre alanı: "' . $pass_field . '"';
 
-			// Inspect login page form (reuse what login() will fetch — avoid double fetch)
-			$login_page = $client->get( $login_url );
-			if ( $login_page ) {
+			// Inspect login page form — use get_info() to capture HTTP code on failure
+			$login_info = $client->get_info( $login_url );
+			$login_page = $login_info['body'];
+			if ( ! $login_page ) {
+				$code = $login_info['code'];
+				$err  = $login_info['error'] ?? '';
+				if ( $code === 0 ) {
+					$log[] = '✗ Giriş sayfasına bağlanılamıyor' . ( $err ? ' — ' . $err : ' — sunucu yanıt vermedi veya cURL hatası' );
+				} elseif ( $code === 403 ) {
+					$log[] = '✗ Giriş sayfası erişimi engellendi (HTTP 403)';
+					$log[] = '  → Site, sunucu IP adreslerini engelliyor olabilir (Cloudflare veya benzeri koruma).';
+					$log[] = '  → Bu durumda plugin bu siteden veri çekemez — site sahip ile iletişime geçin veya';
+					$log[] = '    sitenin API/XML ihracat özelliğini kullanın.';
+				} else {
+					$log[] = '✗ Giriş sayfası HTTP hatası: ' . $code . ( $err ? ' — ' . $err : '' );
+				}
+				// Check if the body (if any) mentions Cloudflare
+				if ( $login_info['body'] === null && $code > 0 ) {
+					// site returned an error code — likely bot protection
+				}
+				$ok = false;
+			} else {
 				$has_form = preg_match( '/<form[^>]+/i', $login_page );
 				if ( ! $has_form ) {
 					$log[] = '⚠ Giriş sayfasında HTML <form> bulunamadı — site JavaScript (AJAX) ile giriş yapıyor olabilir.';
@@ -572,11 +591,11 @@ class WC_PSS_Admin {
 			}
 
 			// Pass pre-fetched page to login so it doesn't fetch again
-			$login_ok = $client->login( $source, $login_page );
-			if ( ! $login_ok ) {
-				$log[] = '✗ Giriş isteği başarısız — URL erişilemiyor veya HTTP hatası';
+			$login_ok = $login_page && $client->login( $source, $login_page );
+			if ( ! $login_ok && $login_page ) {
+				$log[] = '✗ Giriş POST isteği başarısız — form action URL\'si veya kimlik bilgileri hatalı olabilir';
 				$ok = false;
-			} else {
+			} elseif ( $login_ok ) {
 				// Verify login by checking if home/base URL now has logged-in content
 				$base    = rtrim( $source['base_url'], '/' );
 				$chk     = $client->get_info( $base );

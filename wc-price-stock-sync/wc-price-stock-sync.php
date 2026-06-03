@@ -3,7 +3,7 @@
  * Plugin Name: WC Price & Stock Sync
  * Plugin URI:  https://724pazaryeri.com
  * Description: Bayi paneli girişiyle kaynak sitelerin ürün sayfalarını parse ederek SKU/ad eşleşmesiyle fiyat ve stok günceller.
- * Version:     2.1.0
+ * Version:     2.2.0
  * Author:      724 Pazaryeri
  * Author URI:  https://724pazaryeri.com
  * Requires at least: 5.9
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WC_PSS_VERSION', '2.1.0' );
+define( 'WC_PSS_VERSION', '2.2.0' );
 define( 'WC_PSS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WC_PSS_URL', plugin_dir_url( __FILE__ ) );
 
