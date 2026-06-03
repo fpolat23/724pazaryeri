@@ -1857,7 +1857,14 @@ window.addEventListener('popstate', function(){
   var HISTORY_KEY = 'pz_search_history';
   var MAX_HISTORY = 8;
 
-  /* AJAX URL — wp_localize_script, ajaxurl, veya fallback */
+  /* REST URL — birincil yol (admin-ajax.php bloklansa bile çalışır) */
+  function getRestUrl(q){
+    if (window.bazario_ajax && window.bazario_ajax.rest_url)
+      return window.bazario_ajax.rest_url + '?q=' + encodeURIComponent(q);
+    var base = getHomeUrl().replace(/\/$/, '');
+    return base + '/wp-json/pz/v1/search?q=' + encodeURIComponent(q);
+  }
+  /* admin-ajax yedek */
   function getAjaxUrl(){
     if (window.bazario_ajax && window.bazario_ajax.ajax_url) return window.bazario_ajax.ajax_url;
     if (typeof ajaxurl !== 'undefined') return ajaxurl;
@@ -1944,30 +1951,43 @@ window.addEventListener('popstate', function(){
     dd.innerHTML = html;
   }
 
-  function doSearch(dd, q, lastQ){
-    var ajaxUrl = getAjaxUrl();
+  function handleSearchResponse(dd, res, q){
+    dd.classList.remove('pz-loading');
+    if (res && res.success && res.data) {
+      renderResults(dd, res.data, q);
+    } else {
+      renderEmpty(dd);
+    }
+    dd.classList.add('pz-open');
+  }
+
+  /* admin-ajax yedek (REST başarısız olursa) */
+  function doSearchAjax(dd, q){
     var fd = new FormData();
     fd.append('action','pz_ai_search');
     fd.append('q', q);
+    fetch(getAjaxUrl(), {method:'POST', body:fd, credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(res){ handleSearchResponse(dd, res, q); })
+      .catch(function(){
+        dd.classList.remove('pz-loading');
+        dd.innerHTML='<div class="pz-ai-empty">⚠️ Arama bağlantısı kurulamadı. Sayfayı yenileyip tekrar deneyin.</div>';
+        dd.classList.add('pz-open');
+      });
+  }
+
+  /* Birincil: REST API GET /wp-json/pz/v1/search?q=... */
+  function doSearch(dd, q){
     dd.classList.add('pz-loading');
-    fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'})
+    fetch(getRestUrl(q), {method:'GET', credentials:'same-origin'})
       .then(function(r){
         if (!r.ok) throw new Error('HTTP '+r.status);
         return r.json();
       })
-      .then(function(res){
-        dd.classList.remove('pz-loading');
-        if (res && res.success && res.data) {
-          renderResults(dd, res.data, q);
-          dd.classList.add('pz-open');
-        } else {
-          renderEmpty(dd); dd.classList.add('pz-open');
-        }
-      })
+      .then(function(res){ handleSearchResponse(dd, res, q); })
       .catch(function(){
-        dd.classList.remove('pz-loading');
-        dd.innerHTML = '<div class="pz-ai-empty">⚠️ Arama bağlantısı kurulamadı. Lütfen tekrar deneyin.</div>';
-        dd.classList.add('pz-open');
+        /* REST başarısız — admin-ajax ile dene */
+        doSearchAjax(dd, q);
       });
   }
 

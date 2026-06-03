@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.123' );
+define( 'PAZARYERI_VERSION', '9.9.124' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -92,6 +92,7 @@ function pazaryeri_enqueue_assets() {
     wp_localize_script( 'pazaryeri-main', 'bazario_ajax', array(
         'url'      => admin_url( 'admin-ajax.php' ),
         'ajax_url' => admin_url( 'admin-ajax.php' ),
+        'rest_url' => rest_url( 'pz/v1/search' ),
         'nonce'    => wp_create_nonce( 'pazaryeri_nonce' ),
         'home_url' => home_url( '/' ),
     ) );
@@ -987,10 +988,9 @@ add_action( 'wp_ajax_nopriv_pz_get_comp_attrs', 'pz_get_comp_attrs_handler' );
 
 
 /* ──────────────────────────────────────────────
-   Canlı Arama: ürün, kategori, marka AJAX
-   Türkçe karakter normalizasyonu, doğrudan SQL,
-   SKU + başlık eşleşmesi.
-   Nonce kontrolü yok — okuma-only, herkese açık.
+   Canlı Arama — REST API + admin-ajax (çift yol)
+   REST: /wp-json/pz/v1/search?q=...  (birincil)
+   AJAX: admin-ajax.php action=pz_ai_search (yedek)
 ────────────────────────────────────────────── */
 function pz_normalize_tr( $str ) {
     $str = mb_strtolower( $str, 'UTF-8' );
@@ -1000,11 +1000,11 @@ function pz_normalize_tr( $str ) {
     ) );
 }
 
-function pz_ai_search_handler() {
-    $q = sanitize_text_field( wp_unslash( $_POST['q'] ?? '' ) );
-    $q = trim( $q );
+/* Ortak arama mantığı — REST ve AJAX her ikisi de bu fonksiyonu kullanır */
+function pz_ai_search_execute( $q ) {
+    $q = trim( sanitize_text_field( $q ) );
     if ( mb_strlen( $q ) < 2 ) {
-        wp_send_json_success( array( 'products' => array(), 'categories' => array(), 'brands' => array() ) );
+        return array( 'products' => array(), 'categories' => array(), 'brands' => array() );
     }
 
     global $wpdb;
@@ -1114,6 +1114,29 @@ function pz_ai_search_handler() {
         );
     }
 
+    return $result;
+}
+
+/* ── REST API endpoint: GET /wp-json/pz/v1/search?q=... ── */
+add_action( 'rest_api_init', function () {
+    register_rest_route( 'pz/v1', '/search', array(
+        'methods'             => WP_REST_Server::READABLE,
+        'callback'            => function ( WP_REST_Request $req ) {
+            $q      = sanitize_text_field( $req->get_param( 'q' ) ?? '' );
+            $result = pz_ai_search_execute( $q );
+            return new WP_REST_Response( array( 'success' => true, 'data' => $result ), 200 );
+        },
+        'permission_callback' => '__return_true',
+        'args'                => array(
+            'q' => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ),
+        ),
+    ) );
+} );
+
+/* ── admin-ajax yedek: POST admin-ajax.php action=pz_ai_search ── */
+function pz_ai_search_handler() {
+    $q      = sanitize_text_field( wp_unslash( $_POST['q'] ?? '' ) );
+    $result = pz_ai_search_execute( $q );
     wp_send_json_success( $result );
 }
 add_action( 'wp_ajax_pz_ai_search',        'pz_ai_search_handler' );
