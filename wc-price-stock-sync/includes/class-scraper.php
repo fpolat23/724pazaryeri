@@ -377,11 +377,26 @@ class WC_PSS_Scraper {
 		}
 		$parts = preg_split( '/\s+/', $css );
 		$xp    = '//' . implode( '//', array_map( function ( $p ) {
-			if ( preg_match( '/^#(.+)$/', $p, $m ) )           return '*[@id="' . $m[1] . '"]';
-			if ( preg_match( '/^\.(.+)$/', $p, $m ) )          return '*[contains(@class,"' . $m[1] . '")]';
-			if ( preg_match( '/^([a-z]+)#(.+)$/i', $p, $m ) )  return $m[1] . '[@id="' . $m[2] . '"]';
-			if ( preg_match( '/^([a-z]+)\.(.+)$/i', $p, $m ) ) return $m[1] . '[contains(@class,"' . $m[2] . '")]';
-			if ( preg_match( '/^[a-z][a-z0-9]*$/i', $p ) )     return $p;
+			// tag#id
+			if ( preg_match( '/^([a-z][a-z0-9]*)#(.+)$/i', $p, $m ) ) {
+				return $m[1] . '[@id="' . $m[2] . '"]';
+			}
+			// tag.class1.class2…
+			if ( preg_match( '/^([a-z][a-z0-9]*)\.(.+)$/i', $p, $m ) ) {
+				$cls  = array_map( fn( $c ) => 'contains(@class,"' . $c . '")', explode( '.', $m[2] ) );
+				return $m[1] . '[' . implode( ' and ', $cls ) . ']';
+			}
+			// #id
+			if ( preg_match( '/^#(.+)$/', $p, $m ) ) {
+				return '*[@id="' . $m[1] . '"]';
+			}
+			// .class1.class2…
+			if ( preg_match( '/^\.(.+)$/', $p, $m ) ) {
+				$cls = array_map( fn( $c ) => 'contains(@class,"' . $c . '")', explode( '.', $m[1] ) );
+				return '*[' . implode( ' and ', $cls ) . ']';
+			}
+			// plain tag
+			if ( preg_match( '/^[a-z][a-z0-9]*$/i', $p ) ) return $p;
 			return '*';
 		}, $parts ) );
 		return $xp;
