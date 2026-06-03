@@ -247,8 +247,8 @@ class WC_PSS_Scraper {
 		};
 
 		$price = $get( 'price' );
-		$sku   = $get( 'sku' );
-		$name  = $get( 'name' );
+		$sku   = self::sanitize_sku( $get( 'sku' ) );
+		$name  = mb_substr( trim( $get( 'name' ) ), 0, 300 );
 		$avail = $get( 'availability' );
 
 		if ( ! $price && ! $sku ) return null;
@@ -298,10 +298,11 @@ class WC_PSS_Scraper {
 					if ( isset( $d[ $k ] ) && $d[ $k ] !== '' ) { $name = (string) $d[ $k ]; break; }
 				}
 
-				if ( $price || $sku ) {
+				$sku_clean = self::sanitize_sku( $sku );
+				if ( $price || $sku_clean ) {
 					return [
-						'name'          => $name,
-						'sku'           => $sku,
+						'name'          => mb_substr( trim( $name ), 0, 300 ),
+						'sku'           => $sku_clean,
 						'regular_price' => self::parse_price( $price ),
 						'sale_price'    => '',
 						'stock_status'  => 'instock',
@@ -337,20 +338,29 @@ class WC_PSS_Scraper {
 	private static function extract_sku_html( string $html ): string {
 		// WooCommerce .sku span
 		if ( preg_match( '/<span class=["\']sku["\'][^>]*>(.*?)<\/span>/si', $html, $m ) ) {
-			return trim( strip_tags( $m[1] ) );
+			return self::sanitize_sku( $m[1] );
 		}
 		// itemprop=sku
 		if ( preg_match( '/<[^>]+itemprop=["\']sku["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) ) {
-			return trim( $m[1] );
+			return self::sanitize_sku( $m[1] );
 		}
 		// Common class names: sku, urun-kodu, product-code, stok-kodu, model-no
 		if ( preg_match(
 			'/<[^>]+class=["\'][^"\']*(?:sku|urun-kodu|product-code|stok-kodu|model-no)[^"\']*["\'][^>]*>(.*?)<\/(?:span|div|td|p)>/si',
 			$html, $m
 		) ) {
-			return trim( strip_tags( $m[1] ) );
+			return self::sanitize_sku( $m[1] );
 		}
 		return '';
+	}
+
+	/** Strip, trim, max 80 chars. Returns '' if result looks like HTML/JS junk. */
+	private static function sanitize_sku( string $raw ): string {
+		$raw = trim( strip_tags( $raw ) );
+		$raw = preg_replace( '/\s+/', ' ', $raw );
+		if ( strlen( $raw ) > 80 ) return '';           // too long = junk
+		if ( preg_match( '/[<>{}\[\]]/', $raw ) ) return ''; // HTML/JS fragment
+		return $raw;
 	}
 
 	// ----------------------------------------------------------------
