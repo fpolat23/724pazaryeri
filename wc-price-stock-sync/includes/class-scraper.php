@@ -81,7 +81,17 @@ class WC_PSS_Scraper {
 	private static function crawl_urls( array $source, WC_PSS_Http_Client $client ): array {
 		$base    = rtrim( $source['base_url'], '/' );
 		$start   = $source['crawl_url'] ?: $base;
-		$pattern = $source['url_pattern'] ?: '/urun/';
+		// Support comma-separated patterns; take only the first clean token as the primary pattern
+		$raw_patterns = array_filter( array_map( 'trim', explode( ',', $source['url_pattern'] ?: '/urun/' ) ) );
+		// Keep only short path-like patterns (ignore anything that looks like a full URL or category ID)
+		$patterns = [];
+		foreach ( $raw_patterns as $p ) {
+			// Drop entries that are full URLs or look like /segment/NNN (category IDs, not patterns)
+			if ( filter_var( $p, FILTER_VALIDATE_URL ) ) continue;
+			if ( preg_match( '#^/[^/]+/\d+$#', $p ) ) continue;
+			$patterns[] = $p;
+		}
+		if ( empty( $patterns ) ) $patterns = [ '/urun/' ];
 		$urls    = [];
 		$visited = [];
 		$queue   = [ $start ];
@@ -107,7 +117,12 @@ class WC_PSS_Scraper {
 				$abs_path  = wp_parse_url( $abs, PHP_URL_PATH ) ?? '';
 				$abs_clean = explode( '?', $abs )[0];
 
-				if ( str_contains( $abs, $pattern ) ) {
+				$is_product = false;
+				foreach ( $patterns as $p ) {
+					if ( str_contains( $abs, $p ) ) { $is_product = true; break; }
+				}
+
+				if ( $is_product ) {
 					// Product page — collect
 					if ( ! in_array( $abs_clean, $urls, true ) ) $urls[] = $abs_clean;
 				} elseif (
