@@ -485,10 +485,14 @@ class WC_PSS_Scraper {
 
 	/** Remove " | Site Name", " - Site Name", " toptan …" SEO suffixes from titles. */
 	private static function strip_title_suffix( string $name ): string {
-		// Strip " | anything" and " – anything" and " - anything"
+		// Strip " | anything" and " – anything"
 		$name = preg_replace( '/\s*[|–]\s*.+$/u', '', $name );
 		// Strip trailing SEO words common on Turkish B2B sites
-		$name = preg_replace( '/\s+(?:toptan\s+çeşitleri|toptan\s+fiyat|toptan|çeşitleri|fiyatları)\s*$/iu', '', $name );
+		$name = preg_replace(
+			'/\s+(?:toptan\s+(?:bebe\s+giyim|bebek\s+giyim|giyim|çeşitleri|fiyat[ı]?|ürünleri?)|toptan|çeşitleri|fiyatları)\s*$/iu',
+			'',
+			$name
+		);
 		return trim( $name );
 	}
 
