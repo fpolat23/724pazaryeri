@@ -382,17 +382,7 @@ class WC_PSS_Scraper {
 	}
 
 	private static function extract_name_html( string $html ): string {
-		// 1. First <h1> — usually the clean product title without SEO suffixes
-		if ( preg_match( '/<h1[^>]*>(.*?)<\/h1>/si', $html, $m ) ) {
-			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
-			if ( strlen( $v ) >= 3 ) return $v;
-		}
-		// 2. itemprop="name" content attribute (short, structured)
-		if ( preg_match( '/<[^>]+itemprop=["\']name["\'][^>]*content=["\']([^"\']{3,200})["\']/i', $html, $m ) ) {
-			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
-			if ( strlen( $v ) >= 3 ) return $v;
-		}
-		// 3. og:title (may have "toptan çeşitleri | Site Name" suffix)
+		// 1. og:title — reliable, short, site-defined; strip SEO suffixes after
 		$og = '';
 		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) ) {
 			$og = $m[1];
@@ -401,7 +391,23 @@ class WC_PSS_Scraper {
 		}
 		if ( $og ) {
 			$v = self::strip_title_suffix( self::clean_name( $og ) );
+			if ( strlen( $v ) >= 3 && strlen( $v ) <= 300 ) return $v;
+		}
+		// 2. itemprop="name" content attribute
+		if ( preg_match( '/<[^>]+itemprop=["\']name["\'][^>]*content=["\']([^"\']{3,200})["\']/i', $html, $m ) ) {
+			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
 			if ( strlen( $v ) >= 3 ) return $v;
+		}
+		// 3. <h1> — only if short and single-language (skip multilingual section headings)
+		if ( preg_match( '/<h1[^>]*>(.*?)<\/h1>/si', $html, $m ) ) {
+			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
+			// Skip if too long (section headings in multiple languages are typically very long)
+			// or if it contains Arabic/Cyrillic characters mixed with Latin (multilingual heading)
+			$has_arabic   = preg_match( '/\p{Arabic}/u', $v );
+			$has_cyrillic = preg_match( '/\p{Cyrillic}/u', $v );
+			if ( strlen( $v ) >= 3 && strlen( $v ) <= 120 && ! $has_arabic && ! $has_cyrillic ) {
+				return $v;
+			}
 		}
 		// 4. <title> minus " | site" suffix
 		if ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $html, $m ) ) {
