@@ -569,7 +569,36 @@ class WC_PSS_Admin {
 						$log[] = '✗ Sayfa erişilebilir ancak ürün verisi parse edilemedi.';
 						$log[] = '  Sayfa başlığı: ' . ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $raw['body'], $tm ) ? trim( $tm[1] ) : '(bulunamadı)' );
 						$log[] = '  → JSON-LD şeması yok. "Gelişmiş CSS Seçicileri" bölümünden SKU, fiyat ve stok seçicilerini girin.';
-						$ok    = false;
+						// Extract HTML snippets around price/SKU/stock keywords to help identify selectors
+						$html    = $raw['body'];
+						$kw_hits = [];
+						foreach ( [ 'fiyat', 'price', 'stok', 'stock', 'sku', 'urun-kodu', 'urun_kodu' ] as $kw ) {
+							if ( preg_match( '/(.{0,120}' . preg_quote( $kw, '/' ) . '.{0,120})/is', $html, $km ) ) {
+								$snippet = preg_replace( '/\s+/', ' ', strip_tags( $km[1] ) );
+								if ( strlen( trim( $snippet ) ) > 5 ) {
+									$kw_hits[ $kw ] = trim( $snippet );
+								}
+							}
+						}
+						if ( $kw_hits ) {
+							$log[] = '  --- Sayfada bulunan anahtar kelime bağlamları (seçici bulmak için) ---';
+							foreach ( $kw_hits as $kw => $snip ) {
+								$log[] = '  [' . $kw . '] ' . mb_substr( $snip, 0, 200 );
+							}
+						}
+						// Also show class/id attributes near price-looking values
+						if ( preg_match_all( '/class=["\']([^"\']*(?:price|fiyat|stok|stock|sku)[^"\']*)["\'][^>]*>([^<]{1,60})/i', $html, $attrs ) ) {
+							$log[] = '  --- Fiyat/stok/SKU içeren sınıf adları ---';
+							$shown = [];
+							foreach ( $attrs[1] as $ci => $cls ) {
+								$key = trim( $cls );
+								if ( isset( $shown[ $key ] ) ) continue;
+								$shown[ $key ] = true;
+								$val = trim( strip_tags( $attrs[2][ $ci ] ) );
+								if ( $val ) $log[] = '  .' . str_replace( ' ', '.', $key ) . ' → "' . mb_substr( $val, 0, 80 ) . '"';
+							}
+						}
+						$ok = false;
 					}
 				} catch ( \Throwable $e ) {
 					$log[] = '✗ Parse hatası: ' . $e->getMessage();
