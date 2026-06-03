@@ -485,6 +485,28 @@ class WC_PSS_Admin {
 			$pass_field = $source['pass_field'] ?: 'password';
 			$log[] = 'Giriş deneniyor: ' . $login_url;
 			$log[] = '  Kullanıcı alanı: "' . $user_field . '"  |  Şifre alanı: "' . $pass_field . '"';
+
+			// Inspect login page form before submitting
+			$login_page = $client->get( $login_url );
+			if ( $login_page ) {
+				// Detect AJAX/JS login (no <form> or form with no action that points to a route)
+				$has_form = preg_match( '/<form[^>]+/i', $login_page );
+				if ( ! $has_form ) {
+					$log[] = '⚠ Giriş sayfasında HTML <form> bulunamadı — site JavaScript (AJAX) ile giriş yapıyor olabilir.';
+					$log[] = '  Plugin klasik form submit\'i destekler. Sitenin giriş endpoint\'ini tespit etmeye çalışılıyor…';
+				} else {
+					// Show all input names in the form
+					preg_match_all( '/<input[^>]+name=["\']([^"\']+)["\']/i', $login_page, $inp_m );
+					if ( $inp_m[1] ) {
+						$log[] = '  Form alan adları: ' . implode( ', ', array_map( fn($n) => '"' . $n . '"', $inp_m[1] ) );
+					}
+					// Detect if form action is AJAX endpoint or external
+					if ( preg_match( '/<form[^>]+action=["\']([^"\']+)["\']/i', $login_page, $fa_m ) ) {
+						$log[] = '  Form action: ' . html_entity_decode( $fa_m[1] );
+					}
+				}
+			}
+
 			$login_ok = $client->login( $source );
 			if ( ! $login_ok ) {
 				$log[] = '✗ Giriş isteği başarısız — URL erişilemiyor veya HTTP hatası';
@@ -505,7 +527,7 @@ class WC_PSS_Admin {
 					$log[] = '  → Kullanıcı adı/şifre ile "Kullanıcı Alanı" ve "Şifre Alanı" isimlerini kontrol edin.';
 					$ok    = false;
 				} else {
-					$log[] = '✓ Giriş başarılı (oturum aktif)';
+					$log[] = '✓ Giriş HTTP akışı tamamlandı';
 					if ( $chk_url && $chk_url !== $base && $chk_url !== $base . '/' ) {
 						$log[] = '  Yönlendirilen URL: ' . $chk_url;
 					}
@@ -549,6 +571,13 @@ class WC_PSS_Admin {
 			if ( $is_login ) {
 				$log[] = '✗ Ürün sayfası giriş sayfasına yönlendirdi — oturum geçersiz.';
 				$log[] = '  → Giriş bilgileri ve alan adlarını kontrol edin.';
+				$ok    = false;
+			} elseif ( $raw['body'] && preg_match( '/register\s+to\s+see\s+price|giri[sş]\s+yap[a-z]*\s+fiyat|üye\s+ol[a-z]*\s+fiyat|login\s+to\s+see/i', $raw['body'] ) ) {
+				$log[] = '✗ Ürün sayfası "fiyatları görmek için giriş yapın" mesajı içeriyor — giriş başarısız.';
+				$log[] = '  Olası nedenler:';
+				$log[] = '    1) Kullanıcı adı veya şifre yanlış';
+				$log[] = '    2) Giriş formu JavaScript (AJAX) tabanlı — plugin klasik HTML form submit destekler';
+				$log[] = '    3) "Kullanıcı Alanı" veya "Şifre Alanı" isimleri yanlış (yukarıdaki "Form alan adları" satırına bakın)';
 				$ok    = false;
 			} elseif ( $raw['code'] === 0 || $raw['body'] === null ) {
 				$log[] = '✗ Ürün sayfasına erişilemiyor (HTTP ' . $raw['code'] . ')';
