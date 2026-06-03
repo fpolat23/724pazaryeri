@@ -36,48 +36,57 @@ class WC_PSS_Background_Processor {
 		$job = WC_PSS_Job_Manager::get( $job_id );
 		if ( ! $job || $job->status !== 'discovering' ) return;
 
-		$options   = json_decode( $job->options, true ) ?: [];
-		$source_id = $options['source_id'] ?? '';
-		$source    = WC_PSS_Source_Manager::get_with_pass( $source_id );
+		try {
+			$options   = json_decode( $job->options, true ) ?: [];
+			$source_id = $options['source_id'] ?? '';
+			$source    = WC_PSS_Source_Manager::get_with_pass( $source_id );
 
-		if ( ! $source ) {
-			WC_PSS_Job_Manager::fail( $job_id, 'Kaynak site bulunamadı: ' . $source_id );
-			return;
-		}
-
-		$client = new WC_PSS_Http_Client();
-
-		if ( ! empty( $source['username'] ) ) {
-			$logged_in = $client->login( $source );
-			if ( ! $logged_in ) {
-				WC_PSS_Job_Manager::fail( $job_id, 'Giriş başarısız: ' . $source['name'] );
+			if ( ! $source ) {
+				WC_PSS_Job_Manager::fail( $job_id, 'Kaynak site bulunamadı: ' . $source_id );
 				return;
 			}
+
+			$client = new WC_PSS_Http_Client();
+
+			if ( ! empty( $source['username'] ) ) {
+				$logged_in = $client->login( $source );
+				if ( ! $logged_in ) {
+					WC_PSS_Job_Manager::fail( $job_id, 'Giriş başarısız — ' . $source['name'] . '. Login URL\'i ve form alan adlarını kontrol edin.' );
+					return;
+				}
+			}
+
+			$urls = WC_PSS_Scraper::discover_urls( $source, $client );
+
+			if ( empty( $urls ) ) {
+				WC_PSS_Job_Manager::fail( $job_id,
+					"Kaynak sitede ürün URL'i bulunamadı.\n"
+					. "• Sitemap yöntemi: /product-sitemap.xml, /wp-sitemap.xml, /sitemap_index.xml denendi — bulunamadı.\n"
+					. "• Çözüm: Kaynak ayarlarında keşif yöntemini 'Sayfa Crawl' seçin, Crawl URL'i ve ürün URL desenini girin (ör. /urun/)."
+				);
+				return;
+			}
+
+			$upload    = wp_upload_dir();
+			$dir       = $upload['basedir'] . '/wc-pss';
+			wp_mkdir_p( $dir );
+			if ( ! file_exists( $dir . '/.htaccess' ) ) {
+				file_put_contents( $dir . '/.htaccess', "Options -Indexes\n" );
+			}
+			$urls_file = $dir . '/urls-' . $job_id . '.json';
+			file_put_contents( $urls_file, wp_json_encode( $urls ) );
+
+			WC_PSS_Job_Manager::update( $job_id, [
+				'status'    => 'processing',
+				'total'     => count( $urls ),
+				'file_path' => $urls_file,
+			] );
+
+			as_enqueue_async_action( self::HOOK_SCRAPE, [ 'job_id' => $job_id, 'offset' => 0 ], self::GROUP );
+
+		} catch ( \Throwable $e ) {
+			WC_PSS_Job_Manager::fail( $job_id, 'İstisna (discover): ' . $e->getMessage() . ' — ' . basename( $e->getFile() ) . ':' . $e->getLine() );
 		}
-
-		$urls = WC_PSS_Scraper::discover_urls( $source, $client );
-
-		if ( empty( $urls ) ) {
-			WC_PSS_Job_Manager::fail( $job_id, "Kaynak sitede ürün URL'i bulunamadı. Sitemap yoksa \"Sayfa Crawl\" yöntemini seçip Crawl URL'i girin." );
-			return;
-		}
-
-		$upload    = wp_upload_dir();
-		$dir       = $upload['basedir'] . '/wc-pss';
-		wp_mkdir_p( $dir );
-		if ( ! file_exists( $dir . '/.htaccess' ) ) {
-			file_put_contents( $dir . '/.htaccess', "Options -Indexes\n" );
-		}
-		$urls_file = $dir . '/urls-' . $job_id . '.json';
-		file_put_contents( $urls_file, wp_json_encode( $urls ) );
-
-		WC_PSS_Job_Manager::update( $job_id, [
-			'status'    => 'processing',
-			'total'     => count( $urls ),
-			'file_path' => $urls_file,
-		] );
-
-		as_enqueue_async_action( self::HOOK_SCRAPE, [ 'job_id' => $job_id, 'offset' => 0 ], self::GROUP );
 	}
 
 	// ----------------------------------------------------------------

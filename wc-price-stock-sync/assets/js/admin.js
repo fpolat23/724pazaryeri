@@ -142,7 +142,16 @@
 				stopPolling();
 				$('#btn-sync').prop('disabled', false);
 				$('#wc-pss-sync-form .spinner').removeClass('is-active');
-				if (d.status === 'completed') showResult(d);
+				if (d.status === 'completed') {
+					showResult(d);
+				} else if (d.status === 'failed' && d.errors && d.errors.length) {
+					var errHtml = '<div class="wc-pss-errors" style="margin-top:10px"><strong>Hata detayı:</strong><ul>';
+					for (var ei = 0; ei < d.errors.length; ei++) {
+						errHtml += '<li>' + escHtml(d.errors[ei]) + '</li>';
+					}
+					errHtml += '</ul></div>';
+					$('#pss-progress').append(errHtml);
+				}
 			}
 		});
 	}

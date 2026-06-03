@@ -353,7 +353,14 @@ class WC_PSS_Admin {
 					</td>
 					<td><strong style="color:#1e6f3e"><?php echo esc_html( $results['updated']   ?? 0 ); ?></strong></td>
 					<td><span style="color:#856404"><?php echo esc_html( $results['not_found'] ?? 0 ); ?></span></td>
-					<td><?php echo $errors ? '<span style="color:#dc3232">' . esc_html( count( $errors ) ) . ' hata</span>' : '—'; ?></td>
+					<td>
+						<?php if ( $errors ) : ?>
+							<span style="color:#dc3232"><?php echo esc_html( count( $errors ) ); ?> hata</span>
+							<?php if ( $job->status === 'failed' && ! empty( $errors[0] ) ) : ?>
+							<br><small style="color:#dc3232;word-break:break-word;max-width:220px;display:block"><?php echo esc_html( mb_substr( $errors[0], 0, 120 ) ); ?></small>
+							<?php endif; ?>
+						<?php else : ?>—<?php endif; ?>
+					</td>
 					<td><?php echo esc_html( $date_str ); ?></td>
 					<td class="wc-pss-actions">
 						<?php if ( in_array( $job->status, [ 'discovering', 'processing' ], true ) ) : ?>
