@@ -125,11 +125,12 @@ class WC_PSS_Background_Processor {
 			$client->login( $source );
 		}
 
-		$updater   = new WC_PSS_Updater( $options );
-		$updated   = 0;
-		$not_found = 0;
-		$skipped   = 0;
-		$errors    = [];
+		$updater       = new WC_PSS_Updater( $options );
+		$updated       = 0;
+		$not_found     = 0;
+		$skipped       = 0;
+		$errors        = [];
+		$updated_items = [];
 
 		foreach ( $batch as $i => $url ) {
 			try {
@@ -140,7 +141,15 @@ class WC_PSS_Background_Processor {
 				}
 				$result = $updater->process_row( $data );
 				switch ( $result['status'] ) {
-					case 'updated':   $updated++;   break;
+					case 'updated':
+						$updated++;
+						$updated_items[] = [
+							'sku'       => $result['sku']       ?? '',
+							'name'      => $result['name']      ?? '',
+							'old_price' => $result['old_price'] ?? '',
+							'new_price' => $result['new_price'] ?? '',
+						];
+						break;
 					case 'not_found': $not_found++; break;
 					default:          $skipped++;   break;
 				}
@@ -152,9 +161,10 @@ class WC_PSS_Background_Processor {
 		$new_offset = $offset + count( $batch );
 
 		WC_PSS_Job_Manager::update( $job_id, [
-			'processed' => $new_offset,
-			'results'   => compact( 'updated', 'not_found', 'skipped' ),
-			'errors'    => $errors,
+			'processed'     => $new_offset,
+			'results'       => compact( 'updated', 'not_found', 'skipped' ),
+			'errors'        => $errors,
+			'updated_items' => $updated_items,
 		] );
 
 		if ( count( $batch ) < self::BATCH_SIZE ) {

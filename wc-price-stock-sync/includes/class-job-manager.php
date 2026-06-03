@@ -54,14 +54,21 @@ class WC_PSS_Job_Manager {
 		if ( isset( $data['total'] ) )     $set['total']     = (int) $data['total'];
 		if ( isset( $data['file_path'] ) ) $set['file_path'] = $data['file_path'];
 
-		if ( isset( $data['results'] ) ) {
-			$job      = self::get( $id );
-			$existing = json_decode( $job ? $job->results : '{}', true ) ?: [];
-			$new      = (array) $data['results'];
+		if ( isset( $data['results'] ) || isset( $data['updated_items'] ) ) {
+			$job            = self::get( $id );
+			$existing       = json_decode( $job ? $job->results : '{}', true ) ?: [];
+			$new            = (array) ( $data['results'] ?? [] );
+			$existing_items = $existing['updated_items'] ?? [];
+			$new_items      = (array) ( $data['updated_items'] ?? [] );
+			$merged_items   = array_merge( $existing_items, $new_items );
+			if ( count( $merged_items ) > 500 ) {
+				$merged_items = array_slice( $merged_items, 0, 500 );
+			}
 			$set['results'] = wp_json_encode( [
-				'updated'   => ( $existing['updated']   ?? 0 ) + (int) ( $new['updated']   ?? 0 ),
-				'not_found' => ( $existing['not_found'] ?? 0 ) + (int) ( $new['not_found'] ?? 0 ),
-				'skipped'   => ( $existing['skipped']   ?? 0 ) + (int) ( $new['skipped']   ?? 0 ),
+				'updated'       => ( $existing['updated']   ?? 0 ) + (int) ( $new['updated']   ?? 0 ),
+				'not_found'     => ( $existing['not_found'] ?? 0 ) + (int) ( $new['not_found'] ?? 0 ),
+				'skipped'       => ( $existing['skipped']   ?? 0 ) + (int) ( $new['skipped']   ?? 0 ),
+				'updated_items' => $merged_items,
 			] );
 		}
 

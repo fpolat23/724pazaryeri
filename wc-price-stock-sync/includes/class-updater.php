@@ -88,8 +88,16 @@ class WC_PSS_Updater {
 
 		if ( ! $changed ) return [ 'status' => 'skipped' ];
 
+		$old_reg  = $product->get_regular_price();
+		$old_sale = $product->get_sale_price();
 		$product->save();
-		return [ 'status' => 'updated' ];
+		return [
+			'status'    => 'updated',
+			'sku'       => $product->get_sku(),
+			'name'      => $product->get_name(),
+			'old_price' => $old_reg,
+			'new_price' => $product->get_regular_price(),
+		];
 	}
 
 	private static function find_by_name( string $name ): int {

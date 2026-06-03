@@ -193,6 +193,30 @@
 			+ resultItem(errCnt,      'Hata',        'errors')
 			+ '</div></div>';
 
+		if (d.updated_items && d.updated_items.length) {
+			html += '<details class="wc-pss-items-detail" open>'
+				+ '<summary style="cursor:pointer;padding:6px 0;color:#1e6f3e;font-weight:600">'
+				+ 'Güncellenen ürünler (' + d.updated_items.length + ')'
+				+ '</summary>'
+				+ '<table class="wc-pss-items-table" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">'
+				+ '<thead><tr style="background:#e8f5e9">'
+				+ '<th style="padding:4px 8px;text-align:left;border-bottom:1px solid #c8e6c9">SKU</th>'
+				+ '<th style="padding:4px 8px;text-align:left;border-bottom:1px solid #c8e6c9">Ürün Adı</th>'
+				+ '<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #c8e6c9">Eski Fiyat</th>'
+				+ '<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #c8e6c9">Yeni Fiyat</th>'
+				+ '</tr></thead><tbody>';
+			for (var ui = 0; ui < d.updated_items.length; ui++) {
+				var item = d.updated_items[ui];
+				html += '<tr style="border-bottom:1px solid #f0f0f0">'
+					+ '<td style="padding:3px 8px;font-family:monospace">' + escHtml(item.sku  || '—') + '</td>'
+					+ '<td style="padding:3px 8px">'                        + escHtml(item.name || '—') + '</td>'
+					+ '<td style="padding:3px 8px;text-align:right;color:#888">' + escHtml(item.old_price !== '' ? item.old_price : '—') + '</td>'
+					+ '<td style="padding:3px 8px;text-align:right;font-weight:600;color:#1e6f3e">' + escHtml(item.new_price !== '' ? item.new_price : '—') + '</td>'
+					+ '</tr>';
+			}
+			html += '</tbody></table></details>';
+		}
+
 		if (errCnt) {
 			html += '<div class="wc-pss-errors"><strong>Hatalar:</strong><ul>';
 			for (var i = 0; i < d.errors.length; i++) {

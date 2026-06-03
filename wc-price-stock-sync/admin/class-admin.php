@@ -381,6 +381,37 @@ class WC_PSS_Admin {
 						<?php endif; ?>
 					</td>
 				</tr>
+				<?php if ( ! empty( $results['updated_items'] ) ) : ?>
+				<tr class="wc-pss-items-row">
+					<td colspan="9" style="padding:0 8px 8px 36px;background:#f9f9f9">
+						<details>
+							<summary style="cursor:pointer;padding:6px 0;color:#1e6f3e;font-weight:600">
+								Güncellenen ürünler (<?php echo esc_html( count( $results['updated_items'] ) ); ?>)
+							</summary>
+							<table class="wc-pss-items-table" style="margin-top:6px;width:100%;border-collapse:collapse;font-size:12px">
+								<thead>
+									<tr style="background:#e8f5e9">
+										<th style="padding:4px 8px;text-align:left;border-bottom:1px solid #c8e6c9">SKU</th>
+										<th style="padding:4px 8px;text-align:left;border-bottom:1px solid #c8e6c9">Ürün Adı</th>
+										<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #c8e6c9">Eski Fiyat</th>
+										<th style="padding:4px 8px;text-align:right;border-bottom:1px solid #c8e6c9">Yeni Fiyat</th>
+									</tr>
+								</thead>
+								<tbody>
+								<?php foreach ( $results['updated_items'] as $item ) : ?>
+									<tr style="border-bottom:1px solid #f0f0f0">
+										<td style="padding:3px 8px;font-family:monospace"><?php echo esc_html( $item['sku'] ?: '—' ); ?></td>
+										<td style="padding:3px 8px"><?php echo esc_html( mb_substr( $item['name'] ?: '—', 0, 80 ) ); ?></td>
+										<td style="padding:3px 8px;text-align:right;color:#888"><?php echo esc_html( $item['old_price'] !== '' ? $item['old_price'] : '—' ); ?></td>
+										<td style="padding:3px 8px;text-align:right;font-weight:600;color:#1e6f3e"><?php echo esc_html( $item['new_price'] !== '' ? $item['new_price'] : '—' ); ?></td>
+									</tr>
+								<?php endforeach; ?>
+								</tbody>
+							</table>
+						</details>
+					</td>
+				</tr>
+				<?php endif; ?>
 				<?php endforeach; ?>
 				</tbody>
 			</table>
@@ -742,14 +773,15 @@ class WC_PSS_Admin {
 		$pct     = $job->total > 0 ? round( $job->processed / $job->total * 100 ) : ( $job->status === 'completed' ? 100 : 0 );
 
 		wp_send_json_success( [
-			'status'    => $job->status,
-			'total'     => (int) $job->total,
-			'processed' => (int) $job->processed,
-			'percent'   => $pct,
-			'updated'   => (int) ( $results['updated']   ?? 0 ),
-			'not_found' => (int) ( $results['not_found'] ?? 0 ),
-			'skipped'   => (int) ( $results['skipped']   ?? 0 ),
-			'errors'    => $errors,
+			'status'        => $job->status,
+			'total'         => (int) $job->total,
+			'processed'     => (int) $job->processed,
+			'percent'       => $pct,
+			'updated'       => (int) ( $results['updated']   ?? 0 ),
+			'not_found'     => (int) ( $results['not_found'] ?? 0 ),
+			'skipped'       => (int) ( $results['skipped']   ?? 0 ),
+			'errors'        => $errors,
+			'updated_items' => $results['updated_items'] ?? [],
 		] );
 	}
 
