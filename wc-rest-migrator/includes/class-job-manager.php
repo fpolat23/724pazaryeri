@@ -29,12 +29,26 @@ class WC_RM_Job_Manager {
 
 	public static function create( array $data ): int {
 		global $wpdb;
-		$wpdb->insert( $wpdb->prefix . self::TABLE, [
+
+		$row = [
 			'status'    => $data['status']     ?? 'pending',
 			'source_url'=> $data['source_url'] ?? '',
 			'options'   => wp_json_encode( $data['options'] ?? [] ),
 			'total'     => $data['total']      ?? 0,
-		] );
+		];
+
+		$result = $wpdb->insert( $wpdb->prefix . self::TABLE, $row );
+
+		// Tablo yoksa oluştur ve tekrar dene
+		if ( $result === false ) {
+			self::install();
+			$result = $wpdb->insert( $wpdb->prefix . self::TABLE, $row );
+		}
+
+		if ( $result === false || ! $wpdb->insert_id ) {
+			throw new \RuntimeException( 'İş kaydı oluşturulamadı. DB hatası: ' . $wpdb->last_error );
+		}
+
 		return (int) $wpdb->insert_id;
 	}
 
