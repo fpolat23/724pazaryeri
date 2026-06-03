@@ -56,14 +56,26 @@ function toggleCiDrop(dropId, ciId) {
   document.getElementById('overlay').classList.add('show');
 }
 
-/* search focus */
+/* search focus — pz-ai-input uses live search; skip old static dropdown */
 var _si=document.getElementById('search-input');
-if(_si) _si.addEventListener('focus', function(e) {
-  e.stopPropagation();
-  closeAll();
-  document.getElementById('drop-search').classList.add('open');
-  document.getElementById('overlay').classList.add('show');
-});
+if(_si && !_si.classList.contains('pz-ai-input')) {
+  _si.addEventListener('focus', function(e) {
+    e.stopPropagation();
+    closeAll();
+    document.getElementById('drop-search').classList.add('open');
+    document.getElementById('overlay').classList.add('show');
+  });
+}
+/* search-go button: navigate to search results page */
+var _sgBtn = document.querySelector('.search-go');
+if(_sgBtn) {
+  _sgBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    var inp = document.getElementById('search-input');
+    var val = inp ? inp.value.trim() : '';
+    if(val) window.location.href = (window.pzHomeUrl||'/') + '?s=' + encodeURIComponent(val) + '&post_type=product';
+  });
+}
 
 /* stop propagation inside panels */
 document.querySelectorAll('.nav-drop,.mega-panel,.ci-drop,.search-drop').forEach(el => {

@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.112' );
+define( 'PAZARYERI_VERSION', '9.9.113' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -93,7 +93,9 @@ function pazaryeri_enqueue_assets() {
         'url'      => admin_url( 'admin-ajax.php' ),
         'ajax_url' => admin_url( 'admin-ajax.php' ),
         'nonce'    => wp_create_nonce( 'pazaryeri_nonce' ),
+        'home_url' => home_url( '/' ),
     ) );
+    wp_add_inline_script( 'pazaryeri-main', 'window.pzHomeUrl = ' . wp_json_encode( home_url('/') ) . ';', 'before' );
 
     // WooCommerce AJAX sepete ekle
     if ( class_exists( 'WooCommerce' ) ) {
@@ -981,3 +983,101 @@ function pz_get_comp_attrs_handler() {
 }
 add_action( 'wp_ajax_pz_get_comp_attrs',        'pz_get_comp_attrs_handler' );
 add_action( 'wp_ajax_nopriv_pz_get_comp_attrs', 'pz_get_comp_attrs_handler' );
+
+
+/* ──────────────────────────────────────────────
+   Canlı Arama: ürün, kategori, marka AJAX
+────────────────────────────────────────────── */
+function pz_ai_search_handler() {
+    check_ajax_referer( 'pazaryeri_nonce', 'nonce' );
+
+    $q = sanitize_text_field( wp_unslash( $_POST['q'] ?? '' ) );
+    if ( mb_strlen( $q ) < 2 ) {
+        wp_send_json_success( array( 'products' => array(), 'categories' => array(), 'brands' => array() ) );
+    }
+
+    $result = array(
+        'products'   => array(),
+        'categories' => array(),
+        'brands'     => array(),
+    );
+
+    // Kategoriler
+    $cats = get_terms( array(
+        'taxonomy'   => 'product_cat',
+        'hide_empty' => true,
+        'search'     => $q,
+        'number'     => 4,
+        'orderby'    => 'count',
+        'order'      => 'DESC',
+        'exclude'    => array( (int) get_option( 'default_product_cat' ) ),
+    ) );
+    if ( ! is_wp_error( $cats ) ) {
+        foreach ( $cats as $cat ) {
+            $result['categories'][] = array(
+                'name' => $cat->name,
+                'url'  => get_term_link( $cat ),
+            );
+        }
+    }
+
+    // Ürünler — başlık araması
+    $found_ids = array();
+    $title_query = new WP_Query( array(
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 8,
+        's'              => $q,
+        'no_found_rows'  => true,
+    ) );
+    foreach ( $title_query->posts as $p ) {
+        if ( in_array( $p->ID, $found_ids, true ) ) continue;
+        $found_ids[] = $p->ID;
+        $product     = wc_get_product( $p->ID );
+        if ( ! $product ) continue;
+        $img = get_the_post_thumbnail_url( $p->ID, 'woocommerce_thumbnail' );
+        if ( ! $img ) $img = wc_placeholder_img_src( 'woocommerce_thumbnail' );
+        $result['products'][] = array(
+            'title' => $p->post_title,
+            'url'   => get_permalink( $p->ID ),
+            'img'   => $img,
+            'price' => wp_strip_all_tags( $product->get_price_html() ),
+            'sku'   => $product->get_sku(),
+        );
+    }
+
+    // SKU araması — ek sonuçlar için
+    if ( count( $result['products'] ) < 8 ) {
+        $sku_query = new WP_Query( array(
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => 8,
+            'no_found_rows'  => true,
+            'meta_query'     => array( array(
+                'key'     => '_sku',
+                'value'   => $q,
+                'compare' => 'LIKE',
+            ) ),
+        ) );
+        foreach ( $sku_query->posts as $p ) {
+            if ( in_array( $p->ID, $found_ids, true ) ) continue;
+            if ( count( $result['products'] ) >= 8 ) break;
+            $found_ids[] = $p->ID;
+            $product     = wc_get_product( $p->ID );
+            if ( ! $product ) continue;
+            $img = get_the_post_thumbnail_url( $p->ID, 'woocommerce_thumbnail' );
+            if ( ! $img ) $img = wc_placeholder_img_src( 'woocommerce_thumbnail' );
+            $result['products'][] = array(
+                'title' => $p->post_title,
+                'url'   => get_permalink( $p->ID ),
+                'img'   => $img,
+                'price' => wp_strip_all_tags( $product->get_price_html() ),
+                'sku'   => $product->get_sku(),
+            );
+        }
+    }
+
+    wp_send_json_success( $result );
+}
+add_action( 'wp_ajax_pz_ai_search',        'pz_ai_search_handler' );
+add_action( 'wp_ajax_nopriv_pz_ai_search', 'pz_ai_search_handler' );
