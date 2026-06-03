@@ -332,11 +332,14 @@ class WC_PSS_Scraper {
 		) ) {
 			return [ 'regular' => self::parse_price( $m[1] ), 'sale' => '' ];
 		}
-		// Turkish B2B: "480.00 ₺ - 10 % 432.00 ₺" pattern (list price, discount, net price)
-		if ( preg_match(
-			'/([\d.,]+)\s*[₺TL]\s*[-–]\s*[\d.,]+\s*%\s*([\d.,]+)\s*[₺TL]/u',
-			$html, $m
-		) ) {
+		// Turkish B2B: "480.00 ₺ - 10 % 432.00 ₺" — values may be in separate tags, so strip HTML first
+		$text = html_entity_decode( preg_replace( '/<[^>]+>/', ' ', $html ) );
+		$text = preg_replace( '/\s+/', ' ', $text );
+		if ( preg_match( '/([\d.,]+)\s*₺\s*[-–]\s*[\d.,]+\s*%\s*([\d.,]+)\s*₺/u', $text, $m ) ) {
+			return [ 'regular' => self::parse_price( $m[1] ), 'sale' => self::parse_price( $m[2] ) ];
+		}
+		// Same but TL suffix variant
+		if ( preg_match( '/([\d.,]+)\s*TL\s*[-–]\s*[\d.,]+\s*%\s*([\d.,]+)\s*TL/i', $text, $m ) ) {
 			return [ 'regular' => self::parse_price( $m[1] ), 'sale' => self::parse_price( $m[2] ) ];
 		}
 		return null;
