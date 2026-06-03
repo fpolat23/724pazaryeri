@@ -97,8 +97,18 @@ class WC_PSS_Scraper {
 		$visited = [];
 		$queue   = [ $start ];
 
-		// Path prefix of the crawl URL — sub-paths are treated as listing/category pages
-		$crawl_path      = rtrim( wp_parse_url( $start, PHP_URL_PATH ) ?? '', '/' );
+		// Path prefix used to decide which sub-pages to follow as listing/category pages.
+		// Primary: path of the crawl URL (e.g. /urunler).
+		// Fallback when crawl URL is the base domain: derive prefix from the product pattern
+		// e.g. pattern /urunler/detay/ → follow any /urunler/... that isn't a product page.
+		$crawl_path = rtrim( wp_parse_url( $start, PHP_URL_PATH ) ?? '', '/' );
+		if ( $crawl_path === '' && ! empty( $patterns ) ) {
+			$first_parts = array_filter( explode( '/', trim( $patterns[0], '/' ) ) );
+			if ( count( $first_parts ) > 1 ) {
+				array_pop( $first_parts );
+				$crawl_path = '/' . implode( '/', array_values( $first_parts ) );
+			}
+		}
 		self::$crawl_debug = [ 'patterns' => $patterns, 'crawl_path' => $crawl_path, 'pages' => [] ];
 
 		while ( ! empty( $queue ) && count( $urls ) < 60000 ) {
