@@ -118,6 +118,13 @@ class WC_PSS_Admin {
 						<td><input type="text" name="pass_field" class="small-text" value="<?php echo esc_attr( $edit_src['pass_field'] ?? 'password' ); ?>" placeholder="password"></td>
 					</tr>
 					<tr>
+						<th>Ekstra POST Alanları</th>
+						<td>
+							<textarea name="extra_fields" rows="3" class="regular-text" placeholder="kriter=email&#10;lang=tr"><?php echo esc_textarea( $edit_src['extra_fields'] ?? '' ); ?></textarea>
+							<p class="description">Giriş formuna eklenecek ek alanlar (her satıra <code>alan=değer</code>). Var olan alanları geçersiz kılar. Örn: <code>kriter=email</code></p>
+						</td>
+					</tr>
+					<tr>
 						<th>Kullanıcı Adı (Değer)</th>
 						<td><input type="text" name="username" class="regular-text" value="<?php echo esc_attr( $edit_src['username'] ?? '' ); ?>" autocomplete="off"></td>
 					</tr>
@@ -416,6 +423,7 @@ class WC_PSS_Admin {
 			'price_sel'   => sanitize_text_field( $raw['price_sel']   ?? '' ),
 			'reg_price_sel' => sanitize_text_field( $raw['reg_price_sel'] ?? '' ),
 			'stock_sel'   => sanitize_text_field( $raw['stock_sel']   ?? '' ),
+			'extra_fields' => sanitize_textarea_field( $raw['extra_fields'] ?? '' ),
 		];
 
 		if ( $data['name'] === '' || $data['base_url'] === '' ) {

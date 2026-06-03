@@ -92,6 +92,18 @@ class WC_PSS_Http_Client {
 		$fields[ $user_field ] = $source['username'];
 		$fields[ $pass_field ] = $source['password'];
 
+		// Apply extra_fields overrides (key=value lines, e.g. "kriter=email")
+		if ( ! empty( $source['extra_fields'] ) ) {
+			foreach ( explode( "\n", $source['extra_fields'] ) as $line ) {
+				$line = trim( $line );
+				if ( $line === '' || ! str_contains( $line, '=' ) ) continue;
+				[ $k, $v ] = explode( '=', $line, 2 );
+				$k = trim( $k );
+				$v = trim( $v );
+				if ( $k !== '' ) $fields[ $k ] = $v;
+			}
+		}
+
 		$result = $this->post( $post_url, $fields );
 		return $result !== null;
 	}
