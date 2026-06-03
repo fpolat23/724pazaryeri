@@ -1850,15 +1850,24 @@ window.addEventListener('popstate', function(){
 
 /* ═══════════════════════════════════════════════
    ✨ AKILLI ARAMA (AI-style autocomplete)
-   - Anlık öneri, yazım hatası toleransı, kategori/marka/ürün
-   - Klavye navigasyonu, geçmiş, popüler aramalar
+   - Anlık öneri, Türkçe karakter toleransı
+   - Kategori/marka/ürün/SKU, klavye nav, geçmiş
 ═══════════════════════════════════════════════ */
 (function(){
   var HISTORY_KEY = 'pz_search_history';
   var MAX_HISTORY = 8;
-  var debounceTimer = null;
-  var activeIndex = -1;
-  var lastQuery = '';
+
+  /* AJAX URL — wp_localize_script, ajaxurl, veya fallback */
+  function getAjaxUrl(){
+    if (window.bazario_ajax && window.bazario_ajax.ajax_url) return window.bazario_ajax.ajax_url;
+    if (typeof ajaxurl !== 'undefined') return ajaxurl;
+    return '/wp-admin/admin-ajax.php';
+  }
+  function getHomeUrl(){
+    if (window.pzHomeUrl) return window.pzHomeUrl;
+    if (window.bazario_ajax && window.bazario_ajax.home_url) return window.bazario_ajax.home_url;
+    return '/';
+  }
 
   function getHistory(){
     try { var raw = localStorage.getItem(HISTORY_KEY); return raw ? JSON.parse(raw) : []; }
@@ -1870,40 +1879,38 @@ window.addEventListener('popstate', function(){
     arr.unshift(q);
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(0, MAX_HISTORY))); } catch(e){}
   }
-  function escapeHTML(s){ return (s+'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function escapeHTML(s){ return (s+'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
   function highlight(text, q){
     if (!q) return escapeHTML(text);
-    var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
-    return escapeHTML(text).replace(re, '<mark>$1</mark>');
+    var re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');
+    return escapeHTML(text).replace(re,'<mark>$1</mark>');
   }
 
   function renderEmpty(dd){
-    var hist = getHistory();
+    var hist = getHistory(); var homeUrl = getHomeUrl();
     var html = '';
     if (hist.length) {
-      html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">🕐 Son Aramaların</div><div class="pz-ai-chips">';
+      html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">🕐 Son Aramalar</div><div class="pz-ai-chips">';
       hist.forEach(function(h){
-        html += '<a href="'+window.pzHomeUrl+'?s='+encodeURIComponent(h)+'&post_type=product" class="pz-ai-chip">'+escapeHTML(h)+'</a>';
+        html += '<a href="'+homeUrl+'?s='+encodeURIComponent(h)+'&post_type=product" class="pz-ai-chip">'+escapeHTML(h)+'</a>';
       });
       html += '</div></div>';
     }
     html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">🔥 Popüler Aramalar</div><div class="pz-ai-chips">';
     ['Ayakkabı','Çanta','T-shirt','Telefon','Kulaklık','Saat','Parfüm','Elbise'].forEach(function(p){
-      html += '<a href="'+window.pzHomeUrl+'?s='+encodeURIComponent(p)+'&post_type=product" class="pz-ai-chip pz-ai-pop">'+p+'</a>';
+      html += '<a href="'+homeUrl+'?s='+encodeURIComponent(p)+'&post_type=product" class="pz-ai-chip pz-ai-pop">'+p+'</a>';
     });
     html += '</div></div>';
     dd.innerHTML = html;
   }
 
   function renderResults(dd, data, q){
-    var html = '';
-    var hasResult = false;
-    
+    var homeUrl = getHomeUrl(); var html = ''; var hasResult = false;
     if (data.categories && data.categories.length) {
       hasResult = true;
       html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">📂 Kategoriler</div>';
       data.categories.forEach(function(c){
-        html += '<a class="pz-ai-item pz-ai-cat" href="'+c.url+'"><span class="pz-ai-cat-ico">📂</span><span>'+highlight(c.name, q)+'</span></a>';
+        html += '<a class="pz-ai-item pz-ai-cat" href="'+escapeHTML(c.url)+'"><span class="pz-ai-cat-ico">📂</span><span>'+highlight(c.name,q)+'</span></a>';
       });
       html += '</div>';
     }
@@ -1911,7 +1918,7 @@ window.addEventListener('popstate', function(){
       hasResult = true;
       html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">🏷️ Markalar</div>';
       data.brands.forEach(function(b){
-        html += '<a class="pz-ai-item pz-ai-brand" href="'+b.url+'"><span class="pz-ai-cat-ico">🏷️</span><span>'+highlight(b.name, q)+'</span></a>';
+        html += '<a class="pz-ai-item pz-ai-brand" href="'+escapeHTML(b.url)+'"><span class="pz-ai-cat-ico">🏷️</span><span>'+highlight(b.name,q)+'</span></a>';
       });
       html += '</div>';
     }
@@ -1919,105 +1926,104 @@ window.addEventListener('popstate', function(){
       hasResult = true;
       html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">🛒 Ürünler</div>';
       data.products.forEach(function(p){
-        html += '<a class="pz-ai-item pz-ai-prod" href="'+p.url+'">'+
-          '<img class="pz-ai-prod-img" src="'+p.img+'" alt="" loading="lazy">'+
-          '<div class="pz-ai-prod-info"><div class="pz-ai-prod-title">'+highlight(p.title, q)+'</div>'+
-          '<div class="pz-ai-prod-price">'+p.price+'</div></div></a>';
+        var skuBadge = p.sku ? '<span class="pz-ai-sku">SKU: '+escapeHTML(p.sku)+'</span>' : '';
+        html += '<a class="pz-ai-item pz-ai-prod" href="'+escapeHTML(p.url)+'">'+
+          '<img class="pz-ai-prod-img" src="'+escapeHTML(p.img)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">'+
+          '<div class="pz-ai-prod-info">'+
+            '<div class="pz-ai-prod-title">'+highlight(p.title,q)+'</div>'+
+            '<div class="pz-ai-prod-price">'+p.price+skuBadge+'</div>'+
+          '</div></a>';
       });
       html += '</div>';
     }
     if (!hasResult) {
-      html += '<div class="pz-ai-empty">😔 "<b>'+escapeHTML(q)+'</b>" için sonuç bulunamadı.<br><small>Yazım hatası olabilir, baska bir kelime dene.</small></div>';
+      html += '<div class="pz-ai-empty">😔 "<b>'+escapeHTML(q)+'</b>" için sonuç bulunamadı.<br><small>Farklı bir kelime veya SKU deneyin.</small></div>';
     } else {
-      // Alt: "Tüm sonuçları gör"
-      html += '<a class="pz-ai-all" href="'+window.pzHomeUrl+'?s='+encodeURIComponent(q)+'&post_type=product">🔎 "<b>'+escapeHTML(q)+'</b>" için tüm sonuçları gör →</a>';
+      html += '<a class="pz-ai-all" href="'+homeUrl+'?s='+encodeURIComponent(q)+'&post_type=product">🔎 "<b>'+escapeHTML(q)+'</b>" için tüm sonuçları gör →</a>';
     }
     dd.innerHTML = html;
   }
 
-  function search(input, dd, q){
-    if (typeof bazario_ajax === 'undefined') {
-      setTimeout(function(){ search(input, dd, q); }, 500);
-      return;
-    }
+  function doSearch(dd, q, lastQ){
+    var ajaxUrl = getAjaxUrl();
     var fd = new FormData();
-    fd.append('action', 'pz_ai_search');
-    fd.append('nonce', bazario_ajax.nonce);
+    fd.append('action','pz_ai_search');
     fd.append('q', q);
     dd.classList.add('pz-loading');
-    fetch(bazario_ajax.ajax_url, { method:'POST', body: fd, credentials:'same-origin' })
-      .then(function(r){ return r.json(); })
+    fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'})
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        return r.json();
+      })
       .then(function(res){
         dd.classList.remove('pz-loading');
         if (res && res.success && res.data) {
-          if (q.length < 2) renderEmpty(dd);
-          else renderResults(dd, res.data, q);
+          renderResults(dd, res.data, q);
           dd.classList.add('pz-open');
+        } else {
+          renderEmpty(dd); dd.classList.add('pz-open');
         }
       })
-      .catch(function(){ dd.classList.remove('pz-loading'); });
+      .catch(function(){
+        dd.classList.remove('pz-loading');
+        dd.innerHTML = '<div class="pz-ai-empty">⚠️ Arama bağlantısı kurulamadı. Lütfen tekrar deneyin.</div>';
+        dd.classList.add('pz-open');
+      });
   }
 
   function bindForm(form){
     if (form._aiBound) return; form._aiBound = true;
     var input = form.querySelector('.pz-ai-input');
-    var dd = form.querySelector('.pz-ai-dropdown');
+    var dd    = form.querySelector('.pz-ai-dropdown');
     if (!input || !dd) return;
-    
+
+    /* per-form state: birden fazla arama formu birbirini ezmez */
+    var debounceTimer = null;
+    var activeIndex   = -1;
+    var lastQuery     = '';
+
+    function updateActive(items){
+      items.forEach(function(it,i){ it.classList.toggle('pz-ai-active', i===activeIndex); });
+      if (activeIndex>=0 && items[activeIndex]) items[activeIndex].scrollIntoView({block:'nearest'});
+    }
+
     input.addEventListener('focus', function(){
       var q = input.value.trim();
-      if (q.length < 2) {
-        renderEmpty(dd);
-        dd.classList.add('pz-open');
-      } else if (q !== lastQuery) {
-        search(input, dd, q);
-      } else {
-        dd.classList.add('pz-open');
-      }
+      if (q.length < 2) { renderEmpty(dd); dd.classList.add('pz-open'); }
+      else if (q !== lastQuery) { lastQuery=q; doSearch(dd, q); }
+      else { dd.classList.add('pz-open'); }
     });
+
     input.addEventListener('input', function(){
       var q = input.value.trim();
-      lastQuery = q;
-      activeIndex = -1;
+      lastQuery = q; activeIndex = -1;
       clearTimeout(debounceTimer);
       if (q.length < 2) {
-        debounceTimer = setTimeout(function(){
-          renderEmpty(dd); dd.classList.add('pz-open');
-        }, 50);
+        debounceTimer = setTimeout(function(){ renderEmpty(dd); dd.classList.add('pz-open'); }, 80);
         return;
       }
-      debounceTimer = setTimeout(function(){ search(input, dd, q); }, 220);
+      debounceTimer = setTimeout(function(){ doSearch(dd, q); }, 240);
     });
+
     input.addEventListener('keydown', function(e){
       var items = dd.querySelectorAll('.pz-ai-item, .pz-ai-chip, .pz-ai-all');
-      if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex+1, items.length-1); updateActive(items); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex-1, -1); updateActive(items); }
-      else if (e.key === 'Enter') {
-        if (activeIndex >= 0 && items[activeIndex]) { e.preventDefault(); window.location.href = items[activeIndex].getAttribute('href'); }
+      if (e.key==='ArrowDown'){ e.preventDefault(); activeIndex=Math.min(activeIndex+1,items.length-1); updateActive(items); }
+      else if (e.key==='ArrowUp'){ e.preventDefault(); activeIndex=Math.max(activeIndex-1,-1); updateActive(items); }
+      else if (e.key==='Enter'){
+        if (activeIndex>=0 && items[activeIndex]){ e.preventDefault(); window.location.href=items[activeIndex].getAttribute('href'); }
         else { addHistory(input.value.trim()); }
       }
-      else if (e.key === 'Escape') { dd.classList.remove('pz-open'); input.blur(); }
+      else if (e.key==='Escape'){ dd.classList.remove('pz-open'); input.blur(); }
     });
-    form.addEventListener('submit', function(){ addHistory(input.value.trim()); });
-    document.addEventListener('click', function(e){
-      if (!form.contains(e.target)) dd.classList.remove('pz-open');
-    });
-  }
-  function updateActive(items){
-    items.forEach(function(it, i){ it.classList.toggle('pz-ai-active', i === activeIndex); });
-    if (activeIndex >= 0 && items[activeIndex]) items[activeIndex].scrollIntoView({block:'nearest'});
+
+    if (form.tagName==='FORM') form.addEventListener('submit', function(){ addHistory(input.value.trim()); });
+    document.addEventListener('click', function(e){ if (!form.contains(e.target)) dd.classList.remove('pz-open'); });
   }
 
   function init(){
-    if (!window.pzHomeUrl) {
-      // Home URL'i ilk forma bak
-      var f = document.querySelector('.pz-ai-search');
-      if (f) window.pzHomeUrl = f.getAttribute('action') || '/';
-      else window.pzHomeUrl = '/';
-    }
     document.querySelectorAll('form.pz-ai-search, div.pz-ai-search').forEach(bindForm);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
 
