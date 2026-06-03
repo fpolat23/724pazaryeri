@@ -143,6 +143,10 @@ class WC_PSS_Scraper {
 			?? [];
 
 		// Override with configured CSS selectors
+		if ( ! empty( $source['name_sel'] ) ) {
+			$v = self::sel_text( $html, $source['name_sel'] );
+			if ( $v !== '' ) $data['name'] = trim( $v );
+		}
 		if ( ! empty( $source['sku_sel'] ) ) {
 			$v = self::sel_text( $html, $source['sku_sel'] );
 			if ( $v !== '' ) $data['sku'] = $v;
@@ -378,28 +382,42 @@ class WC_PSS_Scraper {
 	}
 
 	private static function extract_name_html( string $html ): string {
-		// 1. og:title meta (most reliable — already trimmed by site)
-		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) ) {
-			return self::clean_name( $m[1] );
-		}
-		if ( preg_match( '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/i', $html, $m ) ) {
-			return self::clean_name( $m[1] );
-		}
-		// 2. itemprop="name" (schema.org)
-		if ( preg_match( '/<[^>]+itemprop=["\']name["\'][^>]*content=["\']([^"\']{3,200})["\']/i', $html, $m ) ) {
-			return self::clean_name( $m[1] );
-		}
-		// 3. First <h1>
+		// 1. First <h1> — usually the clean product title without SEO suffixes
 		if ( preg_match( '/<h1[^>]*>(.*?)<\/h1>/si', $html, $m ) ) {
-			$v = self::clean_name( $m[1] );
+			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
+			if ( strlen( $v ) >= 3 ) return $v;
+		}
+		// 2. itemprop="name" content attribute (short, structured)
+		if ( preg_match( '/<[^>]+itemprop=["\']name["\'][^>]*content=["\']([^"\']{3,200})["\']/i', $html, $m ) ) {
+			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
+			if ( strlen( $v ) >= 3 ) return $v;
+		}
+		// 3. og:title (may have "toptan çeşitleri | Site Name" suffix)
+		$og = '';
+		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m ) ) {
+			$og = $m[1];
+		} elseif ( preg_match( '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/i', $html, $m ) ) {
+			$og = $m[1];
+		}
+		if ( $og ) {
+			$v = self::strip_title_suffix( self::clean_name( $og ) );
 			if ( strlen( $v ) >= 3 ) return $v;
 		}
 		// 4. <title> minus " | site" suffix
 		if ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $html, $m ) ) {
-			$v = self::clean_name( preg_replace( '/\s*[|–-].*$/u', '', $m[1] ) );
+			$v = self::strip_title_suffix( self::clean_name( $m[1] ) );
 			if ( strlen( $v ) >= 3 ) return $v;
 		}
 		return '';
+	}
+
+	/** Remove " | Site Name", " - Site Name", " toptan …" SEO suffixes from titles. */
+	private static function strip_title_suffix( string $name ): string {
+		// Strip " | anything" and " – anything" and " - anything"
+		$name = preg_replace( '/\s*[|–]\s*.+$/u', '', $name );
+		// Strip trailing SEO words common on Turkish B2B sites
+		$name = preg_replace( '/\s+(?:toptan\s+çeşitleri|toptan\s+fiyat|toptan|çeşitleri|fiyatları)\s*$/iu', '', $name );
+		return trim( $name );
 	}
 
 	private static function clean_name( string $raw ): string {

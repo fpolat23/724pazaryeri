@@ -163,6 +163,7 @@ class WC_PSS_Admin {
 					<p class="description" style="margin:8px 0">Sayfada JSON-LD schema yoksa ve otomatik algılama çalışmıyorsa, bu alanlarla hangi elementin fiyat/stok/SKU içerdiğini belirtin.<br>
 					Örnekler: <code>.product-price</code>, <code>#sku-val</code>, <code>span.price ins</code></p>
 					<table class="form-table" style="margin-top:0">
+						<tr><th>Ad Seçici</th><td><input type="text" name="name_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['name_sel'] ?? '' ); ?>" placeholder="h1.urun-baslik"></td></tr>
 						<tr><th>SKU Seçici</th><td><input type="text" name="sku_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['sku_sel'] ?? '' ); ?>"></td></tr>
 						<tr><th>Güncel Fiyat Seçici</th><td><input type="text" name="price_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['price_sel'] ?? '' ); ?>"></td></tr>
 						<tr><th>Asıl Fiyat Seçici <small>(indirimli varsa)</small></th><td><input type="text" name="reg_price_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['reg_price_sel'] ?? '' ); ?>"></td></tr>
@@ -419,6 +420,7 @@ class WC_PSS_Admin {
 			'discovery'   => in_array( $raw['discovery'] ?? '', [ 'sitemap', 'crawl' ] ) ? $raw['discovery'] : 'sitemap',
 			'crawl_url'   => esc_url_raw( $raw['crawl_url'] ?? '' ),
 			'url_pattern' => sanitize_text_field( $raw['url_pattern'] ?? '/urun/' ),
+			'name_sel'    => sanitize_text_field( $raw['name_sel']    ?? '' ),
 			'sku_sel'     => sanitize_text_field( $raw['sku_sel']     ?? '' ),
 			'price_sel'   => sanitize_text_field( $raw['price_sel']   ?? '' ),
 			'reg_price_sel' => sanitize_text_field( $raw['reg_price_sel'] ?? '' ),
