@@ -309,6 +309,7 @@ class WC_PSS_Admin {
 				<div class="wc-pss-progress-outer"><div class="wc-pss-progress-inner" style="width:0%"></div></div>
 				<div class="wc-pss-progress-text">Başlatılıyor…</div>
 				<div class="wc-pss-progress-status"></div>
+				<div id="pss-live-items"></div>
 			</div>
 			<?php endif; ?>
 		</div>
