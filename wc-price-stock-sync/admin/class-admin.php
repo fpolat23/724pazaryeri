@@ -486,16 +486,13 @@ class WC_PSS_Admin {
 			$log[] = 'Giriş deneniyor: ' . $login_url;
 			$log[] = '  Kullanıcı alanı: "' . $user_field . '"  |  Şifre alanı: "' . $pass_field . '"';
 
-			// Inspect login page form before submitting
+			// Inspect login page form (reuse what login() will fetch — avoid double fetch)
 			$login_page = $client->get( $login_url );
 			if ( $login_page ) {
-				// Detect AJAX/JS login (no <form> or form with no action that points to a route)
 				$has_form = preg_match( '/<form[^>]+/i', $login_page );
 				if ( ! $has_form ) {
 					$log[] = '⚠ Giriş sayfasında HTML <form> bulunamadı — site JavaScript (AJAX) ile giriş yapıyor olabilir.';
-					$log[] = '  Plugin klasik form submit\'i destekler. Sitenin giriş endpoint\'ini tespit etmeye çalışılıyor…';
 				} else {
-					// Show all input names with their types and default values
 					preg_match_all( '/<input([^>]*)\/?>/i', $login_page, $inp_m );
 					$inp_summary = [];
 					foreach ( $inp_m[1] as $attrs ) {
@@ -510,14 +507,18 @@ class WC_PSS_Admin {
 					if ( $inp_summary ) {
 						$log[] = '  Form alanları: ' . implode( ', ', $inp_summary );
 					}
-					// Detect if form action is AJAX endpoint or external
 					if ( preg_match( '/<form[^>]+action=["\']([^"\']+)["\']/i', $login_page, $fa_m ) ) {
 						$log[] = '  Form action: ' . html_entity_decode( $fa_m[1] );
+					}
+					// Warn if user_field not in form
+					if ( ! preg_match( '/name=["\']' . preg_quote( $user_field, '/' ) . '["\']/', $login_page ) ) {
+						$log[] = '  ⚠ "' . $user_field . '" alanı formda bulunamadı — "Kullanıcı Alanı" adını kontrol edin.';
 					}
 				}
 			}
 
-			$login_ok = $client->login( $source );
+			// Pass pre-fetched page to login so it doesn't fetch again
+			$login_ok = $client->login( $source, $login_page );
 			if ( ! $login_ok ) {
 				$log[] = '✗ Giriş isteği başarısız — URL erişilemiyor veya HTTP hatası';
 				$ok = false;

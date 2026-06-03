@@ -25,13 +25,13 @@ class WC_PSS_Http_Client {
 	 * Log in to the source site.
 	 * Fetches the login page, extracts hidden form fields (nonces/CSRF), then POSTs credentials.
 	 */
-	public function login( array $source ): bool {
+	public function login( array $source, ?string $prefetched_page = null ): bool {
 		$login_url  = rtrim( $source['login_url'] ?: $source['base_url'], '/' );
 		$user_field = $source['user_field'] ?: 'username';
 		$pass_field = $source['pass_field'] ?: 'password';
 
-		// Fetch login page to capture hidden fields and form action
-		$page      = $this->get( $login_url );
+		// Fetch login page to capture hidden fields and form action (use pre-fetched if available)
+		$page      = $prefetched_page ?? $this->get( $login_url );
 		$post_url  = $login_url;
 		$fields    = [];
 
