@@ -125,7 +125,7 @@ class WC_PSS_Background_Processor {
 			$client->login( $source );
 		}
 
-		$updater       = new WC_PSS_Updater( $options );
+		$updater       = new WC_PSS_Updater( array_merge( $options, [ 'sku_prefix' => $source['sku_prefix'] ?? '' ] ) );
 		$updated       = 0;
 		$not_found     = 0;
 		$skipped       = 0;

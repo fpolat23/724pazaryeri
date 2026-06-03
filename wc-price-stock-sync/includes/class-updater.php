@@ -3,16 +3,18 @@ defined( 'ABSPATH' ) || exit;
 
 class WC_PSS_Updater {
 
-	private bool  $update_prices;
-	private bool  $update_stock;
-	private bool  $match_by_name;
-	private array $price_rules;
+	private bool   $update_prices;
+	private bool   $update_stock;
+	private bool   $match_by_name;
+	private array  $price_rules;
+	private string $sku_prefix;
 
 	public function __construct( array $options = [] ) {
-		$this->update_prices = (bool)  ( $options['update_prices'] ?? true );
-		$this->update_stock  = (bool)  ( $options['update_stock']  ?? true );
-		$this->match_by_name = (bool)  ( $options['match_by_name'] ?? false );
-		$this->price_rules   = (array) ( $options['price_rules']   ?? [] );
+		$this->update_prices = (bool)   ( $options['update_prices'] ?? true );
+		$this->update_stock  = (bool)   ( $options['update_stock']  ?? true );
+		$this->match_by_name = (bool)   ( $options['match_by_name'] ?? false );
+		$this->price_rules   = (array)  ( $options['price_rules']   ?? [] );
+		$this->sku_prefix    = (string) ( $options['sku_prefix']    ?? '' );
 	}
 
 	/**
@@ -45,6 +47,10 @@ class WC_PSS_Updater {
 
 		if ( $sku !== '' ) {
 			$product_id = wc_get_product_id_by_sku( $sku ) ?: null;
+			// Fallback: try with configured prefix (e.g. source has "076.87136330", WC has "BÇ-076.87136330")
+			if ( ! $product_id && $this->sku_prefix !== '' ) {
+				$product_id = wc_get_product_id_by_sku( $this->sku_prefix . $sku ) ?: null;
+			}
 		}
 
 		if ( ! $product_id && $name !== '' && $this->match_by_name ) {

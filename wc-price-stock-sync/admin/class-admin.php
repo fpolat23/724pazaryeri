@@ -159,8 +159,19 @@ class WC_PSS_Admin {
 				</table>
 
 				<details style="margin-top:8px;">
-					<summary style="cursor:pointer;font-weight:600;">Gelişmiş: CSS Seçiciler (isteğe bağlı)</summary>
-					<p class="description" style="margin:8px 0">Sayfada JSON-LD schema yoksa ve otomatik algılama çalışmıyorsa, bu alanlarla hangi elementin fiyat/stok/SKU içerdiğini belirtin.<br>
+					<summary style="cursor:pointer;font-weight:600;">Gelişmiş: SKU Eşleştirme &amp; CSS Seçiciler (isteğe bağlı)</summary>
+					<p class="description" style="margin:8px 0 4px">SKU ön eki: kaynak sitedeki SKU ile WooCommerce'deki SKU farklı format kullanıyorsa ön ek girin.<br>
+					Örn: Kaynak <code>076.87136330</code> → WooCommerce <code>BÇ-076.87136330</code> ise ön ek = <code>BÇ-</code></p>
+					<table class="form-table" style="margin-top:0">
+						<tr>
+							<th>SKU Ön Eki</th>
+							<td>
+								<input type="text" name="sku_prefix" class="small-text" value="<?php echo esc_attr( $edit_src['sku_prefix'] ?? '' ); ?>" placeholder="BÇ-">
+								<p class="description">Tam SKU eşleşmesi başarısız olursa bu ön ek eklenerek tekrar aranır. Boş = ön ek yok.</p>
+							</td>
+						</tr>
+					</table>
+					<p class="description" style="margin:10px 0 4px">CSS Seçiciler: sayfada JSON-LD schema yoksa ve otomatik algılama çalışmıyorsa kullanın.<br>
 					Örnekler: <code>.product-price</code>, <code>#sku-val</code>, <code>span.price ins</code></p>
 					<table class="form-table" style="margin-top:0">
 						<tr><th>Ad Seçici</th><td><input type="text" name="name_sel" class="regular-text" value="<?php echo esc_attr( $edit_src['name_sel'] ?? '' ); ?>" placeholder="h1.urun-baslik"></td></tr>
@@ -451,6 +462,7 @@ class WC_PSS_Admin {
 			'discovery'   => in_array( $raw['discovery'] ?? '', [ 'sitemap', 'crawl' ] ) ? $raw['discovery'] : 'sitemap',
 			'crawl_url'   => esc_url_raw( $raw['crawl_url'] ?? '' ),
 			'url_pattern' => sanitize_text_field( $raw['url_pattern'] ?? '/urun/' ),
+			'sku_prefix'  => sanitize_text_field( $raw['sku_prefix']  ?? '' ),
 			'name_sel'    => sanitize_text_field( $raw['name_sel']    ?? '' ),
 			'sku_sel'     => sanitize_text_field( $raw['sku_sel']     ?? '' ),
 			'price_sel'   => sanitize_text_field( $raw['price_sel']   ?? '' ),
