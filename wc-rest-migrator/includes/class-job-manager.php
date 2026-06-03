@@ -10,21 +10,20 @@ class WC_RM_Job_Manager {
 		$table   = $wpdb->prefix . self::TABLE;
 		$charset = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
+		// dbDelta() silently aborts when TEXT columns have non-NULL defaults (invalid MySQL).
+		// Direct CREATE TABLE IF NOT EXISTS is more reliable here.
+		$wpdb->query( "CREATE TABLE IF NOT EXISTS {$table} (
 			id          bigint(20)   NOT NULL AUTO_INCREMENT,
 			status      varchar(20)  NOT NULL DEFAULT 'pending',
 			source_url  varchar(500) NOT NULL DEFAULT '',
-			options     longtext     NOT NULL DEFAULT '{}',
+			options     longtext,
 			total       int(11)      NOT NULL DEFAULT 0,
 			processed   int(11)      NOT NULL DEFAULT 0,
-			results     longtext     NOT NULL DEFAULT '{}',
-			errors      longtext     NOT NULL DEFAULT '[]',
+			results     longtext,
+			errors      longtext,
 			created_at  datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id)
-		) {$charset};";
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
+		) {$charset}" );
 	}
 
 	public static function create( array $data ): int {
