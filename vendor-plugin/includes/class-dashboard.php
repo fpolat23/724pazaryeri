@@ -33,7 +33,8 @@ class PZV_Dashboard {
         if ( ! PZV_Roles::is_vendor( $user_id ) ) {
             return '<div class="pzv-dash-login"><h3>⚠ Satıcı Değilsiniz</h3><p><a href="' . esc_url( home_url( '/satici-ol/' ) ) . '" class="button">Satıcı Başvurusu Yap →</a></p></div>';
         }
-        $tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'overview';
+        $allowed_tabs = array( 'overview', 'products', 'add-product', 'orders', 'earnings', 'profile' );
+        $tab = isset( $_GET['tab'] ) && in_array( sanitize_key( $_GET['tab'] ), $allowed_tabs, true ) ? sanitize_key( $_GET['tab'] ) : 'overview';
         ob_start();
         ?>
         <div class="pzv-dash">
@@ -742,7 +743,7 @@ class PZV_Dashboard {
         </div>
 
         <h4 style="margin-top:24px;">📦 Sipariş Ürünlerim</h4>
-        <table class="pzv-table">
+        <div class="pzv-table-wrap"><table class="pzv-table">
             <thead><tr><th>Ürün</th><th>Adet</th><th>Tutar</th></tr></thead>
             <tbody>
             <?php foreach ( $order->get_items() as $item ) :
@@ -750,11 +751,11 @@ class PZV_Dashboard {
                 if ( $owner !== (int) $vendor_id ) continue;
                 ?>
                 <tr><td><strong><?php echo esc_html( $item->get_name() ); ?></strong></td>
-                    <td><?php echo (int) $item->get_quantity(); ?></td>
-                    <td><strong><?php echo wc_price( $item->get_total() ); ?></strong></td></tr>
+                    <td style="white-space:nowrap"><?php echo (int) $item->get_quantity(); ?></td>
+                    <td style="white-space:nowrap"><strong><?php echo wc_price( $item->get_total() ); ?></strong></td></tr>
             <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
 
         <h4 style="margin-top:24px;">🚚 Sipariş Yönetimi</h4>
         <form class="pzv-order-form" data-order="<?php echo (int) $order_id; ?>">

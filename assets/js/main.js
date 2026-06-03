@@ -334,7 +334,8 @@ function switchCatTab(btn, cat){
   grid.style.opacity='.4';
   loading.style.display='block';
   // WordPress AJAX (admin-ajax.php) çağrısı
-  var data='action=bazario_filter_products&category='+encodeURIComponent(cat);
+  var _nonce=(window.bazario_ajax&&window.bazario_ajax.nonce)?window.bazario_ajax.nonce:'';
+  var data='action=bazario_filter_products&nonce='+encodeURIComponent(_nonce)+'&category='+encodeURIComponent(cat);
   fetch((window.bazario_ajax && window.bazario_ajax.url) ? window.bazario_ajax.url : '/wp-admin/admin-ajax.php', {
     method:'POST',
     headers:{'Content-Type':'application/x-www-form-urlencoded'},

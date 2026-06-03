@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.119' );
+define( 'PAZARYERI_VERSION', '9.9.120' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -468,11 +468,12 @@ add_shortcode( 'pazaryeri_seller_apply', function () {
             // Robot kontrolü: rastgele iki sayı
             $pz_n1 = rand(1, 9); $pz_n2 = rand(1, 9);
             // Token: IP + UserAgent hash (cookie YOK - headers already sent riski olmasın)
-            $pz_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
-            $pz_ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( $_SERVER['HTTP_USER_AGENT'], 0, 100 ) : '';
-            $pz_token = md5( $pz_ip . '|' . $pz_ua . '|' . wp_salt() );
-            @set_transient( 'pz_apply_math_' . $pz_token, $pz_n1 + $pz_n2, 30 * MINUTE_IN_SECONDS );
-            @set_transient( 'pz_apply_start_' . $pz_token, time(), 30 * MINUTE_IN_SECONDS );
+            $pz_raw_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
+            $pz_ip    = filter_var( $pz_raw_ip, FILTER_VALIDATE_IP ) ? $pz_raw_ip : '0.0.0.0';
+            $pz_ua    = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 100 ) : '';
+            $pz_token = wp_hash( $pz_ip . '|' . $pz_ua . '|' . time() );
+            set_transient( 'pz_apply_math_' . $pz_token, $pz_n1 + $pz_n2, 30 * MINUTE_IN_SECONDS );
+            set_transient( 'pz_apply_start_' . $pz_token, time(), 30 * MINUTE_IN_SECONDS );
           ?>
           <input type="hidden" name="pz_seller_action" value="submit">
           <input type="hidden" name="pz_apply_token" value="<?php echo esc_attr( $pz_token ); ?>">
@@ -960,7 +961,7 @@ add_action( 'wp_ajax_nopriv_pz_notify_subscribe', 'pz_notify_subscribe_handler' 
    Karşılaştırma: Ürün özelliklerini AJAX ile döndür
 ────────────────────────────────────────────── */
 function pz_get_comp_attrs_handler() {
-    $ids = json_decode( stripslashes( $_POST['ids'] ?? '[]' ), true );
+    $ids = json_decode( wp_unslash( $_POST['ids'] ?? '[]' ), true );
     if ( ! is_array( $ids ) ) $ids = array();
     $ids = array_map( 'absint', $ids );
     $ids = array_filter( $ids );

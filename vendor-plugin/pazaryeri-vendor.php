@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PazarYeri Vendor System
  * Description: Hafif WooCommerce çoklu satıcı sistemi. Dokan alternatifi. Kategori bazlı komisyon, frontend dashboard, sipariş yönetimi.
- * Version:     1.3.4
+ * Version:     1.3.5
  * Author:      724PazarYeri
  * Requires PHP: 7.2
  * Requires at least: 5.6
