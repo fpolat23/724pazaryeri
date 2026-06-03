@@ -93,24 +93,65 @@ class WC_PSS_Scraper {
 			$html = $client->get( $page_url );
 			if ( ! $html ) continue;
 
-			preg_match_all( '/href=["\']([^"\'#?]+)["\']/i', $html, $hrefs );
+			// Collect product URLs and all same-domain links
+			preg_match_all( '/href=["\']([^"\'#]+)["\']/i', $html, $hrefs );
 			foreach ( $hrefs[1] as $href ) {
 				$abs = self::to_absolute( html_entity_decode( trim( $href ) ), $base );
 				if ( ! $abs || ! str_starts_with( $abs, $base ) ) continue;
 
 				if ( str_contains( $abs, $pattern ) ) {
-					if ( ! in_array( $abs, $urls, true ) ) $urls[] = $abs;
+					// Strip query strings from product URLs to avoid duplicates
+					$clean = strtok( $abs, '?' );
+					if ( $clean && ! in_array( $clean, $urls, true ) ) $urls[] = $clean;
 				}
 			}
 
-			// Follow next-page link
-			if ( preg_match(
-				'/href=["\']([^"\']*(?:page|sayfa)[^"\']*)["\'][^>]*>(?:&rsaquo;|›|Next|Sonraki)/i',
-				$html, $next
-			) ) {
-				$next_url = self::to_absolute( html_entity_decode( $next[1] ), $base );
+			// ---- Pagination detection (multiple strategies) ----
+
+			// Strategy 1: rel="next" (standard HTML)
+			if ( preg_match( '/(?:rel=["\']next["\']\s[^>]*href=["\']([^"\']+)["\']|href=["\']([^"\']+)["\']\s[^>]*rel=["\']next["\'])/i', $html, $m ) ) {
+				$next_url = self::to_absolute( html_entity_decode( $m[1] ?: $m[2] ), $base );
 				if ( $next_url && ! in_array( $next_url, $visited, true ) ) {
-					$queue[] = $next_url;
+					array_unshift( $queue, $next_url );
+					continue;
+				}
+			}
+
+			// Strategy 2: explicit next-button text (Turkish + universal)
+			if ( preg_match(
+				'/href=["\']([^"\']+)["\'][^>]*>\s*(?:&rsaquo;|›|&raquo;|»|>>|Sonraki|İleri|Next)\s*</i',
+				$html, $m
+			) ) {
+				$next_url = self::to_absolute( html_entity_decode( $m[1] ), $base );
+				if ( $next_url && ! in_array( $next_url, $visited, true ) ) {
+					array_unshift( $queue, $next_url );
+					continue;
+				}
+			}
+
+			// Strategy 3: queue ALL numbered pagination links on this page
+			// Matches: ?page=N  ?p=N  /page/N/  /sayfa/N  /sayfa-N
+			preg_match_all(
+				'/href=["\']([^"\']*(?:[?&](?:page|sayfa|p)=\d+|\/(?:page|sayfa)\/\d+|\/sayfa-\d+)[^"\']*)["\']/',
+				$html, $pg
+			);
+			foreach ( $pg[1] as $plink ) {
+				$abs = self::to_absolute( html_entity_decode( trim( $plink ) ), $base );
+				if ( $abs && str_starts_with( $abs, $base ) && ! in_array( $abs, $visited, true ) && ! in_array( $abs, $queue, true ) ) {
+					$queue[] = $abs;
+				}
+			}
+
+			// Strategy 4: URL-increment fallback — if current URL already has ?page=N,
+			// check whether page N+1 exists in the HTML links
+			$qs = wp_parse_url( $page_url, PHP_URL_QUERY ) ?? '';
+			parse_str( $qs, $qp );
+			$param = isset( $qp['page'] ) ? 'page' : ( isset( $qp['sayfa'] ) ? 'sayfa' : ( isset( $qp['p'] ) ? 'p' : '' ) );
+			if ( $param !== '' ) {
+				$next_n    = (int) $qp[ $param ] + 1;
+				$candidate = str_replace( "{$param}=" . $qp[ $param ], "{$param}={$next_n}", $page_url );
+				if ( str_contains( $html, "{$param}={$next_n}" ) && ! in_array( $candidate, $visited, true ) ) {
+					$queue[] = $candidate;
 				}
 			}
 		}
