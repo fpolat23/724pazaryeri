@@ -36,8 +36,20 @@ class WC_PSS_Http_Client {
 		$fields    = [];
 
 		if ( $page ) {
+			// Find the login form (prefer the one containing user_field or pass_field)
+			$form_html = $page;
+			if ( preg_match_all( '/<form[^>]*>.*?<\/form>/is', $page, $form_m ) ) {
+				foreach ( $form_m[0] as $candidate ) {
+					if ( stripos( $candidate, 'name="' . $user_field . '"' ) !== false ||
+					     stripos( $candidate, "name='" . $user_field . "'" ) !== false ) {
+						$form_html = $candidate;
+						break;
+					}
+				}
+			}
+
 			// Find form action
-			if ( preg_match( '/<form[^>]+action=["\']([^"\']+)["\']/is', $page, $m ) ) {
+			if ( preg_match( '/<form[^>]+action=["\']([^"\']+)["\']/is', $form_html, $m ) ) {
 				$action = html_entity_decode( $m[1] );
 				if ( filter_var( $action, FILTER_VALIDATE_URL ) ) {
 					$post_url = $action;
@@ -46,13 +58,34 @@ class WC_PSS_Http_Client {
 					$post_url = $p['scheme'] . '://' . $p['host'] . $action;
 				}
 			}
-			// Extract all hidden fields
-			preg_match_all( '/<input[^>]+type=["\']hidden["\'][^>]*\/?>/is', $page, $inputs );
-			foreach ( $inputs[0] as $tag ) {
+
+			// Extract ALL input fields with a value (not just hidden), excluding submit/button/file/image
+			preg_match_all( '/<input([^>]*)\/?>/is', $form_html, $inputs );
+			foreach ( $inputs[1] as $attrs ) {
+				$type = '';
+				if ( preg_match( '/\btype=["\']([^"\']+)["\']/i', $attrs, $t ) ) $type = strtolower( $t[1] );
+				if ( in_array( $type, [ 'submit', 'button', 'file', 'image', 'reset' ], true ) ) continue;
 				$name = $value = '';
-				if ( preg_match( '/\bname=["\']([^"\']+)["\']/i', $tag, $n ) ) $name  = $n[1];
-				if ( preg_match( '/\bvalue=["\']([^"\']*)["\']/', $tag, $v ) )  $value = html_entity_decode( $v[1] );
+				if ( preg_match( '/\bname=["\']([^"\']+)["\']/i', $attrs, $n ) ) $name  = $n[1];
+				if ( preg_match( '/\bvalue=["\']([^"\']*)["\']/', $attrs, $v ) )  $value = html_entity_decode( $v[1] );
+				// For checkboxes/radios, only include if checked
+				if ( in_array( $type, [ 'checkbox', 'radio' ], true ) ) {
+					if ( ! preg_match( '/\bchecked\b/i', $attrs ) ) continue;
+				}
 				if ( $name ) $fields[ $name ] = $value;
+			}
+
+			// Also capture <select> default (first <option> or selected one)
+			preg_match_all( '/<select[^>]*name=["\']([^"\']+)["\'][^>]*>(.*?)<\/select>/is', $form_html, $selects );
+			foreach ( $selects[1] as $si => $sel_name ) {
+				$sel_html = $selects[2][ $si ];
+				$sel_val  = '';
+				if ( preg_match( '/<option[^>]+selected[^>]*value=["\']([^"\']*)["\']|<option[^>]+value=["\']([^"\']*)["\'][^>]+selected/i', $sel_html, $sv ) ) {
+					$sel_val = $sv[1] ?: $sv[2];
+				} elseif ( preg_match( '/<option[^>]+value=["\']([^"\']*)["\']>/i', $sel_html, $sv ) ) {
+					$sel_val = $sv[1]; // first option as default
+				}
+				$fields[ $sel_name ] = $sel_val;
 			}
 		}
 

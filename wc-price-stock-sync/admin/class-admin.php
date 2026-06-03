@@ -495,10 +495,20 @@ class WC_PSS_Admin {
 					$log[] = '⚠ Giriş sayfasında HTML <form> bulunamadı — site JavaScript (AJAX) ile giriş yapıyor olabilir.';
 					$log[] = '  Plugin klasik form submit\'i destekler. Sitenin giriş endpoint\'ini tespit etmeye çalışılıyor…';
 				} else {
-					// Show all input names in the form
-					preg_match_all( '/<input[^>]+name=["\']([^"\']+)["\']/i', $login_page, $inp_m );
-					if ( $inp_m[1] ) {
-						$log[] = '  Form alan adları: ' . implode( ', ', array_map( fn($n) => '"' . $n . '"', $inp_m[1] ) );
+					// Show all input names with their types and default values
+					preg_match_all( '/<input([^>]*)\/?>/i', $login_page, $inp_m );
+					$inp_summary = [];
+					foreach ( $inp_m[1] as $attrs ) {
+						$itype = 'text';
+						if ( preg_match( '/\btype=["\']([^"\']+)["\']/i', $attrs, $it ) ) $itype = strtolower( $it[1] );
+						if ( in_array( $itype, [ 'submit', 'button', 'image', 'reset' ], true ) ) continue;
+						$iname = $ival = '';
+						if ( preg_match( '/\bname=["\']([^"\']+)["\']/i', $attrs, $in ) ) $iname = $in[1];
+						if ( preg_match( '/\bvalue=["\']([^"\']*)["\']/', $attrs, $iv ) ) $ival = $iv[1];
+						if ( $iname ) $inp_summary[] = '"' . $iname . '"[' . $itype . ']' . ( $ival !== '' ? '="' . htmlspecialchars_decode( $ival ) . '"' : '' );
+					}
+					if ( $inp_summary ) {
+						$log[] = '  Form alanları: ' . implode( ', ', $inp_summary );
 					}
 					// Detect if form action is AJAX endpoint or external
 					if ( preg_match( '/<form[^>]+action=["\']([^"\']+)["\']/i', $login_page, $fa_m ) ) {
