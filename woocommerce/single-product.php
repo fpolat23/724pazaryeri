@@ -627,7 +627,10 @@ while ( have_posts() ) : the_post();
         <?php endforeach; ?>
       </div>
       <?php endif; ?>
+    </div><!-- /hb-right-col -->
 
+    <!-- ═══ GALERİ ALTI: GÜVEN + PAYLAŞ ═══ -->
+    <div class="hb-gallery-extra">
       <!-- Güven rozetleri -->
       <div class="hb-trust">
         <div class="hb-trust-item">
@@ -786,7 +789,7 @@ while ( have_posts() ) : the_post();
           <?php endif; ?>
         </div>
       </div>
-    </div><!-- /hb-right-col -->
+    </div>
 
   </div>
 
