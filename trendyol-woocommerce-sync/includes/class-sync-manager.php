@@ -243,14 +243,24 @@ class TWS_Sync_Manager {
             wp_send_json_error( [ 'message' => 'Yetersiz yetki.' ] );
         }
 
-        $api    = TWS_Vendor_Manager::get_vendor_api( $vendor_id );
-        $result = $api ? $api->test_connection() : new \WP_Error( 'no_api', 'API bilgileri eksik.' );
+        $config = TWS_Vendor_Manager::get_vendor_config( $vendor_id );
 
-        if ( is_wp_error( $result ) ) {
-            wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+        if ( ! $config['api_key'] || ! $config['api_secret'] || ! $config['supplier_id'] ) {
+            wp_send_json_error( [ 'message' => 'API bilgileri eksik. Lütfen Tedarikçi ID, API Key ve API Secret alanlarını doldurup Kaydet yapın.' ] );
         }
 
-        wp_send_json_success( [ 'message' => 'Bağlantı başarılı!' ] );
+        $api    = new TWS_Trendyol_API( $config['api_key'], $config['api_secret'], $config['supplier_id'] );
+        $result = $api->test_connection();
+
+        if ( is_wp_error( $result ) ) {
+            $data = $result->get_error_data();
+            wp_send_json_error( [
+                'message' => $result->get_error_message(),
+                'hint'    => self::connection_hint( $result->get_error_data( 'status' ) ?? 0 ),
+            ] );
+        }
+
+        wp_send_json_success( [ 'message' => 'Bağlantı başarılı! Trendyol API\'si erişilebilir.' ] );
     }
 
     // ---------------------------------------------------------------
@@ -265,13 +275,16 @@ class TWS_Sync_Manager {
 
         $vendor_id = (int) ( $_POST['vendor_id'] ?? 0 );
         $api       = TWS_Vendor_Manager::get_vendor_api( $vendor_id );
-        $result    = $api ? $api->test_connection() : new \WP_Error( 'no_api', 'API bilgileri eksik.' );
+        $result    = $api ? $api->test_connection() : new \WP_Error( 'no_api', 'API bilgileri eksik veya kaydedilmemiş.' );
 
         if ( is_wp_error( $result ) ) {
-            wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+            wp_send_json_error( [
+                'message' => $result->get_error_message(),
+                'hint'    => self::connection_hint( $result->get_error_data( 'status' ) ?? 0 ),
+            ] );
         }
 
-        wp_send_json_success( [ 'message' => 'Bağlantı başarılı!' ] );
+        wp_send_json_success( [ 'message' => "Bağlantı başarılı! Trendyol API'si erişilebilir." ] );
     }
 
     public static function ajax_sync_vendor(): void {
@@ -355,6 +368,16 @@ class TWS_Sync_Manager {
         }
 
         return 0;
+    }
+
+    private static function connection_hint( int $code ): string {
+        return match ( $code ) {
+            401 => 'API Key veya Secret hatalı. Trendyol Satıcı Paneli → Entegrasyon Bilgileri bölümünden kontrol edin.',
+            403 => 'Erişim reddedildi. Olası sebepler: (1) API Key/Secret yanlış girilmiş, (2) Tedarikçi ID hatalı, (3) Hesabınızda API erişimi aktif değil.',
+            404 => 'Tedarikçi ID bulunamadı. Trendyol panelinizdeki Mağaza ID numarasını kontrol edin.',
+            429 => 'Çok fazla istek. Birkaç dakika bekleyip tekrar deneyin.',
+            default => 'Trendyol API\'sine ulaşılamıyor. Hosting\'inizin api.trendyol.com adresine erişebildiğini kontrol edin.',
+        };
     }
 
     public static function get_api(): ?TWS_Trendyol_API {

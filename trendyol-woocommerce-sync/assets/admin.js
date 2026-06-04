@@ -70,9 +70,16 @@
         $res.hide().removeClass('is-error is-success');
         post('tws_test_connection', { vendor_id: twsData.activeVendorId })
         .done(function (r) {
-            showNotice($res, r.success ? 'success' : 'error',
-                (r.success ? '✓ ' : '✗ ') +
-                (r.success ? r.data.message : (r.data && r.data.message ? r.data.message : 'Hata')));
+            if (r.success) {
+                showNotice($res, 'success', '✓ ' + r.data.message);
+            } else {
+                var msg = (r.data && r.data.message) ? r.data.message : 'Hata';
+                var hint = (r.data && r.data.hint) ? '\n\nİpucu: ' + r.data.hint : '';
+                $res.removeClass('is-error is-success is-warning')
+                    .addClass('is-error')
+                    .html('<strong>✗ ' + escHtml(msg) + '</strong>' + (hint ? '<br><small style="display:block;margin-top:6px;">' + escHtml(r.data.hint) + '</small>' : ''))
+                    .show();
+            }
         })
         .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
         .always(function () { $btn.prop('disabled', false).text('Bağlantıyı Test Et'); });
@@ -409,9 +416,15 @@
 
         post('tws_test_vendor_conn', { vendor_id: vid })
         .done(function (r) {
-            showNotice($res, r.success ? 'success' : 'error',
-                (r.success ? '✓ ' : '✗ ') +
-                (r.success ? r.data.message : (r.data && r.data.message ? r.data.message : 'Hata')));
+            if (r.success) {
+                showNotice($res, 'success', '✓ ' + r.data.message);
+            } else {
+                var msg = (r.data && r.data.message) ? r.data.message : 'Hata';
+                $res.removeClass('is-error is-success is-warning')
+                    .addClass('is-error')
+                    .html('<strong>✗ ' + escHtml(msg) + '</strong>' + (r.data && r.data.hint ? '<br><small style="display:block;margin-top:6px;">' + escHtml(r.data.hint) + '</small>' : ''))
+                    .show();
+            }
         })
         .fail(function () { showNotice($res, 'error', 'Sunucu hatası.'); })
         .always(function () { $btn.prop('disabled', false).text('Bağlantı Test Et'); });

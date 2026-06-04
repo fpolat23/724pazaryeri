@@ -181,8 +181,12 @@ class TWS_Trendyol_API {
         $data = json_decode( $raw, true );
 
         if ( $code < 200 || $code >= 300 ) {
-            $message = $data['errors'][0]['message'] ?? $data['message'] ?? "HTTP $code";
-            return new \WP_Error( 'trendyol_api_error', $message, [ 'status' => $code ] );
+            $message = $data['errors'][0]['message']
+                ?? $data['error_description']
+                ?? $data['message']
+                ?? $data['title']
+                ?? ( $raw ? substr( strip_tags( $raw ), 0, 200 ) : "HTTP $code" );
+            return new \WP_Error( 'trendyol_api_error', "HTTP $code: $message", [ 'status' => $code, 'body' => $raw ] );
         }
 
         return $data ?? [];
