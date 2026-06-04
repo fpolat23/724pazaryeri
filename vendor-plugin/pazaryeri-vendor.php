@@ -16,11 +16,11 @@ if ( ! defined( 'PZV_DIR' ) )    define( 'PZV_DIR', plugin_dir_path( __FILE__ ) 
 if ( ! defined( 'PZV_URL' ) )    define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
 if ( ! defined( 'PZV_ROLE' ) )   define( 'PZV_ROLE', 'pzv_vendor' );
 
-require_once PZV_DIR . 'includes/class-roles.php';
-require_once PZV_DIR . 'includes/class-vendor.php';
-require_once PZV_DIR . 'includes/class-commission.php';
-require_once PZV_DIR . 'includes/class-admin.php';
-require_once PZV_DIR . 'includes/class-dashboard.php';
+if ( ! class_exists( 'PZV_Roles' ) )      require_once PZV_DIR . 'includes/class-roles.php';
+if ( ! class_exists( 'PZV_Vendor' ) )     require_once PZV_DIR . 'includes/class-vendor.php';
+if ( ! class_exists( 'PZV_Commission' ) ) require_once PZV_DIR . 'includes/class-commission.php';
+if ( ! class_exists( 'PZV_Admin' ) )      require_once PZV_DIR . 'includes/class-admin.php';
+if ( ! class_exists( 'PZV_Dashboard' ) )  require_once PZV_DIR . 'includes/class-dashboard.php';
 
 register_activation_hook( __FILE__, function () {
     PZV_Roles::create_role();
