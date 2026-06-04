@@ -14,6 +14,7 @@ class WC_RM_Admin_Menu {
 		add_action( 'wp_ajax_wc_rm_start_import',    [ __CLASS__, 'ajax_start_import' ] );
 		add_action( 'wp_ajax_wc_rm_job_status',      [ __CLASS__, 'ajax_job_status' ] );
 		add_action( 'wp_ajax_wc_rm_delete_job',      [ __CLASS__, 'ajax_delete_job' ] );
+		add_action( 'wp_ajax_wc_rm_resume_job',      [ __CLASS__, 'ajax_resume_job' ] );
 	}
 
 	public static function register_menu(): void {
@@ -275,7 +276,10 @@ class WC_RM_Admin_Menu {
 					</td>
 					<td>
 						<div class="wc-rm-mini-outer"><div class="wc-rm-mini-inner" style="width:<?php echo esc_attr( $pct ); ?>%"></div></div>
-						<small><?php echo esc_html( $job->processed ); ?> / <?php echo esc_html( $job->total ); ?></small>
+						<small><?php echo esc_html( $job->processed ); ?> / <?php echo esc_html( $job->total ); ?>
+						<?php if ( $job->status === 'processing' && ! empty( $results['current_page'] ) ) : ?>
+							&nbsp;<span style="color:#856404">(sayfa <?php echo esc_html( $results['current_page'] ); ?>)</span>
+						<?php endif; ?></small>
 					</td>
 					<td><strong style="color:#1e6f3e"><?php echo esc_html( $results['created'] ?? 0 ); ?></strong></td>
 					<td><?php echo esc_html( $results['updated'] ?? 0 ); ?></td>
@@ -288,7 +292,19 @@ class WC_RM_Admin_Menu {
 						<?php else : echo '—'; endif; ?>
 					</td>
 					<td><?php echo esc_html( $date_str ); ?></td>
-					<td>
+					<td class="wc-rm-actions">
+						<?php if ( $job->status === 'processing' ) :
+							$last_hb      = $results['last_heartbeat'] ?? 0;
+							$cur_page     = $results['current_page']   ?? 0;
+							$is_stuck     = $last_hb > 0 && ( time() - $last_hb ) > 300;
+						?>
+						<button class="button button-small button-primary js-rm-resume-job"
+							data-job-id="<?php echo esc_attr( $job->id ); ?>"
+							title="<?php echo esc_attr( $cur_page ? "Sayfa {$cur_page} sonrasından devam et" : 'Devam ettir' ); ?>"
+							<?php if ( ! $is_stuck ) echo 'style="opacity:.55" disabled'; ?>>
+							▶ Devam Et
+						</button>
+						<?php endif; ?>
 						<button class="button button-small js-rm-delete-job" data-job-id="<?php echo esc_attr( $job->id ); ?>">🗑 Sil</button>
 					</td>
 				</tr>
@@ -439,10 +455,12 @@ class WC_RM_Admin_Menu {
 			'total'          => $job->total,
 			'processed'      => $job->processed,
 			'percent'        => $pct,
-			'created'        => $results['created']      ?? 0,
-			'updated'        => $results['updated']      ?? 0,
-			'skipped'        => $results['skipped']      ?? 0,
-			'errors_count'   => $results['errors_count'] ?? 0,
+			'created'        => $results['created']        ?? 0,
+			'updated'        => $results['updated']        ?? 0,
+			'skipped'        => $results['skipped']        ?? 0,
+			'errors_count'   => $results['errors_count']   ?? 0,
+			'current_page'   => $results['current_page']   ?? 0,
+			'last_heartbeat' => $results['last_heartbeat'] ?? 0,
 			'errors'         => $errors,
 			'imported_items' => $results['imported_items'] ?? [],
 		] );
@@ -455,6 +473,26 @@ class WC_RM_Admin_Menu {
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
 		WC_RM_Job_Manager::delete( (int) ( $_POST['job_id'] ?? 0 ) );
 		wp_send_json_success();
+	}
+
+	// ---- AJAX: resume stuck job ----
+
+	public static function ajax_resume_job(): void {
+		check_ajax_referer( 'wc_rm', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
+
+		$job_id = (int) ( $_POST['job_id'] ?? 0 );
+		$ok     = WC_RM_Background_Processor::resume( $job_id );
+
+		if ( $ok ) {
+			$job     = WC_RM_Job_Manager::get( $job_id );
+			$results = json_decode( $job ? $job->results : '{}', true ) ?: [];
+			wp_send_json_success( [
+				'message' => 'İçe aktarma sayfa ' . ( ( $results['current_page'] ?? 0 ) + 1 ) . "'ten devam ediyor.",
+			] );
+		} else {
+			wp_send_json_error( [ 'message' => 'İş bulunamadı, işlenmiyor veya zaten devam ediyor.' ] );
+		}
 	}
 
 	// ---- Helpers ----

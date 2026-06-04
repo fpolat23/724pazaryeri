@@ -158,7 +158,8 @@
 			$('#wc-rm-progress .wc-rm-progress-text').text('Bağlanıyor…');
 		} else {
 			$('#wc-rm-progress .wc-rm-progress-inner').css('width', pct + '%');
-			$('#wc-rm-progress .wc-rm-progress-text').text(d.processed + ' / ' + d.total + ' (' + pct + '%)');
+			var pageInfo = d.current_page ? ' — sayfa ' + d.current_page : '';
+			$('#wc-rm-progress .wc-rm-progress-text').text(d.processed + ' / ' + d.total + ' (' + pct + '%)' + pageInfo);
 		}
 		var $st = $('#wc-rm-progress .wc-rm-progress-status');
 		$st.removeClass('status-completed status-failed').text(labels[d.status] || d.status);
@@ -215,6 +216,26 @@
 			+ '<span class="wc-rm-result-lbl">' + lbl + '</span>'
 			+ '</div>';
 	}
+
+	// ---- Resume stuck job ----
+	$(document).on('click', '.js-rm-resume-job', function () {
+		var $btn = $(this);
+		$btn.prop('disabled', true).text('Devam ettiriliyor…');
+		$.post(wcRm.ajaxUrl, { action: 'wc_rm_resume_job', job_id: $btn.data('job-id'), nonce: wcRm.nonce })
+		.done(function (res) {
+			if (res && res.success) {
+				alert((res.data && res.data.message) || 'Devam ettirildi.');
+				window.location.reload();
+			} else {
+				alert((res && res.data && res.data.message) || 'Devam ettirilemedi.');
+				$btn.prop('disabled', false).text('▶ Devam Et');
+			}
+		})
+		.fail(function () {
+			alert('Sunucu bağlantı hatası.');
+			$btn.prop('disabled', false).text('▶ Devam Et');
+		});
+	});
 
 	// ---- Delete job ----
 	$(document).on('click', '.js-rm-delete-job', function () {

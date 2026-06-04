@@ -38,7 +38,6 @@ class WC_RM_Job_Manager {
 
 		$result = $wpdb->insert( $wpdb->prefix . self::TABLE, $row );
 
-		// Tablo yoksa oluştur ve tekrar dene
 		if ( $result === false ) {
 			self::install();
 			$result = $wpdb->insert( $wpdb->prefix . self::TABLE, $row );
@@ -62,8 +61,8 @@ class WC_RM_Job_Manager {
 		global $wpdb;
 		$set = array_intersect_key( $data, array_flip( [ 'status', 'total', 'processed', 'source_url' ] ) );
 
-		// Accumulate results + imported_items
-		if ( isset( $data['results'] ) || isset( $data['imported_items'] ) ) {
+		// Accumulate results + imported_items; also track heartbeat and current_page
+		if ( isset( $data['results'] ) || isset( $data['imported_items'] ) || isset( $data['current_page'] ) ) {
 			$job      = self::get( $id );
 			$existing = json_decode( $job ? $job->results : '{}', true ) ?: [];
 			$new      = (array) ( $data['results'] ?? [] );
@@ -79,6 +78,11 @@ class WC_RM_Job_Manager {
 				'skipped'        => ( $existing['skipped']      ?? 0 ) + (int) ( $new['skipped']      ?? 0 ),
 				'errors_count'   => ( $existing['errors_count'] ?? 0 ) + (int) ( $new['errors_count'] ?? 0 ),
 				'imported_items' => $merged,
+				// Track which page we're on and when it was last updated (for stuck-job detection)
+				'current_page'   => isset( $data['current_page'] )
+				                        ? (int) $data['current_page']
+				                        : ( $existing['current_page'] ?? 0 ),
+				'last_heartbeat' => time(),
 			] );
 		}
 
