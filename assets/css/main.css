@@ -2766,8 +2766,8 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .hb-cargo-free{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);color:#1b5e20;border:1px solid #a5d6a7;box-shadow:0 1px 4px rgba(27,94,32,.12);}
 .pazaryeri-wrap .hb-cargo-price{background:#f5f7ff;color:#3730a3;border:1px solid #c7d2fe;font-size:13px;}
 .pazaryeri-wrap .hb-cargo-price-expr{background:linear-gradient(135deg,#fff8f0,#ffe8cc);color:#b45309;border:1px solid #fcd34d;font-size:13px;}
-.pazaryeri-wrap .hb-cargo-note{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);padding:10px 18px;border-top:1.5px solid #f0ece6;background:linear-gradient(100deg,#faf7f3,#fdf9f5);line-height:1.5;}
-.pazaryeri-wrap .hb-cargo-note svg{flex-shrink:0;opacity:.7;}
+.pazaryeri-wrap .hb-cargo-note{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#1b5e20;padding:12px 18px;border-top:1.5px solid #a5d6a7;background:linear-gradient(100deg,#e8f5e9,#f1f8e9);line-height:1.5;}
+.pazaryeri-wrap .hb-cargo-note svg{flex-shrink:0;opacity:1;color:#2e7d32;}
 @media(max-width:860px){
   .pazaryeri-wrap .hb-cargo-opts{border-radius:12px;margin-top:14px;}
   .pazaryeri-wrap .hb-cargo-row{padding:11px 14px;gap:10px;}
