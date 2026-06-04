@@ -373,7 +373,7 @@ class TWS_Sync_Manager {
     private static function connection_hint( int $code ): string {
         return match ( $code ) {
             401 => 'API Key veya Secret hatalı. Trendyol Satıcı Paneli → Entegrasyon Bilgileri bölümünden kontrol edin.',
-            403 => 'Erişim reddedildi. Olası sebepler: (1) API Key/Secret yanlış girilmiş, (2) Tedarikçi ID hatalı, (3) Hesabınızda API erişimi aktif değil.',
+            403 => 'Cloudflare hosting sunucunuzun IP\'sini engelliyor. Çözüm: Trendyol Entegrasyon Desteği\'ni arayarak sunucu IP adresinizi whitelist\'e ekletin. IP adresinizi öğrenmek için hosting panelinize bakın.',
             404 => 'Tedarikçi ID bulunamadı. Trendyol panelinizdeki Mağaza ID numarasını kontrol edin.',
             429 => 'Çok fazla istek. Birkaç dakika bekleyip tekrar deneyin.',
             default => 'Trendyol API\'sine ulaşılamıyor. Hosting\'inizin api.trendyol.com adresine erişebildiğini kontrol edin.',

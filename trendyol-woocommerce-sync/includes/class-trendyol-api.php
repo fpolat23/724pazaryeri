@@ -160,9 +160,11 @@ class TWS_Trendyol_API {
             'method'  => $method,
             'timeout' => 30,
             'headers' => [
-                'Authorization' => 'Basic ' . base64_encode( $this->api_key . ':' . $this->api_secret ),
-                'Content-Type'  => 'application/json',
-                'User-Agent'    => $this->supplier_id . ' - SelfIntegration',
+                'Authorization'   => 'Basic ' . base64_encode( $this->api_key . ':' . $this->api_secret ),
+                'Content-Type'    => 'application/json',
+                'Accept'          => 'application/json',
+                'User-Agent'      => $this->supplier_id . ' - SelfIntegration',
+                'Accept-Language' => 'tr-TR,tr;q=0.9,en;q=0.8',
             ],
         ];
 
@@ -176,11 +178,19 @@ class TWS_Trendyol_API {
             return $response;
         }
 
-        $code = wp_remote_retrieve_response_code( $response );
-        $raw  = wp_remote_retrieve_body( $response );
-        $data = json_decode( $raw, true );
+        $code         = wp_remote_retrieve_response_code( $response );
+        $raw          = wp_remote_retrieve_body( $response );
+        $content_type = wp_remote_retrieve_header( $response, 'content-type' );
+        $is_html      = strpos( $content_type, 'text/html' ) !== false || strpos( $raw, '<html' ) !== false;
+        $data         = $is_html ? null : json_decode( $raw, true );
 
         if ( $code < 200 || $code >= 300 ) {
+            if ( $is_html && strpos( $raw, 'cloudflare' ) !== false ) {
+                return new \WP_Error( 'trendyol_api_error',
+                    "HTTP $code: Cloudflare hosting sunucunuzun IP adresini engelliyor.",
+                    [ 'status' => $code, 'cloudflare' => true ]
+                );
+            }
             $message = $data['errors'][0]['message']
                 ?? $data['error_description']
                 ?? $data['message']
