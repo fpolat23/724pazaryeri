@@ -361,7 +361,7 @@ get_header();
         <div class="pgrid pz-store-grid">
           <?php
             while ( $store_products->have_posts() ) : $store_products->the_post();
-              global $product;
+              $product = wc_get_product( get_the_ID() );
               if ( $product ) echo bazario_product_card( $product );
             endwhile;
           ?>

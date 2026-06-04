@@ -58,14 +58,18 @@ class PZV_Dashboard {
     }
 
     private static function render_header( $user_id ) {
-        $v = PZV_Vendor::get( $user_id );
-        $pending = PZV_Commission::vendor_pending( $user_id );
+        $v        = PZV_Vendor::get( $user_id );
+        $pending  = PZV_Commission::vendor_pending( $user_id );
+        $initials = mb_strtoupper( mb_substr( $v['store_name'], 0, 2 ) );
         ?>
         <div class="pzv-dash-header">
-            <div>
-                <div class="pzv-dash-store-name">🏪 <?php echo esc_html( $v['store_name'] ); ?></div>
-                <div class="pzv-dash-store-meta">
-                    <a href="<?php echo esc_url( PZV_Vendor::store_url( $user_id ) ); ?>" target="_blank">Mağazaya git ↗</a>
+            <div class="pzv-dash-store-info">
+                <div class="pzv-dash-store-avatar"><?php echo esc_html( $initials ); ?></div>
+                <div>
+                    <div class="pzv-dash-store-name"><?php echo esc_html( $v['store_name'] ); ?></div>
+                    <div class="pzv-dash-store-meta">
+                        <a href="<?php echo esc_url( PZV_Vendor::store_url( $user_id ) ); ?>" target="_blank">Mağazaya git ↗</a>
+                    </div>
                 </div>
             </div>
             <div class="pzv-dash-balance">
