@@ -6,7 +6,7 @@ class WC_RM_Api_Client {
 	private string $base_url;
 	private string $consumer_key;
 	private string $consumer_secret;
-	private int    $timeout = 30;
+	private int    $timeout = 60;
 
 	public function __construct( string $base_url, string $consumer_key, string $consumer_secret ) {
 		$this->base_url        = rtrim( $base_url, '/' );

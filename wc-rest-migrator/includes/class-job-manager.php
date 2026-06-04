@@ -100,6 +100,11 @@ class WC_RM_Job_Manager {
 		}
 	}
 
+	public static function reset_to_processing( int $id ): void {
+		global $wpdb;
+		$wpdb->update( $wpdb->prefix . self::TABLE, [ 'status' => 'processing' ], [ 'id' => $id ] );
+	}
+
 	public static function fail( int $id, string $message ): void {
 		global $wpdb;
 		$job  = self::get( $id );

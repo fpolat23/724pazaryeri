@@ -93,7 +93,20 @@ class WC_RM_Background_Processor {
 			$products = $client->get_products( $page, self::PER_PAGE, $options['status'] ?? 'any' );
 
 			if ( is_wp_error( $products ) ) {
-				WC_RM_Job_Manager::fail( $job_id, "Sayfa {$page} alınamadı: " . $products->get_error_message() );
+				// Retry once after a short pause (handles momentary source-server timeouts)
+				usleep( 800000 );
+				$products = $client->get_products( $page, self::PER_PAGE, $options['status'] ?? 'any' );
+			}
+
+			if ( is_wp_error( $products ) ) {
+				// Both attempts failed — log error and skip this page; don't kill the whole job
+				WC_RM_Job_Manager::update( $job_id, [
+					'errors' => [ "Sayfa {$page} atlandı (2 deneme başarısız): " . $products->get_error_message() ],
+				] );
+				if ( $enqueue_next && function_exists( 'as_enqueue_async_action' ) ) {
+					as_enqueue_async_action( self::HOOK_IMPORT, [ 'job_id' => $job_id, 'page' => $page + 1 ], self::GROUP );
+				}
+				// AJAX mode: current_page already set to $page; next call will advance to $page+1
 				return;
 			}
 

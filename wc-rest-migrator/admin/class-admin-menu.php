@@ -168,8 +168,8 @@ class WC_RM_Admin_Menu {
 		$sources       = self::get_sources();
 		$resume_job_id = isset( $_GET['resume'] ) ? (int) $_GET['resume'] : 0;
 		$resume_job    = $resume_job_id ? WC_RM_Job_Manager::get( $resume_job_id ) : null;
-		// Only treat as a valid resume if the job exists and is still processing
-		if ( $resume_job && $resume_job->status !== 'processing' ) {
+		// Only treat as a valid resume if the job exists and can be continued
+		if ( $resume_job && ! in_array( $resume_job->status, [ 'processing', 'failed' ], true ) ) {
 			$resume_job_id = 0;
 			$resume_job    = null;
 		}
@@ -321,14 +321,16 @@ class WC_RM_Admin_Menu {
 					</td>
 					<td><?php echo esc_html( $date_str ); ?></td>
 					<td class="wc-rm-actions">
-						<?php if ( $job->status === 'processing' ) :
-							$cur_page = $results['current_page'] ?? 0;
+						<?php if ( in_array( $job->status, [ 'processing', 'failed' ], true ) ) :
+							$cur_page   = $results['current_page'] ?? 0;
 							$resume_url = add_query_arg( [ 'tab' => 'import', 'resume' => $job->id ], menu_page_url( 'wc-rest-migrator', false ) );
+							$btn_label  = $job->status === 'failed' ? '↺ Yeniden Dene' : '▶ Devam Et';
+							$btn_title  = $cur_page ? "Sayfa {$cur_page} sonrasından devam et" : 'Devam ettir';
 						?>
 						<a href="<?php echo esc_url( $resume_url ); ?>"
 							class="button button-small button-primary"
-							title="<?php echo esc_attr( $cur_page ? "Sayfa {$cur_page} sonrasından devam et" : 'Devam ettir' ); ?>">
-							▶ Devam Et
+							title="<?php echo esc_attr( $btn_title ); ?>">
+							<?php echo esc_html( $btn_label ); ?>
 						</a>
 						<?php endif; ?>
 						<button class="button button-small js-rm-delete-job" data-job-id="<?php echo esc_attr( $job->id ); ?>">🗑 Sil</button>
@@ -512,6 +514,12 @@ class WC_RM_Admin_Menu {
 		$job_id = (int) ( $_GET['job_id'] ?? 0 );
 		$job    = WC_RM_Job_Manager::get( $job_id );
 		if ( ! $job ) wp_send_json_error( [ 'message' => 'İş bulunamadı.' ] );
+
+		// Allow resuming a failed job: reset it to processing so the batch loop can continue
+		if ( $job->status === 'failed' ) {
+			WC_RM_Job_Manager::reset_to_processing( $job_id );
+			$job = WC_RM_Job_Manager::get( $job_id );
+		}
 
 		if ( $job->status === 'processing' ) {
 			@set_time_limit( 120 );
