@@ -285,7 +285,7 @@ if ( is_wp_error( $base_url ) ) $base_url = wc_get_page_permalink( 'shop' );
           <a class="mcs-item<?php echo $st_active; ?>" href="<?php echo esc_url( get_term_link( $st ) ); ?>">
             <div class="mcs-img">
               <?php if ( $st_img ) : ?>
-                <img loading="lazy" decoding="async" src="<?php echo esc_url( $st_img ); ?>" alt="<?php echo esc_attr( $st->name ); ?>" loading="lazy">
+                <img loading="lazy" decoding="async" src="<?php echo esc_url( $st_img ); ?>" alt="<?php echo esc_attr( $st->name ); ?>" width="100" height="100">
               <?php else : ?>
                 <span class="mcs-emoji">📦</span>
               <?php endif; ?>

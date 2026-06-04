@@ -333,7 +333,7 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
       <a class="mcg-item" href="<?php echo esc_url( get_term_link( $mcg ) ); ?>">
         <div class="mcg-img">
           <?php if ( $mcg_img ) : ?>
-            <img loading="lazy" decoding="async" src="<?php echo esc_url( $mcg_img ); ?>" alt="<?php echo esc_attr( $mcg->name ); ?>" loading="lazy">
+            <img loading="lazy" decoding="async" src="<?php echo esc_url( $mcg_img ); ?>" alt="<?php echo esc_attr( $mcg->name ); ?>" width="100" height="100">
           <?php else : ?>
             <span class="mcg-emoji">📦</span>
           <?php endif; ?>
