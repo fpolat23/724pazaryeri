@@ -10,11 +10,11 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PZV_VERSION', '1.3.6' );
-define( 'PZV_FILE', __FILE__ );
-define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
-define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
-define( 'PZV_ROLE', 'pzv_vendor' );
+if ( ! defined( 'PZV_VERSION' ) ) define( 'PZV_VERSION', '1.3.6' );
+if ( ! defined( 'PZV_FILE' ) )   define( 'PZV_FILE', __FILE__ );
+if ( ! defined( 'PZV_DIR' ) )    define( 'PZV_DIR', plugin_dir_path( __FILE__ ) );
+if ( ! defined( 'PZV_URL' ) )    define( 'PZV_URL', plugin_dir_url( __FILE__ ) );
+if ( ! defined( 'PZV_ROLE' ) )   define( 'PZV_ROLE', 'pzv_vendor' );
 
 require_once PZV_DIR . 'includes/class-roles.php';
 require_once PZV_DIR . 'includes/class-vendor.php';
