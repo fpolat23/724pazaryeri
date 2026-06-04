@@ -131,3 +131,46 @@
 
 /* Items row in history */
 .wc-rm-items-row td { padding: 0 !important; }
+
+/* ── Responsive history table ── */
+.wc-rm-table-wrap {
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	margin: 16px -24px 0;
+	padding: 0 24px 4px;
+}
+
+/* Prevent header text from collapsing to single characters */
+.wc-rm-table-wrap .wp-list-table {
+	table-layout: auto;
+	min-width: 680px;
+	width: 100%;
+}
+.wc-rm-table-wrap .wp-list-table th,
+.wc-rm-table-wrap .wp-list-table td {
+	white-space: nowrap;
+	vertical-align: middle;
+}
+/* Allow source URL column to truncate */
+.wc-rm-table-wrap .col-source {
+	max-width: 140px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+@media screen and (max-width: 782px) {
+	.wc-rm-card {
+		padding: 14px 14px;
+		border-radius: 0;
+		border-left: none;
+		border-right: none;
+		max-width: 100%;
+	}
+	.wc-rm-table-wrap {
+		margin: 12px -14px 0;
+		padding: 0 0 6px;
+	}
+	.wc-rm-wrap h1 { font-size: 18px; }
+	.wc-rm-content { padding-top: 12px; }
+}

@@ -238,11 +238,12 @@ class WC_RM_Admin_Menu {
 			<?php if ( empty( $jobs ) ) : ?>
 			<p>Henüz aktarma başlatılmamış.</p>
 			<?php else : ?>
-			<table class="wp-list-table widefat fixed striped">
+			<div class="wc-rm-table-wrap">
+			<table class="wp-list-table widefat striped">
 				<thead>
 					<tr>
-						<th style="width:36px">#</th>
-						<th>Kaynak</th>
+						<th style="width:32px">#</th>
+						<th class="col-source">Kaynak</th>
 						<th>Durum</th>
 						<th>İlerleme</th>
 						<th>Oluşturuldu</th>
@@ -268,7 +269,7 @@ class WC_RM_Admin_Menu {
 				?>
 				<tr>
 					<td><?php echo esc_html( $job->id ); ?></td>
-					<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="<?php echo esc_attr( $job->source_url ); ?>"><?php echo esc_html( $job->source_url ?: '—' ); ?></td>
+					<td class="col-source" title="<?php echo esc_attr( $job->source_url ); ?>"><?php echo esc_html( $job->source_url ?: '—' ); ?></td>
 					<td>
 						<span class="wc-rm-badge wc-rm-badge-<?php echo esc_attr( $job->status ); ?>">
 							<?php echo esc_html( self::status_label( $job->status ) ); ?>
@@ -340,6 +341,7 @@ class WC_RM_Admin_Menu {
 				<?php endforeach; ?>
 				</tbody>
 			</table>
+			</div><!-- .wc-rm-table-wrap -->
 			<?php endif; ?>
 		</div>
 		<?php
