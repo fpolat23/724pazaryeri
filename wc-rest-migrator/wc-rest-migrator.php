@@ -3,7 +3,7 @@
  * Plugin Name: WC REST Migrator
  * Plugin URI:  https://724pazaryeri.com
  * Description: Kaynak WooCommerce sitesinden ürünleri REST API aracılığıyla doğrudan içe aktarır. XML dosyası gerekmez.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      724 Pazaryeri
  * Author URI:  https://724pazaryeri.com
  * Text Domain: wc-rest-migrator
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WC_REST_MIGRATOR_VERSION', '1.1.0' );
+define( 'WC_REST_MIGRATOR_VERSION', '1.2.0' );
 define( 'WC_REST_MIGRATOR_FILE',    __FILE__ );
 define( 'WC_REST_MIGRATOR_PATH',    plugin_dir_path( __FILE__ ) );
 define( 'WC_REST_MIGRATOR_URL',     plugin_dir_url( __FILE__ ) );

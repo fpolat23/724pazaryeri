@@ -68,7 +68,11 @@ class WC_RM_Background_Processor {
 
 	// ---- Phase 2: Import pages ----
 
-	public static function import_page( int $job_id, int $page ): void {
+	/**
+	 * @param bool $enqueue_next  True when called by Action Scheduler (enqueues next page via AS).
+	 *                            False when called directly from AJAX batch loop (JS drives next call).
+	 */
+	public static function import_page( int $job_id, int $page, bool $enqueue_next = true ): void {
 		$job = WC_RM_Job_Manager::get( $job_id );
 		if ( ! $job || $job->status !== 'processing' ) return;
 
@@ -138,9 +142,11 @@ class WC_RM_Background_Processor {
 
 			if ( count( $products ) < self::PER_PAGE ) {
 				WC_RM_Job_Manager::update( $job_id, [ 'status' => 'completed' ] );
-			} else {
+			} elseif ( $enqueue_next && function_exists( 'as_enqueue_async_action' ) ) {
+				// AS-driven mode: schedule next page as a background action
 				as_enqueue_async_action( self::HOOK_IMPORT, [ 'job_id' => $job_id, 'page' => $page + 1 ], self::GROUP );
 			}
+			// AJAX-driven mode (!$enqueue_next): JS calls the next batch directly
 
 		} catch ( \Throwable $e ) {
 			WC_RM_Job_Manager::fail( $job_id, "İstisna (import, sayfa {$page}): " . $e->getMessage() . ' — ' . basename( $e->getFile() ) . ':' . $e->getLine() );

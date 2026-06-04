@@ -3,8 +3,8 @@
 (function ($) {
 	'use strict';
 
-	var pollTimer    = null;
-	var currentJobId = null;
+	var batchRunning = false;
+	var batchJobId   = null;
 
 	// ---- Source form ----
 	$('#wc-rm-source-form').on('submit', function (e) {
@@ -96,9 +96,8 @@
 		})
 		.done(function (res) {
 			if (res && res.success && res.data && res.data.job_id) {
-				currentJobId = res.data.job_id;
 				$('#wc-rm-progress').show();
-				startPolling(currentJobId);
+				startBatchLoop(res.data.job_id);
 			} else {
 				alert('Hata: ' + ((res && res.data && res.data.message) || 'Bilinmeyen hata.'));
 				$btn.prop('disabled', false);
@@ -112,37 +111,75 @@
 		});
 	});
 
-	// ---- Polling ----
-	function startPolling(jobId) {
-		stopPolling();
-		poll(jobId);
-		pollTimer = setInterval(function () { poll(jobId); }, 4000);
-	}
-	function stopPolling() {
-		if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+	// ---- AJAX batch loop ----
+	// Each call processes one page of products server-side and returns updated status.
+	// JS loops immediately until completed/failed/cancelled.
+
+	function startBatchLoop(jobId) {
+		if (batchRunning && batchJobId === jobId) return;
+		batchRunning = false;
+		batchJobId   = jobId;
+		runBatch(jobId);
 	}
 
-	function poll(jobId) {
-		$.get(wcRm.ajaxUrl, { action: 'wc_rm_job_status', job_id: jobId, nonce: wcRm.nonce })
+	function runBatch(jobId) {
+		if (batchRunning || batchJobId !== jobId) return;
+		batchRunning = true;
+
+		$.ajax({
+			url:     wcRm.ajaxUrl,
+			method:  'GET',
+			data:    { action: 'wc_rm_import_batch', job_id: jobId, nonce: wcRm.nonce },
+			timeout: 150000, // 2.5 min — long enough for one page including image downloads
+		})
 		.done(function (res) {
-			if (!res || !res.success) return;
+			batchRunning = false;
+			if (!res || !res.success) {
+				// Unexpected error — retry after short delay
+				setTimeout(function () { runBatch(jobId); }, 4000);
+				return;
+			}
 			var d = res.data;
 			updateProgress(d);
 			updateLiveItems(d);
+
 			if (d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled') {
-				stopPolling();
-				$('#btn-import').prop('disabled', false);
-				$('#wc-rm-import-form .spinner').removeClass('is-active');
-				if (d.status === 'completed') {
-					showResult(d);
-				} else if (d.status === 'failed' && d.errors && d.errors.length) {
-					var errHtml = '<div class="wc-rm-errors" style="margin-top:10px"><strong>Hata:</strong><ul>';
-					for (var i = 0; i < d.errors.length; i++) errHtml += '<li>' + escHtml(d.errors[i]) + '</li>';
-					errHtml += '</ul></div>';
-					$('#wc-rm-progress').append(errHtml);
-				}
+				onImportDone(d);
+			} else {
+				// Continue immediately with next batch
+				runBatch(jobId);
+			}
+		})
+		.fail(function (jqXHR) {
+			batchRunning = false;
+			if (jqXHR.statusText === 'timeout') {
+				// Server-side processing still ran; just retry
+				setTimeout(function () { runBatch(jobId); }, 2000);
+			} else {
+				// Network error — retry with longer back-off
+				setTimeout(function () { runBatch(jobId); }, 6000);
 			}
 		});
+	}
+
+	function onImportDone(d) {
+		batchJobId = null;
+		$('#btn-import').prop('disabled', false);
+		$('#wc-rm-import-form .spinner').removeClass('is-active');
+
+		if (d.status === 'completed') {
+			showResult(d);
+		} else if (d.status === 'failed' && d.errors && d.errors.length) {
+			var errHtml = '<div class="wc-rm-errors" style="margin-top:10px"><strong>Hata:</strong><ul>';
+			for (var i = 0; i < d.errors.length; i++) errHtml += '<li>' + escHtml(d.errors[i]) + '</li>';
+			errHtml += '</ul></div>';
+			$('#wc-rm-progress').append(errHtml);
+		}
+	}
+
+	// ---- Resume on page load (from ?resume=JOB_ID) ----
+	if (wcRm.resumeJobId && wcRm.resumeJobId > 0) {
+		startBatchLoop(wcRm.resumeJobId);
 	}
 
 	function updateProgress(d) {
@@ -216,26 +253,6 @@
 			+ '<span class="wc-rm-result-lbl">' + lbl + '</span>'
 			+ '</div>';
 	}
-
-	// ---- Resume stuck job ----
-	$(document).on('click', '.js-rm-resume-job', function () {
-		var $btn = $(this);
-		$btn.prop('disabled', true).text('Devam ettiriliyor…');
-		$.post(wcRm.ajaxUrl, { action: 'wc_rm_resume_job', job_id: $btn.data('job-id'), nonce: wcRm.nonce })
-		.done(function (res) {
-			if (res && res.success) {
-				alert((res.data && res.data.message) || 'Devam ettirildi.');
-				window.location.reload();
-			} else {
-				alert((res && res.data && res.data.message) || 'Devam ettirilemedi.');
-				$btn.prop('disabled', false).text('▶ Devam Et');
-			}
-		})
-		.fail(function () {
-			alert('Sunucu bağlantı hatası.');
-			$btn.prop('disabled', false).text('▶ Devam Et');
-		});
-	});
 
 	// ---- Delete job ----
 	$(document).on('click', '.js-rm-delete-job', function () {

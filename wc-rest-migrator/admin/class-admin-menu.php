@@ -14,7 +14,8 @@ class WC_RM_Admin_Menu {
 		add_action( 'wp_ajax_wc_rm_start_import',    [ __CLASS__, 'ajax_start_import' ] );
 		add_action( 'wp_ajax_wc_rm_job_status',      [ __CLASS__, 'ajax_job_status' ] );
 		add_action( 'wp_ajax_wc_rm_delete_job',      [ __CLASS__, 'ajax_delete_job' ] );
-		add_action( 'wp_ajax_wc_rm_resume_job',      [ __CLASS__, 'ajax_resume_job' ] );
+		add_action( 'wp_ajax_wc_rm_resume_job',       [ __CLASS__, 'ajax_resume_job' ] );
+		add_action( 'wp_ajax_wc_rm_import_batch',     [ __CLASS__, 'ajax_import_batch' ] );
 	}
 
 	public static function register_menu(): void {
@@ -36,10 +37,14 @@ class WC_RM_Admin_Menu {
 		if ( strpos( $hook, 'wc-rest-migrator' ) === false ) return;
 		wp_enqueue_style(  'wc-rm', WC_REST_MIGRATOR_URL . 'assets/css/admin.css', [], WC_REST_MIGRATOR_VERSION );
 		wp_enqueue_script( 'wc-rm', WC_REST_MIGRATOR_URL . 'assets/js/admin.js', [ 'jquery' ], WC_REST_MIGRATOR_VERSION, true );
+		$resume_job_id = isset( $_GET['tab'], $_GET['resume'] ) && $_GET['tab'] === 'import'
+			? (int) $_GET['resume']
+			: 0;
 		wp_localize_script( 'wc-rm', 'wcRm', [
 			'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
 			'nonce'         => wp_create_nonce( 'wc_rm' ),
 			'confirmDelete' => 'Bu kaydı silmek istediğinizden emin misiniz?',
+			'resumeJobId'   => $resume_job_id,
 		] );
 	}
 
@@ -160,7 +165,8 @@ class WC_RM_Admin_Menu {
 	// ---- Import tab ----
 
 	private static function render_import(): void {
-		$sources = self::get_sources();
+		$sources       = self::get_sources();
+		$resume_job_id = isset( $_GET['resume'] ) ? (int) $_GET['resume'] : 0;
 		?>
 		<div class="wc-rm-card">
 			<h2>İçe Aktarma Başlat</h2>
@@ -168,8 +174,8 @@ class WC_RM_Admin_Menu {
 			<p>Önce <a href="<?php echo esc_url( add_query_arg( 'tab', 'sources', menu_page_url( 'wc-rest-migrator', false ) ) ); ?>">Kaynak Siteler</a> sekmesinden en az bir kaynak ekleyin.</p>
 			<?php else : ?>
 			<p class="description">
-				Seçilen kaynak sitenin ürünleri REST API aracılığıyla arka planda içe aktarılır.<br>
-				Tarayıcıyı kapatabilirsiniz — işlem sunucuda devam eder.
+				Seçilen kaynak sitenin ürünleri REST API aracılığıyla içe aktarılır.<br>
+				Sayfayı açık tutun — aktarma tarayıcı üzerinden yürütülür.
 			</p>
 			<form id="wc-rm-import-form" style="margin-top:16px">
 				<table class="form-table">
@@ -216,8 +222,8 @@ class WC_RM_Admin_Menu {
 				</p>
 			</form>
 
-			<div id="wc-rm-progress" class="wc-rm-progress-wrap" style="display:none;">
-				<div class="wc-rm-bg-note">İşlem arka planda devam ediyor — sayfayı kapatabilirsiniz.</div>
+			<div id="wc-rm-progress" class="wc-rm-progress-wrap" style="display:<?php echo $resume_job_id ? 'block' : 'none'; ?>">
+				<div class="wc-rm-bg-note">Aktarma devam ediyor — bu sayfayı açık tutun.</div>
 				<div class="wc-rm-progress-outer"><div class="wc-rm-progress-inner" style="width:0%"></div></div>
 				<div class="wc-rm-progress-text">Başlatılıyor…</div>
 				<div class="wc-rm-progress-status"></div>
@@ -295,16 +301,14 @@ class WC_RM_Admin_Menu {
 					<td><?php echo esc_html( $date_str ); ?></td>
 					<td class="wc-rm-actions">
 						<?php if ( $job->status === 'processing' ) :
-							$last_hb      = $results['last_heartbeat'] ?? 0;
-							$cur_page     = $results['current_page']   ?? 0;
-							$is_stuck     = $last_hb > 0 && ( time() - $last_hb ) > 300;
+							$cur_page = $results['current_page'] ?? 0;
+							$resume_url = add_query_arg( [ 'tab' => 'import', 'resume' => $job->id ], menu_page_url( 'wc-rest-migrator', false ) );
 						?>
-						<button class="button button-small button-primary js-rm-resume-job"
-							data-job-id="<?php echo esc_attr( $job->id ); ?>"
-							title="<?php echo esc_attr( $cur_page ? "Sayfa {$cur_page} sonrasından devam et" : 'Devam ettir' ); ?>"
-							<?php if ( ! $is_stuck ) echo 'style="opacity:.55" disabled'; ?>>
+						<a href="<?php echo esc_url( $resume_url ); ?>"
+							class="button button-small button-primary"
+							title="<?php echo esc_attr( $cur_page ? "Sayfa {$cur_page} sonrasından devam et" : 'Devam ettir' ); ?>">
 							▶ Devam Et
-						</button>
+						</a>
 						<?php endif; ?>
 						<button class="button button-small js-rm-delete-job" data-job-id="<?php echo esc_attr( $job->id ); ?>">🗑 Sil</button>
 					</td>
@@ -415,6 +419,8 @@ class WC_RM_Admin_Menu {
 	}
 
 	// ---- AJAX: start import ----
+	// Discover phase runs synchronously here so we immediately know the total
+	// and can begin AJAX-driven batch processing without WP-Cron dependency.
 
 	public static function ajax_start_import(): void {
 		check_ajax_referer( 'wc_rm', 'nonce' );
@@ -433,11 +439,98 @@ class WC_RM_Admin_Menu {
 		];
 
 		try {
-			$job_id = WC_RM_Background_Processor::start( $options );
-			wp_send_json_success( [ 'job_id' => $job_id ] );
+			// Run discover synchronously — avoids WP-Cron dependency for job creation
+			$client = new WC_RM_Api_Client(
+				$options['source_url'],
+				$options['consumer_key'],
+				$options['consumer_secret']
+			);
+			$test = $client->test();
+			if ( ! $test['ok'] ) {
+				wp_send_json_error( [ 'message' => 'Bağlantı hatası: ' . $test['message'] ] );
+				return;
+			}
+			$total = (int) $test['total'];
+			if ( $total === 0 ) {
+				wp_send_json_error( [ 'message' => 'Kaynak sitede ürün bulunamadı.' ] );
+				return;
+			}
+
+			$job_id = WC_RM_Job_Manager::create( [
+				'status'     => 'processing',
+				'source_url' => $options['source_url'],
+				'options'    => $options,
+				'total'      => $total,
+			] );
+
+			// Schedule watchdog as AS backup (in case browser closes mid-import)
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action(
+					time() + WC_RM_Background_Processor::WATCHDOG_INT,
+					WC_RM_Background_Processor::HOOK_WATCHDOG,
+					[ 'job_id' => $job_id ],
+					WC_RM_Background_Processor::GROUP
+				);
+			}
+
+			wp_send_json_success( [ 'job_id' => $job_id, 'total' => $total ] );
+
 		} catch ( Throwable $e ) {
 			wp_send_json_error( [ 'message' => $e->getMessage() ] );
 		}
+	}
+
+	// ---- AJAX: import batch (AJAX-driven, no WP-Cron needed) ----
+	// Processes one page of products and returns updated job status.
+	// JS calls this endpoint repeatedly until the job completes.
+
+	public static function ajax_import_batch(): void {
+		check_ajax_referer( 'wc_rm', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error();
+
+		$job_id = (int) ( $_GET['job_id'] ?? 0 );
+		$job    = WC_RM_Job_Manager::get( $job_id );
+		if ( ! $job ) wp_send_json_error( [ 'message' => 'İş bulunamadı.' ] );
+
+		if ( $job->status === 'processing' ) {
+			@set_time_limit( 120 );
+			wp_raise_memory_limit( 'admin' );
+
+			$results  = json_decode( $job->results ?: '{}', true ) ?: [];
+			$last_hb  = (int) ( $results['last_heartbeat'] ?? 0 );
+			$cur_page = (int) ( $results['current_page']   ?? 0 );
+
+			// Prevent concurrent execution: if heartbeat was updated in the last 5 seconds,
+			// another request is already processing — return status without doing work.
+			if ( $last_hb === 0 || ( time() - $last_hb ) >= 5 ) {
+				$next_page = $cur_page > 0 ? $cur_page + 1 : 1;
+				// AJAX-driven: don't enqueue next AS action, JS handles continuation
+				WC_RM_Background_Processor::import_page( $job_id, $next_page, false );
+			}
+
+			$job = WC_RM_Job_Manager::get( $job_id ); // re-fetch after processing
+		}
+
+		$results = json_decode( $job->results ?: '{}', true ) ?: [];
+		$errors  = json_decode( $job->errors  ?: '[]', true ) ?: [];
+		$pct     = $job->total > 0
+			? round( $job->processed / $job->total * 100 )
+			: ( $job->status === 'completed' ? 100 : 0 );
+
+		wp_send_json_success( [
+			'status'         => $job->status,
+			'total'          => $job->total,
+			'processed'      => $job->processed,
+			'percent'        => $pct,
+			'created'        => $results['created']        ?? 0,
+			'updated'        => $results['updated']        ?? 0,
+			'skipped'        => $results['skipped']        ?? 0,
+			'errors_count'   => $results['errors_count']   ?? 0,
+			'current_page'   => $results['current_page']   ?? 0,
+			'last_heartbeat' => $results['last_heartbeat'] ?? 0,
+			'errors'         => $errors,
+			'imported_items' => $results['imported_items'] ?? [],
+		] );
 	}
 
 	// ---- AJAX: job status ----
