@@ -118,7 +118,7 @@ add_action( 'wp_ajax_pzv_fix_product_authors',  array( 'PZV_Admin',    'ajax_fix
 // ─── Frontend: pasif satıcıların ürünlerini gizle ─── //
 add_action( 'pre_get_posts', function ( $query ) {
     if ( is_admin() ) return;
-    if ( $query->get( 'post_type' ) !== 'product' && ! $query->is_main_query() ) return;
+    if ( ! $query->is_main_query() ) return; // sadece ana sorguya uygula
     if ( $query->get( 'post_type' ) !== 'product' ) return;
 
     $inactive_vendors = get_users( array(

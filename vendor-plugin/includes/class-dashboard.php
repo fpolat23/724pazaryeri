@@ -165,16 +165,17 @@ class PZV_Dashboard {
         // Sorgu parametreleri
         $allowed_statuses = array( 'publish', 'draft', 'pending', 'private' );
         $query_args = array(
-            'post_type'      => 'product',
-            'author'         => $user_id,
-            'post_status'    => ( $cur_status && in_array( $cur_status, $allowed_statuses, true ) )
+            'post_type'        => 'product',
+            'author__in'       => array( (int) $user_id ),
+            'post_status'      => ( $cur_status && in_array( $cur_status, $allowed_statuses, true ) )
                                     ? array( $cur_status )
                                     : $allowed_statuses,
-            'posts_per_page' => $per_page,
-            'paged'          => $cur_page,
-            'no_found_rows'  => false,
-            'orderby'        => 'date',
-            'order'          => 'DESC',
+            'posts_per_page'   => $per_page,
+            'paged'            => $cur_page,
+            'no_found_rows'    => false,
+            'orderby'          => 'date',
+            'order'            => 'DESC',
+            'suppress_filters' => false,
         );
         if ( $cur_search ) {
             $query_args['s'] = $cur_search;

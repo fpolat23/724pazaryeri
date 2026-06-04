@@ -33,12 +33,13 @@ class PZV_Vendor {
 
     public static function get_product_ids( $vendor_id, $args = array() ) {
         $defaults = array(
-            'post_type'      => 'product',
-            'author'         => $vendor_id,
-            'post_status'    => array( 'publish', 'draft', 'pending', 'private' ),
-            'posts_per_page' => -1,
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
+            'post_type'        => 'product',
+            'author__in'       => array( (int) $vendor_id ),
+            'post_status'      => array( 'publish', 'draft', 'pending', 'private' ),
+            'posts_per_page'   => -1,
+            'fields'           => 'ids',
+            'no_found_rows'    => true,
+            'suppress_filters' => false,
         );
         $q = new WP_Query( wp_parse_args( $args, $defaults ) );
         return $q->posts;
