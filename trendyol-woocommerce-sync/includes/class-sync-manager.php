@@ -139,7 +139,12 @@ class TWS_Sync_Manager {
             return;
         }
 
-        $importer = new TWS_WC_Product_Importer( $vendor_id );
+        $assign_vendor_id = (int) get_option( 'tws_sync_assign_' . $vendor_id, $vendor_id );
+        if ( $assign_vendor_id <= 0 ) {
+            $assign_vendor_id = $vendor_id;
+        }
+
+        $importer = new TWS_WC_Product_Importer( $assign_vendor_id );
         $stats    = get_option( 'tws_sync_stats_' . $vendor_id, [] );
 
         foreach ( $chunk as $product ) {
@@ -192,6 +197,7 @@ class TWS_Sync_Manager {
 
         delete_option( 'tws_sync_queue_' . $vendor_id );
         delete_option( 'tws_sync_offset_' . $vendor_id );
+        delete_option( 'tws_sync_assign_' . $vendor_id );
 
         $stats['finished'] = current_time( 'mysql' );
         update_option( 'tws_sync_stats_' . $vendor_id, $stats );
@@ -208,6 +214,16 @@ class TWS_Sync_Manager {
         if ( ! $vendor_id ) {
             wp_send_json_error( [ 'message' => 'Yetersiz yetki.' ] );
         }
+
+        // Admin farklı bir vendor'a atayabilir
+        $assign_vendor_id = $vendor_id;
+        if ( current_user_can( 'manage_woocommerce' ) ) {
+            $posted = (int) ( $_POST['assign_vendor_id'] ?? 0 );
+            if ( $posted > 0 ) {
+                $assign_vendor_id = $posted;
+            }
+        }
+        update_option( 'tws_sync_assign_' . $vendor_id, $assign_vendor_id, false );
 
         if ( self::has_action_scheduler() ) {
             delete_option( 'tws_sync_queue_' . $vendor_id );

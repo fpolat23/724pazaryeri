@@ -338,6 +338,15 @@ elseif ( $active_tab === 'import' && $is_admin ) : ?>
             <div class="tws-progress-track"><div class="tws-progress-fill" id="tws-progress-fill" style="width:0%"></div></div>
             <p id="tws-progress-text" class="tws-progress-text">İşleniyor…</p>
         </div>
+        <?php if ( $is_admin ) : ?>
+        <div style="margin-bottom:12px;">
+            <label for="tws-assign-vendor-id" style="display:block; margin-bottom:4px; font-weight:600;">Ürünleri Hangi Vendor'a Ata:</label>
+            <select id="tws-assign-vendor-id" class="regular-text">
+                <option value="0">— Kendi Hesabıma (<?php echo esc_html( wp_get_current_user()->display_name ); ?>) —</option>
+            </select>
+            <p class="description" style="margin-top:4px;">İçe aktarılan ürünler seçilen vendor'ın hesabına post_author olarak atanır.</p>
+        </div>
+        <?php endif; ?>
         <div class="tws-actions">
             <button type="button" id="tws-sync-btn" class="button button-primary">Şimdi Senkronize Et</button>
             <span id="tws-sync-spinner" class="spinner" style="float:none; margin-top:0; display:none;"></span>

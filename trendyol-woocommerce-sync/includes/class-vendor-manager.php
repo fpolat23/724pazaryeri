@@ -6,6 +6,18 @@ class TWS_Vendor_Manager {
     const VENDOR_ROLES = [ 'seller', 'vendor', 'wcfm_vendor', 'wc_product_vendors_admin_vendor' ];
     const META_PREFIX  = '_tws_';
 
+    /**
+     * Admin dropdown'ı için sadeleştirilmiş [id, name] listesi.
+     */
+    public static function get_vendor_list(): array {
+        $users = get_users( [
+            'role__in' => array_merge( self::VENDOR_ROLES, [ 'administrator' ] ),
+            'orderby'  => 'display_name',
+            'number'   => 500,
+        ] );
+        return array_map( fn( $u ) => [ 'id' => $u->ID, 'name' => $u->display_name ], $users );
+    }
+
     // ---------------------------------------------------------------
     // Kullanıcı sorgulama
     // ---------------------------------------------------------------

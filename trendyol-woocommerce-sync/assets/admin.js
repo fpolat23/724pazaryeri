@@ -61,6 +61,18 @@
     });
 
     // ================================================================
+    // Vendor atama dropdown'ını doldur (import sekmesi)
+    // ================================================================
+
+    if ($('#tws-assign-vendor-id').length && twsData.vendorList && twsData.vendorList.length) {
+        twsData.vendorList.forEach(function (v) {
+            $('#tws-assign-vendor-id').append(
+                '<option value="' + v.id + '">' + escHtml(v.name) + '</option>'
+            );
+        });
+    }
+
+    // ================================================================
     // Bağlantı testi (kendi API'si)
     // ================================================================
 
@@ -146,7 +158,8 @@
         $sp.show();
         $res.hide().removeClass('is-error is-success');
 
-        post('tws_manual_sync', { vendor_id: twsData.activeVendorId })
+        var assignVendorId = parseInt($('#tws-assign-vendor-id').val() || 0, 10);
+        post('tws_manual_sync', { vendor_id: twsData.activeVendorId, assign_vendor_id: assignVendorId || twsData.activeVendorId })
         .done(function (r) {
             if (r.success) {
                 if (r.data.background) {

@@ -63,6 +63,7 @@ class TWS_Admin_Page {
             'isAdmin'        => $is_admin,
             'currentUserId'  => $current_user_id,
             'activeVendorId' => $active_vendor_id,
+            'vendorList'     => $is_admin ? TWS_Vendor_Manager::get_vendor_list() : [],
             'categoryMap'    => TWS_Category_Mapper::get_mapping(),
             'discovered'     => TWS_Category_Mapper::get_discovered(),
             'wcCategories'   => self::get_wc_category_list(),
