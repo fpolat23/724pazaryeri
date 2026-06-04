@@ -2149,6 +2149,13 @@ window.pzSendVerifyCode = function(btn){
     return ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'][d.getUTCDay()];
   }
 
+  function fullDate(d) {
+    var dd   = String(d.getUTCDate()).padStart(2, '0');
+    var mm   = String(d.getUTCMonth() + 1).padStart(2, '0');
+    var yyyy = d.getUTCFullYear();
+    return dd + '/' + mm + '/' + yyyy + ' ' + dayName(d);
+  }
+
   function startOfDay(d) {
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   }
@@ -2192,7 +2199,7 @@ window.pzSendVerifyCode = function(btn){
     var when;
     if (shipDay.getTime() === today.getTime())         when = 'bugün';
     else if (shipDay.getTime() === tomorrow.getTime()) when = 'yarın';
-    else                                               when = dayName(shipDay);
+    else                                               when = fullDate(shipDay);
 
     return 'En geç ' + when + ' kargoya verilir';
   }
