@@ -643,16 +643,21 @@ function pz_ajax_recent_products() {
         'orderby'        => 'post__in',
         'ignore_sticky_posts' => true,
     ) );
-    $html = '';
+    $html      = '';
+    $seen_ids  = array();
     if ( $q->have_posts() ) {
         while ( $q->have_posts() ) {
             $q->the_post();
-            global $product;
+            $pid     = get_the_ID();
+            if ( in_array( $pid, $seen_ids, true ) ) continue;
+            $seen_ids[] = $pid;
+            $product = wc_get_product( $pid );
+            if ( ! $product || ! $product->is_visible() ) continue;
             $html .= bazario_product_card( $product );
         }
         wp_reset_postdata();
     }
-    wp_send_json_success( array( 'html' => $html, 'count' => $q->found_posts ) );
+    wp_send_json_success( array( 'html' => $html, 'count' => count( $seen_ids ) ) );
 }
 
 

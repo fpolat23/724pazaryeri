@@ -1796,7 +1796,7 @@ window.addEventListener('popstate', function(){
     // Sayfadaki tüm "son gezilen" wrapper'larını bul (eski ID + yeni data attr)
     var wraps = document.querySelectorAll('[data-rv-wrap], #recentlyViewedWrap');
     if (!wraps.length) return;
-    var allIds = getRecent();
+    var allIds = getRecent().filter(function(id, i, arr){ return arr.indexOf(id) === i; });
     if (!allIds.length) return;
     if (typeof bazario_ajax === 'undefined' || !bazario_ajax.ajax_url) {
       if (ajaxRetries++ < MAX_RETRIES) {
