@@ -39,14 +39,17 @@ class PZV_Admin {
     }
 
     public function enqueue( $hook ) {
-        // Tüm admin sayfalarında yükle (hafif dosyalar, problem yok)
         wp_enqueue_style( 'pzv-admin', PZV_URL . 'assets/admin.css', array(), PZV_VERSION );
         wp_enqueue_script( 'pzv-admin', PZV_URL . 'assets/admin.js', array(), PZV_VERSION, true );
         wp_localize_script( 'pzv-admin', 'pzv', array(
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'nonce'    => wp_create_nonce( 'pzv_nonce' ),
         ) );
-        if ( isset( $_GET['page'] ) && $_GET['page'] === 'pzv-vendor-info' ) {
+        $page = $_GET['page'] ?? '';
+        if ( $page === 'pzv-vendor-info' ) {
+            wp_enqueue_media();
+        }
+        if ( $page === 'pzv-vendors' && ( $_GET['action'] ?? '' ) === 'edit-vendor' ) {
             wp_enqueue_media();
         }
     }
@@ -83,8 +86,12 @@ class PZV_Admin {
         }
     }
 
-    /** ─── SAYFA: Satıcı Listesi ─── */
+    /** ─── SAYFA: Satıcı Listesi (+ düzenleme router) ─── */
     public function page_vendors() {
+        if ( ( $_GET['action'] ?? '' ) === 'edit-vendor' ) {
+            $vid = (int) ( $_GET['vendor_id'] ?? 0 );
+            if ( $vid ) { $this->page_edit_vendor( $vid ); return; }
+        }
         $all_vendors      = PZV_Vendor::get_all();
         $filter_status    = isset( $_GET['vstatus'] ) ? sanitize_key( $_GET['vstatus'] ) : '';
 
@@ -158,7 +165,7 @@ class PZV_Admin {
                             </button>
                         </td>
                         <td style="white-space:nowrap;">
-                            <a class="button button-small" href="<?php echo esc_url( get_edit_user_link( $v['id'] ) ); ?>">Düzenle</a>
+                            <a class="button button-small button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=pzv-vendors&action=edit-vendor&vendor_id=' . (int) $v['id'] ) ); ?>">Düzenle</a>
                             <button type="button"
                                 class="button button-small pzv-delete-vendor"
                                 data-vendor="<?php echo (int) $v['id']; ?>"
@@ -172,6 +179,213 @@ class PZV_Admin {
                 </tbody>
             </table>
         </div>
+        <?php
+    }
+
+    /** ─── SAYFA: Admin → Satıcı Profili Düzenle ─── */
+    private function page_edit_vendor( $vendor_id ) {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) wp_die( 'Yetki yok.' );
+
+        $v = PZV_Vendor::get( $vendor_id );
+        $back = admin_url( 'admin.php?page=pzv-vendors' );
+        if ( ! $v ) {
+            echo '<div class="wrap"><h1>Satıcı bulunamadı.</h1><p><a href="' . esc_url( $back ) . '">← Geri</a></p></div>';
+            return;
+        }
+
+        // ── Form kaydet ──
+        if ( isset( $_POST['pzv_admin_save_vendor'] ) && check_admin_referer( 'pzv_admin_edit_vendor_' . $vendor_id ) ) {
+            foreach ( array( 'store_name', 'phone', 'city', 'address', 'description', 'iban', 'tc_or_tax', 'working_hours' ) as $f ) {
+                update_user_meta( $vendor_id, 'pzv_' . $f, sanitize_text_field( wp_unslash( $_POST[ $f ] ?? '' ) ) );
+            }
+            if ( isset( $_POST['return_policy'] ) ) {
+                update_user_meta( $vendor_id, 'pzv_return_policy', sanitize_textarea_field( wp_unslash( $_POST['return_policy'] ) ) );
+            }
+            foreach ( array( 'instagram_url', 'twitter_url' ) as $f ) {
+                update_user_meta( $vendor_id, 'pzv_' . $f, esc_url_raw( wp_unslash( $_POST[ $f ] ?? '' ) ) );
+            }
+            if ( ! empty( $_POST['store_slug'] ) ) {
+                update_user_meta( $vendor_id, 'pzv_store_slug', sanitize_title( wp_unslash( $_POST['store_slug'] ) ) );
+            }
+            update_user_meta( $vendor_id, 'pzv_logo',          (int) ( $_POST['logo']          ?? 0 ) );
+            update_user_meta( $vendor_id, 'pzv_banner',        (int) ( $_POST['banner']        ?? 0 ) );
+            update_user_meta( $vendor_id, 'pzv_dispatch_days', max( 0, min( 30, (int) ( $_POST['dispatch_days'] ?? 1 ) ) ) );
+            $rate = $_POST['commission_override'] ?? '';
+            if ( $rate === '' ) delete_user_meta( $vendor_id, 'pzv_commission_override' );
+            else update_user_meta( $vendor_id, 'pzv_commission_override', floatval( $rate ) );
+
+            $v = PZV_Vendor::get( $vendor_id ); // Taze veri
+            echo '<div class="notice notice-success is-dismissible"><p>✓ <strong>' . esc_html( $v['store_name'] ) . '</strong> profili güncellendi.</p></div>';
+        }
+
+        $logo_url   = ! empty( $v['logo'] )   ? wp_get_attachment_image_url( $v['logo'],   'thumbnail' ) : '';
+        $banner_url = ! empty( $v['banner'] ) ? wp_get_attachment_image_url( $v['banner'], 'medium' )    : '';
+        $store_url  = PZV_Vendor::store_url( $vendor_id );
+        ?>
+        <div class="wrap pzv-wrap">
+            <h1 class="wp-heading-inline">🏪 Satıcı Profili: <?php echo esc_html( $v['store_name'] ); ?></h1>
+            <?php if ( $store_url ) : ?>
+            <a href="<?php echo esc_url( $store_url ); ?>" target="_blank" class="page-title-action">Mağazayı Gör ↗</a>
+            <?php endif; ?>
+            <hr class="wp-header-end">
+            <p><a href="<?php echo esc_url( $back ); ?>">← Satıcı Listesine Dön</a></p>
+
+            <form method="post">
+                <?php wp_nonce_field( 'pzv_admin_edit_vendor_' . $vendor_id ); ?>
+                <div style="display:grid;grid-template-columns:1fr 300px;gap:28px;align-items:start;max-width:1080px;">
+
+                    <!-- ── Sol: bilgi alanları ── -->
+                    <div>
+                        <table class="form-table" style="max-width:100%;">
+                            <tr>
+                                <th style="width:190px;">Mağaza Adı <span style="color:#dc2626">*</span></th>
+                                <td><input type="text" name="store_name" value="<?php echo esc_attr( $v['store_name'] ); ?>" class="regular-text" required></td>
+                            </tr>
+                            <tr>
+                                <th>Mağaza URL (slug)</th>
+                                <td>
+                                    <code><?php echo esc_html( home_url( '/magaza/' ) ); ?></code>
+                                    <input type="text" name="store_slug" value="<?php echo esc_attr( $v['store_slug'] ); ?>" class="regular-text">
+                                    <code>/</code>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Telefon</th>
+                                <td><input type="tel" name="phone" value="<?php echo esc_attr( $v['phone'] ); ?>" class="regular-text"></td>
+                            </tr>
+                            <tr>
+                                <th>Şehir</th>
+                                <td><input type="text" name="city" value="<?php echo esc_attr( $v['city'] ); ?>" class="regular-text"></td>
+                            </tr>
+                            <tr>
+                                <th>Adres</th>
+                                <td><textarea name="address" rows="3" class="large-text"><?php echo esc_textarea( $v['address'] ); ?></textarea></td>
+                            </tr>
+                            <tr>
+                                <th>Mağaza Açıklaması</th>
+                                <td><textarea name="description" rows="4" class="large-text"><?php echo esc_textarea( $v['description'] ); ?></textarea></td>
+                            </tr>
+                            <tr>
+                                <th>IBAN</th>
+                                <td><input type="text" name="iban" value="<?php echo esc_attr( $v['iban'] ); ?>" class="regular-text" placeholder="TR..."></td>
+                            </tr>
+                            <tr>
+                                <th>Komisyon Oranı (%)</th>
+                                <td>
+                                    <input type="number" name="commission_override" step="0.5" min="0" max="100"
+                                        value="<?php echo esc_attr( $v['commission_override'] ); ?>" class="small-text" placeholder="Default">
+                                    <p class="description">Boş bırakırsanız varsayılan oran kullanılır.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Vergi No / TC Kimlik</th>
+                                <td><input type="text" name="tc_or_tax" value="<?php echo esc_attr( $v['tc_or_tax'] ?? '' ); ?>" class="regular-text"></td>
+                            </tr>
+                            <tr>
+                                <th>Kargoya Verme Süresi</th>
+                                <td>
+                                    <select name="dispatch_days">
+                                        <option value="0" <?php selected( (int) $v['dispatch_days'], 0 ); ?>>Aynı gün</option>
+                                        <?php for ( $i = 1; $i <= 30; $i++ ) : ?>
+                                        <option value="<?php echo $i; ?>" <?php selected( (int) $v['dispatch_days'], $i ); ?>><?php echo $i; ?> iş günü</option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Çalışma Saatleri</th>
+                                <td><input type="text" name="working_hours" value="<?php echo esc_attr( $v['working_hours'] ?? '' ); ?>" class="regular-text" placeholder="Örn: Hafta içi 09:00–18:00"></td>
+                            </tr>
+                            <tr>
+                                <th>Instagram</th>
+                                <td><input type="url" name="instagram_url" value="<?php echo esc_attr( $v['instagram_url'] ?? '' ); ?>" class="regular-text" placeholder="https://instagram.com/..."></td>
+                            </tr>
+                            <tr>
+                                <th>X (Twitter)</th>
+                                <td><input type="url" name="twitter_url" value="<?php echo esc_attr( $v['twitter_url'] ?? '' ); ?>" class="regular-text" placeholder="https://x.com/..."></td>
+                            </tr>
+                            <tr>
+                                <th>İade Politikası</th>
+                                <td><textarea name="return_policy" rows="3" class="large-text"><?php echo esc_textarea( $v['return_policy'] ?? '' ); ?></textarea></td>
+                            </tr>
+                        </table>
+
+                        <p style="margin-top:20px;">
+                            <button type="submit" name="pzv_admin_save_vendor" class="button button-primary button-large">💾 Kaydet</button>
+                            <a href="<?php echo esc_url( $back ); ?>" class="button button-large" style="margin-left:8px;">İptal</a>
+                        </p>
+                    </div>
+
+                    <!-- ── Sağ: logo + banner ── -->
+                    <div>
+                        <div style="background:#fff;border:1px solid #e3e3e3;border-radius:10px;padding:20px;">
+                            <h3 style="margin-top:0;">Mağaza Logosu</h3>
+                            <div style="width:160px;height:160px;border:2px dashed #ccc;border-radius:8px;overflow:hidden;background:#f6f4f0;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                                <?php if ( $logo_url ) : ?>
+                                <img id="pzv-logo-preview" src="<?php echo esc_url( $logo_url ); ?>" style="width:100%;height:100%;object-fit:cover;">
+                                <?php else : ?>
+                                <div id="pzv-logo-ph" style="text-align:center;color:#aaa;font-size:13px;">🏪<br>Logo yok</div>
+                                <img id="pzv-logo-preview" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
+                                <?php endif; ?>
+                            </div>
+                            <input type="hidden" name="logo" id="pzv_logo_id" value="<?php echo (int) ( $v['logo'] ?? 0 ); ?>">
+                            <div style="display:flex;gap:6px;margin-bottom:6px;">
+                                <button type="button" id="pzv-logo-btn" class="button">📷 Seç</button>
+                                <button type="button" id="pzv-logo-rm" class="button" <?php echo empty( $v['logo'] ) ? 'style="display:none;"' : ''; ?>>✕ Kaldır</button>
+                            </div>
+                            <p class="description">Önerilen: 200×200 px</p>
+
+                            <hr style="margin:18px 0;">
+
+                            <h3>Mağaza Bannerı</h3>
+                            <div style="width:100%;aspect-ratio:4/1;min-height:70px;border:2px dashed #ccc;border-radius:8px;overflow:hidden;background:#f6f4f0;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                                <?php if ( $banner_url ) : ?>
+                                <img id="pzv-banner-preview" src="<?php echo esc_url( $banner_url ); ?>" style="width:100%;height:100%;object-fit:cover;">
+                                <?php else : ?>
+                                <div id="pzv-banner-ph" style="text-align:center;color:#aaa;font-size:13px;">🖼️<br>Banner yok</div>
+                                <img id="pzv-banner-preview" src="" style="display:none;width:100%;height:100%;object-fit:cover;">
+                                <?php endif; ?>
+                            </div>
+                            <input type="hidden" name="banner" id="pzv_banner_id" value="<?php echo (int) ( $v['banner'] ?? 0 ); ?>">
+                            <div style="display:flex;gap:6px;margin-bottom:6px;">
+                                <button type="button" id="pzv-banner-btn" class="button">📷 Seç</button>
+                                <button type="button" id="pzv-banner-rm" class="button" <?php echo empty( $v['banner'] ) ? 'style="display:none;"' : ''; ?>>✕ Kaldır</button>
+                            </div>
+                            <p class="description">Önerilen: 1200×300 px</p>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <script>
+        jQuery(function($){
+            function pzvMedia(btnId, rmId, inputId, previewId, phId, title) {
+                var frame;
+                $('#'+btnId).on('click', function(e){
+                    e.preventDefault();
+                    if(frame){frame.open();return;}
+                    frame = wp.media({title:title,button:{text:'Seç'},multiple:false});
+                    frame.on('select', function(){
+                        var a = frame.state().get('selection').first().toJSON();
+                        $('#'+inputId).val(a.id);
+                        $('#'+previewId).attr('src',a.url).show();
+                        if(phId) $('#'+phId).hide();
+                        $('#'+rmId).show();
+                    });
+                    frame.open();
+                });
+                $('#'+rmId).on('click', function(e){
+                    e.preventDefault();
+                    $('#'+inputId).val('');
+                    $('#'+previewId).attr('src','').hide();
+                    if(phId) $('#'+phId).show();
+                    $(this).hide();
+                });
+            }
+            pzvMedia('pzv-logo-btn','pzv-logo-rm','pzv_logo_id','pzv-logo-preview','pzv-logo-ph','Mağaza Logosu Seç');
+            pzvMedia('pzv-banner-btn','pzv-banner-rm','pzv_banner_id','pzv-banner-preview','pzv-banner-ph','Mağaza Bannerı Seç');
+        });
+        </script>
         <?php
     }
 
