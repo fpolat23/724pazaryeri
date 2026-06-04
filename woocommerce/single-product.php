@@ -130,46 +130,8 @@ while ( have_posts() ) : the_post();
                 return $a['price'] <=> $b['price'];
               } );
               $pz_count = count( $pz_sellers );
-        ?>
-        <div class="pzv-sellers-box">
-          <?php if ( $pz_count > 1 ) : ?>
-          <div class="pzv-sellers-head">Satıcılar <span class="pzv-sellers-count"><?php echo $pz_count; ?></span></div>
-          <?php endif; ?>
-          <?php foreach ( $pz_sellers as $pz_s ) :
-            $pz_href = $pz_s['is_current'] ? $pz_s['url'] : $pz_s['prod_url'];
-          ?>
-          <a class="pzv-seller-row<?php echo $pz_s['is_current'] ? ' current' : ''; ?>"
-             href="<?php echo esc_url( $pz_href ); ?>"
-             data-dispatch="<?php echo (int) $pz_s['dispatch_days']; ?>">
-            <?php if ( $pz_s['logo'] ) : ?>
-              <img class="pzv-sr-logo" src="<?php echo esc_url( $pz_s['logo'] ); ?>" alt="">
-            <?php else : ?>
-              <div class="pzv-sr-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $pz_s['name'], 0, 1 ) ) ); ?></div>
-            <?php endif; ?>
-            <div class="pzv-sr-info">
-              <span class="pzv-sr-name"><?php echo esc_html( $pz_s['name'] ); ?></span>
-              <?php if ( $pz_s['city'] ) : ?>
-              <span class="pzv-sr-city">📍 <?php echo esc_html( $pz_s['city'] ); ?></span>
-              <?php endif; ?>
-            </div>
-            <div class="pzv-sr-right">
-              <?php if ( $pz_s['price'] > 0 ) : ?>
-              <span class="pzv-sr-price"><?php echo esc_html( number_format( $pz_s['price'], 0, ',', '.' ) ); ?> ₺</span>
-              <?php endif; ?>
-              <?php if ( ! empty( $pz_s['in_stock'] ) ) : ?>
-              <span class="pzv-sr-del pship-txt"><?php
-                $dd = (int) $pz_s['dispatch_days'];
-                echo $dd === 0 ? 'Aynı gün kargo' : $dd . ' iş günü';
-              ?></span>
-              <?php else : ?>
-              <span class="pzv-sr-del pzv-sr-stokta-yok">Stokta Yok</span>
-              <?php endif; ?>
-            </div>
-            <span class="pzv-sr-arr">›</span>
-          </a>
-          <?php endforeach; ?>
-        </div>
-        <?php } } ?>
+        } }
+    ?>
     </div><!-- /hb-gallery -->
 
     <!-- ═══ SAĞ KOLON: BİLGİ + SATIN AL ═══ -->
@@ -625,10 +587,47 @@ while ( have_posts() ) : the_post();
       </div>
       <?php endif; ?>
     </div>
-    </div><!-- /hb-right-col -->
+      <?php if ( ! empty( $pz_sellers ) ) : ?>
+      <div class="pzv-sellers-box">
+        <?php if ( $pz_count > 1 ) : ?>
+        <div class="pzv-sellers-head">Satıcılar <span class="pzv-sellers-count"><?php echo $pz_count; ?></span></div>
+        <?php endif; ?>
+        <?php foreach ( $pz_sellers as $pz_s ) :
+          $pz_href = $pz_s['is_current'] ? $pz_s['url'] : $pz_s['prod_url'];
+        ?>
+        <a class="pzv-seller-row<?php echo $pz_s['is_current'] ? ' current' : ''; ?>"
+           href="<?php echo esc_url( $pz_href ); ?>"
+           data-dispatch="<?php echo (int) $pz_s['dispatch_days']; ?>">
+          <?php if ( $pz_s['logo'] ) : ?>
+            <img class="pzv-sr-logo" src="<?php echo esc_url( $pz_s['logo'] ); ?>" alt="">
+          <?php else : ?>
+            <div class="pzv-sr-logo-fb"><?php echo esc_html( mb_strtoupper( mb_substr( $pz_s['name'], 0, 1 ) ) ); ?></div>
+          <?php endif; ?>
+          <div class="pzv-sr-info">
+            <span class="pzv-sr-name"><?php echo esc_html( $pz_s['name'] ); ?></span>
+            <?php if ( $pz_s['city'] ) : ?>
+            <span class="pzv-sr-city">📍 <?php echo esc_html( $pz_s['city'] ); ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="pzv-sr-right">
+            <?php if ( $pz_s['price'] > 0 ) : ?>
+            <span class="pzv-sr-price"><?php echo esc_html( number_format( $pz_s['price'], 0, ',', '.' ) ); ?> ₺</span>
+            <?php endif; ?>
+            <?php if ( ! empty( $pz_s['in_stock'] ) ) : ?>
+            <span class="pzv-sr-del pship-txt"><?php
+              $dd = (int) $pz_s['dispatch_days'];
+              echo $dd === 0 ? 'Aynı gün kargo' : $dd . ' iş günü';
+            ?></span>
+            <?php else : ?>
+            <span class="pzv-sr-del pzv-sr-stokta-yok">Stokta Yok</span>
+            <?php endif; ?>
+          </div>
+          <span class="pzv-sr-arr">›</span>
+        </a>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
 
-    <!-- ═══ GALERİ ALTI: GÜVEN + PAYLAŞ ═══ -->
-    <div class="hb-gallery-extra">
       <!-- Güven rozetleri -->
       <div class="hb-trust">
         <div class="hb-trust-item">
@@ -706,9 +705,8 @@ while ( have_posts() ) : the_post();
       <!-- Kargo Seçenekleri -->
       <?php
         $pz_free_ship  = ( $price >= 1500 );
-        $pz_std_fee    = 150;   // TL — standart kargo ücreti
-        $pz_expr_fee   = 199;   // TL — DHL Express ücreti
-        // Badge yardımcı fonksiyon
+        $pz_std_fee    = 150;
+        $pz_expr_fee   = 199;
         $pz_cargo_badge = function( $is_free, $fee_tl, $extra_class = '' ) {
           if ( $is_free ) {
             return '<span class="hb-cargo-badge hb-cargo-free">ÜCRETSİZ</span>';
@@ -726,8 +724,6 @@ while ( have_posts() ) : the_post();
           <?php endif; ?>
         </div>
         <div class="hb-cargo-list">
-
-          <!-- Yurtiçi Kargo -->
           <div class="hb-cargo-row">
             <div class="hb-cargo-logo">
               <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
@@ -741,8 +737,6 @@ while ( have_posts() ) : the_post();
             </div>
             <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
           </div>
-
-          <!-- DHL Express -->
           <div class="hb-cargo-row">
             <div class="hb-cargo-logo">
               <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
@@ -756,8 +750,6 @@ while ( have_posts() ) : the_post();
             </div>
             <?php echo $pz_cargo_badge( $pz_free_ship, $pz_expr_fee, 'hb-cargo-price-expr' ); ?>
           </div>
-
-          <!-- Aras Kargo -->
           <div class="hb-cargo-row">
             <div class="hb-cargo-logo">
               <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
@@ -771,8 +763,6 @@ while ( have_posts() ) : the_post();
             </div>
             <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
           </div>
-
-          <!-- PTT Kargo -->
           <div class="hb-cargo-row">
             <div class="hb-cargo-logo">
               <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
@@ -786,7 +776,6 @@ while ( have_posts() ) : the_post();
             </div>
             <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
           </div>
-
         </div>
         <div class="hb-cargo-note">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -797,8 +786,7 @@ while ( have_posts() ) : the_post();
           <?php endif; ?>
         </div>
       </div>
-
-    </div>
+    </div><!-- /hb-right-col -->
 
   </div>
 
