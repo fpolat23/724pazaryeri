@@ -1806,7 +1806,7 @@ window.addEventListener('popstate', function(){
     }
     wraps.forEach(function(wrap){
       var excludeId = parseInt(wrap.getAttribute('data-rv-exclude') || '0', 10) || window.pzCurrentProductId || 0;
-      var ids = allIds.filter(function(id){ return id !== excludeId; });
+      var ids = allIds.filter(function(id){ return id !== excludeId; }).slice(0, 4);
       if (!ids.length) { wrap.style.display='none'; return; }
       var row = wrap.querySelector('[data-rv-row], #recentProductsRow');
       if (!row) return;
