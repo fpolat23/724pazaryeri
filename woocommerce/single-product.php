@@ -587,7 +587,36 @@ while ( have_posts() ) : the_post();
       </div>
       <?php endif; ?>
     </div>
+      <!-- Güven rozetleri -->
+      <div class="hb-trust hb-trust-in-col">
+        <div class="hb-trust-item">
+          <span class="hb-trust-ico hb-ti-orange">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          <span class="hb-trust-body"><strong>Güvenli Ödeme</strong><small>256-bit SSL şifreleme</small></span>
+        </div>
+        <div class="hb-trust-item">
+          <span class="hb-trust-ico hb-ti-blue">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.49"/></svg>
+          </span>
+          <span class="hb-trust-body"><strong>14 Gün İade</strong><small>Koşulsuz iade garantisi</small></span>
+        </div>
+        <div class="hb-trust-item">
+          <span class="hb-trust-ico hb-ti-green">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <span class="hb-trust-body"><strong>Orijinal Ürün</strong><small>%100 orijinallik garantisi</small></span>
+        </div>
+        <div class="hb-trust-item">
+          <span class="hb-trust-ico hb-ti-purple">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 9.81 19.79 19.79 0 0 1 1.72 1.18 2 2 0 0 1 3.7.01h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 7.91a16 16 0 0 0 6 6l1.27-.86a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 15z"/></svg>
+          </span>
+          <span class="hb-trust-body"><strong>7/24 Destek</strong><small>Her zaman yanınızdayız</small></span>
+        </div>
+      </div>
+
       <?php if ( ! empty( $pz_sellers ) ) : ?>
+      <div class="pzv-sellers-section-title">🏪 Bu Ürünü Satan Mağazalar</div>
       <div class="pzv-sellers-box">
         <?php if ( $pz_count > 1 ) : ?>
         <div class="pzv-sellers-head">Satıcılar <span class="pzv-sellers-count"><?php echo $pz_count; ?></span></div>
@@ -631,34 +660,6 @@ while ( have_posts() ) : the_post();
 
     <!-- ═══ GALERİ ALTI: GÜVEN + PAYLAŞ ═══ -->
     <div class="hb-gallery-extra">
-      <!-- Güven rozetleri -->
-      <div class="hb-trust">
-        <div class="hb-trust-item">
-          <span class="hb-trust-ico hb-ti-orange">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </span>
-          <span class="hb-trust-body"><strong>Güvenli Ödeme</strong><small>256-bit SSL şifreleme</small></span>
-        </div>
-        <div class="hb-trust-item">
-          <span class="hb-trust-ico hb-ti-blue">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.49"/></svg>
-          </span>
-          <span class="hb-trust-body"><strong>14 Gün İade</strong><small>Koşulsuz iade garantisi</small></span>
-        </div>
-        <div class="hb-trust-item">
-          <span class="hb-trust-ico hb-ti-green">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </span>
-          <span class="hb-trust-body"><strong>Orijinal Ürün</strong><small>%100 orijinallik garantisi</small></span>
-        </div>
-        <div class="hb-trust-item">
-          <span class="hb-trust-ico hb-ti-purple">
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 9.81 19.79 19.79 0 0 1 1.72 1.18 2 2 0 0 1 3.7.01h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 7.91a16 16 0 0 0 6 6l1.27-.86a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 15z"/></svg>
-          </span>
-          <span class="hb-trust-body"><strong>7/24 Destek</strong><small>Her zaman yanınızdayız</small></span>
-        </div>
-      </div>
-
       <!-- Sosyal Paylaşım -->
       <?php
         $pz_share_url   = urlencode( get_permalink() );
