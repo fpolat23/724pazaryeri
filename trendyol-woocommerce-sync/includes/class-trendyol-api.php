@@ -162,7 +162,7 @@ class TWS_Trendyol_API {
             'headers' => [
                 'Authorization' => 'Basic ' . base64_encode( $this->api_key . ':' . $this->api_secret ),
                 'Content-Type'  => 'application/json',
-                'User-Agent'    => get_option( 'tws_supplier_id', '' ) . ' - SelfIntegration',
+                'User-Agent'    => $this->supplier_id . ' - SelfIntegration',
             ],
         ];
 
