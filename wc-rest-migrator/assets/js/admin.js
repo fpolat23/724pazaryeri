@@ -208,7 +208,7 @@
 		var items = d.imported_items || [];
 		if (!items.length) return;
 		var html = '<div style="margin-top:12px">'
-			+ '<strong style="color:#1e6f3e">Aktarılan ürünler: ' + items.length + '</strong>'
+			+ '<strong style="color:#1e6f3e">Son aktarılan ürünler (en yeni ' + items.length + ' kayıt)</strong>'
 			+ '<div style="max-height:320px;overflow-y:auto;margin-top:6px;border:1px solid #c8e6c9;border-radius:4px">'
 			+ '<table style="width:100%;border-collapse:collapse;font-size:12px">'
 			+ '<thead><tr style="background:#e8f5e9">'

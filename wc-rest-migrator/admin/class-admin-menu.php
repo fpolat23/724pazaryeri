@@ -167,12 +167,31 @@ class WC_RM_Admin_Menu {
 	private static function render_import(): void {
 		$sources       = self::get_sources();
 		$resume_job_id = isset( $_GET['resume'] ) ? (int) $_GET['resume'] : 0;
+		$resume_job    = $resume_job_id ? WC_RM_Job_Manager::get( $resume_job_id ) : null;
+		// Only treat as a valid resume if the job exists and is still processing
+		if ( $resume_job && $resume_job->status !== 'processing' ) {
+			$resume_job_id = 0;
+			$resume_job    = null;
+		}
 		?>
 		<div class="wc-rm-card">
 			<h2>İçe Aktarma Başlat</h2>
 			<?php if ( empty( $sources ) ) : ?>
 			<p>Önce <a href="<?php echo esc_url( add_query_arg( 'tab', 'sources', menu_page_url( 'wc-rest-migrator', false ) ) ); ?>">Kaynak Siteler</a> sekmesinden en az bir kaynak ekleyin.</p>
-			<?php else : ?>
+			<?php else : /* sources exist */ ?>
+
+			<?php if ( $resume_job ) :
+				$resume_results = json_decode( $resume_job->results ?: '{}', true ) ?: [];
+				$resume_page    = $resume_results['current_page'] ?? 0;
+				$resume_pct     = $resume_job->total > 0 ? round( $resume_job->processed / $resume_job->total * 100 ) : 0;
+			?>
+			<div class="wc-rm-bg-note" style="margin-bottom:14px">
+				<strong>İş #<?php echo esc_html( $resume_job->id ); ?> devam ettiriliyor</strong> —
+				<?php echo esc_html( $resume_job->processed ); ?> / <?php echo esc_html( $resume_job->total ); ?> ürün işlendi
+				(%<?php echo esc_html( $resume_pct ); ?>)<?php if ( $resume_page ) : ?>, sayfa <?php echo esc_html( $resume_page ); ?><?php endif; ?>.<br>
+				<small><a href="<?php echo esc_url( add_query_arg( 'tab', 'import', menu_page_url( 'wc-rest-migrator', false ) ) ); ?>">← Yeni aktarma başlat</a></small>
+			</div>
+			<?php else : /* normal form */ ?>
 			<p class="description">
 				Seçilen kaynak sitenin ürünleri REST API aracılığıyla içe aktarılır.<br>
 				Sayfayı açık tutun — aktarma tarayıcı üzerinden yürütülür.
@@ -221,6 +240,7 @@ class WC_RM_Admin_Menu {
 					<span class="spinner"></span>
 				</p>
 			</form>
+			<?php endif; /* resume_job / form */ ?>
 
 			<div id="wc-rm-progress" class="wc-rm-progress-wrap" style="display:<?php echo $resume_job_id ? 'block' : 'none'; ?>">
 				<div class="wc-rm-bg-note">Aktarma devam ediyor — bu sayfayı açık tutun.</div>
@@ -229,7 +249,8 @@ class WC_RM_Admin_Menu {
 				<div class="wc-rm-progress-status"></div>
 				<div id="wc-rm-live-items"></div>
 			</div>
-			<?php endif; ?>
+
+			<?php endif; /* !empty($sources) */ ?>
 		</div>
 		<?php
 	}
@@ -318,7 +339,7 @@ class WC_RM_Admin_Menu {
 					<td colspan="9" style="padding:0 8px 8px 36px;background:#f9f9f9">
 						<details>
 							<summary style="cursor:pointer;padding:6px 0;color:#1e6f3e;font-weight:600">
-								Aktarılan ürünler (<?php echo esc_html( count( $results['imported_items'] ) ); ?>)
+								Son aktarılan ürünler (<?php echo esc_html( count( $results['imported_items'] ) ); ?>)
 							</summary>
 							<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
 								<thead><tr style="background:#e8f5e9">

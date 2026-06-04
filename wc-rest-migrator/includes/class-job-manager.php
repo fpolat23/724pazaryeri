@@ -70,7 +70,7 @@ class WC_RM_Job_Manager {
 			$ex_items  = $existing['imported_items'] ?? [];
 			$new_items = (array) ( $data['imported_items'] ?? [] );
 			$merged    = array_merge( $ex_items, $new_items );
-			if ( count( $merged ) > 500 ) $merged = array_slice( $merged, 0, 500 );
+			if ( count( $merged ) > 500 ) $merged = array_slice( $merged, -500 ); // keep most recent
 
 			$set['results'] = wp_json_encode( [
 				'created'        => ( $existing['created']      ?? 0 ) + (int) ( $new['created']      ?? 0 ),
