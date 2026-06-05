@@ -425,7 +425,7 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
         ) );
         if ( $loop->have_posts() ) :
           while ( $loop->have_posts() ) : $loop->the_post();
-            global $product;
+            global $product; $product = wc_get_product();
             echo bazario_product_card( $product );
           endwhile;
           wp_reset_postdata();
@@ -520,7 +520,7 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
         <a class="hb-showcase-all" href="<?php echo esc_url( $sc_link ); ?>">Tümünü Gör ›</a>
       </div>
       <div class="hb-showcase-row">
-        <?php while ( $sc_q->have_posts() ) : $sc_q->the_post(); global $product; echo bazario_product_card( $product ); endwhile; ?>
+        <?php while ( $sc_q->have_posts() ) : $sc_q->the_post(); global $product; $product = wc_get_product(); echo bazario_product_card( $product ); endwhile; ?>
       </div>
     </div>
   <?php

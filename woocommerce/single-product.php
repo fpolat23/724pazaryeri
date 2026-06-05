@@ -1403,7 +1403,7 @@ while ( have_posts() ) : the_post();
       </div>
     </div>
     <div class="alt-products-row" id="altProductsRow">
-      <?php while ( $alt_q->have_posts() ) : $alt_q->the_post(); global $product; echo bazario_product_card( $product ); endwhile; wp_reset_postdata(); ?>
+      <?php while ( $alt_q->have_posts() ) : $alt_q->the_post(); global $product; $product = wc_get_product(); echo bazario_product_card( $product ); endwhile; wp_reset_postdata(); ?>
     </div>
   </div>
   <?php

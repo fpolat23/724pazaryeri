@@ -321,7 +321,7 @@ if ( is_wp_error( $base_url ) ) $base_url = wc_get_page_permalink( 'shop' );
         <div class="pgrid shop-grid">
           <?php
             while ( have_posts() ) : the_post();
-              global $product;
+              global $product; $product = wc_get_product();
               echo bazario_product_card( $product );
             endwhile;
           ?>
