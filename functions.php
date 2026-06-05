@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.139' );
+define( 'PAZARYERI_VERSION', '9.9.143' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -77,15 +77,28 @@ add_action( 'after_setup_theme', 'pazaryeri_setup' );
 function pazaryeri_enqueue_assets() {
     // Tema ana style.css (header için gerekli)
     wp_enqueue_style( 'pazaryeri-style', get_stylesheet_uri(), array(), PAZARYERI_VERSION );
-    // Asıl tasarım CSS'i
+    // Asıl tasarım CSS'i - async yükle (render blocking önleme)
     wp_enqueue_style( 'pazaryeri-main', PAZARYERI_URL . '/assets/css/main.min.css', array(), PAZARYERI_VERSION );
-    // Fontlar
-    // Preconnect: tarayıcı DNS'i önceden hazırlasın
+    add_filter( 'style_loader_tag', function( $html, $handle ) {
+        if ( 'pazaryeri-main' === $handle ) {
+            $html = str_replace(
+                "rel='stylesheet'",
+                "rel='preload' as='style' onload=\"this.onload=null;this.rel='stylesheet'\"",
+                $html
+            );
+            $html .= "<noscript><link rel='stylesheet' href='" . PAZARYERI_URL . "/assets/css/main.min.css?ver=" . PAZARYERI_VERSION . "'></noscript>";
+        }
+        return $html;
+    }, 10, 2 );
+    // Fontlar - OMGF ile yerel olarak barındırılıyor, dış Google Fonts kaldırıldı
+    // Preconnect: Cloudflare ve CDN için
     add_action( 'wp_head', function(){
-        echo '<link rel="preconnect" href="https://fonts.googleapis.com">';
-        echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+        echo '<link rel="preconnect" href="https://cdn.cloudflare.com" crossorigin>';
+        // LCP görseli preload - ana sayfa hero/banner
+        if ( is_front_page() || is_home() ) {
+            echo '<link rel="preload" as="image" href="' . esc_url( get_template_directory_uri() ) . '/assets/img/hero-bg.webp" type="image/webp">';
+        }
     }, 1 );
-    wp_enqueue_style( 'pazaryeri-fonts', 'https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap', array(), null );
 
     // JS
     wp_enqueue_script( 'pazaryeri-main', PAZARYERI_URL . '/assets/js/main.min.js', array(), PAZARYERI_VERSION, true );
@@ -388,6 +401,17 @@ add_action( 'wp_enqueue_scripts', function(){
             wp_dequeue_style( 'woocommerce-smallscreen' );
             wp_dequeue_script( 'wc-cart-fragments' );
             wp_dequeue_script( 'woocommerce' );
+        }
+    }
+    // login.min.css sadece login/hesap sayfalarında yüklensin
+    if ( ! is_account_page() && ! is_checkout() ) {
+        wp_dequeue_style( 'woocommerce-login' );
+    }
+    // frontend.css (WooCommerce blocks) sadece WooCommerce sayfalarında yüklensin
+    if ( function_exists( 'is_woocommerce' ) ) {
+        if ( ! is_woocommerce() && ! is_cart() && ! is_checkout() && ! is_account_page() ) {
+            wp_dequeue_style( 'wc-blocks-style' );
+            wp_dequeue_style( 'wc-blocks-vendors-style' );
         }
     }
 }, 99 );
