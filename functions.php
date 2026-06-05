@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.155' );
+define( 'PAZARYERI_VERSION', '9.9.156' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -1632,8 +1632,15 @@ function pz_nakit_payment_ids() {
 }
 
 function pz_is_nakit_selected() {
-    if ( ! function_exists( 'WC' ) || ! WC()->session ) return false;
-    $chosen = strtolower( WC()->session->get( 'chosen_payment_method', '' ) );
+    if ( ! function_exists( 'WC' ) ) return false;
+    // $_POST öncelikli — checkout submit sırasında session henüz güncellenmemiş olabilir
+    if ( isset( $_POST['payment_method'] ) ) {
+        $chosen = strtolower( sanitize_text_field( wp_unslash( $_POST['payment_method'] ) ) );
+    } elseif ( WC()->session ) {
+        $chosen = strtolower( (string) WC()->session->get( 'chosen_payment_method', '' ) );
+    } else {
+        return false;
+    }
     foreach ( pz_nakit_payment_ids() as $id ) {
         if ( $chosen === strtolower( $id ) || strpos( $chosen, strtolower( $id ) ) !== false ) return true;
     }
@@ -1667,10 +1674,13 @@ add_filter( 'woocommerce_cart_item_name', function ( $name, $cart_item, $cart_it
     if ( is_admin() ) return $name;
     $d = pz_item_nakit_discount( $cart_item );
     if ( $d <= 0 ) return $name;
-    $name .= '<span class="pz-nakit-item-badge">Nakit odemede <strong>' . wc_price( $d ) . '</strong> indirim</span>';
+    $name .= '<span class="pz-nakit-item-badge">'
+           . '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>'
+           . ' Nakit &ouml;demede <strong>' . wc_price( $d ) . '</strong> indirim</span>';
     return $name;
 }, 10, 3 );
 
+/* Sepet/ödeme sayfasında nakit iskonto bilgi satırı (nakit seçilmemişken) */
 add_action( 'woocommerce_cart_totals_before_order_total', 'pz_render_nakit_total_row' );
 add_action( 'woocommerce_review_order_before_order_total', 'pz_render_nakit_total_row' );
 function pz_render_nakit_total_row() {
@@ -1679,15 +1689,42 @@ function pz_render_nakit_total_row() {
     if ( pz_is_nakit_selected() ) return;
     ?>
     <tr class="pz-nakit-total-row">
-        <th>Nakit Iskontosu <span class="pz-nakit-total-hint">nakit secilirse</span></th>
-        <td><span class="pz-nakit-save">-<?php echo wc_price( $discount ); ?></span></td>
+        <th>
+            <svg class="pz-nakit-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            Nakit &Ouml;deme &dot; %5 &nbsp;<span class="pz-nakit-total-hint">Nakit se&ccedil;ilirse uygulan&iacute;r</span>
+        </th>
+        <td><span class="pz-nakit-save pz-nakit-save-preview">-<?php echo wc_price( $discount ); ?></span></td>
     </tr>
     <?php
 }
 
+/* Sepet üstü nakit teşvik banner — sadece sepette */
+add_action( 'woocommerce_before_cart_totals', function () {
+    $discount = pz_cart_total_nakit();
+    if ( $discount <= 0 ) return;
+    echo '<div class="pz-nakit-banner">'
+       . '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>'
+       . '<span>Nakit &ouml;deme se&ccedil;erseniz <strong>' . wc_price( $discount ) . '</strong> tasarruf edersiniz!</span>'
+       . '</div>';
+} );
+
+/* Fee HTML'ini yeşil yap */
 add_filter( 'woocommerce_cart_totals_fee_html', function ( $fee_html, $fee ) {
     if ( strpos( $fee->name, 'Nakit' ) !== false && (float) $fee->total < 0 ) {
-        return '<span class="pz-nakit-save">' . $fee_html . '</span>';
+        return '<span class="pz-nakit-save pz-nakit-applied">' . $fee_html . '</span>';
     }
     return $fee_html;
 }, 10, 2 );
+
+/* Ödeme sayfasında da fee label'i güzelleştir */
+add_filter( 'woocommerce_get_order_item_totals', function ( $totals, $order, $tax_display ) {
+    foreach ( $totals as $key => $total ) {
+        if ( isset( $total['label'] ) && strpos( $total['label'], 'Nakit' ) !== false ) {
+            $totals[ $key ]['label'] = '<span class="pz-nakit-fee-label">&#128179; ' . esc_html( $total['label'] ) . '</span>';
+            if ( isset( $totals[ $key ]['value'] ) ) {
+                $totals[ $key ]['value'] = '<span class="pz-nakit-save">' . $totals[ $key ]['value'] . '</span>';
+            }
+        }
+    }
+    return $totals;
+}, 10, 3 );

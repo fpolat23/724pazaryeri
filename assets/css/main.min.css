@@ -2794,10 +2794,25 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .hb-cargo-badge{min-width:64px;font-size:11.5px;padding:4px 10px;}
 }
 
-/* Nakit iskonto badge (sepet + odeme ozeti) */
-.pz-nakit-item-badge{display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px solid #fed7aa;color:#ea580c;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:500;margin-top:5px;margin-left:6px;}
-.pz-nakit-item-badge strong{color:#dc2626;font-weight:700;}
-.pz-nakit-total-row th,.pz-nakit-total-row td{background:#f0fdf4;}
-.pz-nakit-total-hint{font-size:11px;font-weight:400;color:#6b7280;margin-left:6px;}
-.pz-nakit-save{color:#16a34a;font-weight:700;}
-.cart_totals .fee .pz-nakit-save,.woocommerce-checkout-review-order-table .fee .pz-nakit-save{color:#16a34a;font-weight:700;}
+/* ── Nakit İskonto Sistemi ── */
+.pz-nakit-item-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fb923c;color:#c2410c;border-radius:20px;padding:3px 11px;font-size:12px;font-weight:600;margin-top:6px;margin-left:4px;box-shadow:0 1px 4px rgba(234,88,12,.12);}
+.pz-nakit-item-badge strong{color:#b91c1c;font-weight:800;}
+.pz-nakit-item-badge svg{color:#ea580c;flex-shrink:0;}
+/* Önizleme satırı (nakit seçilmemişken) */
+.pz-nakit-total-row th,.pz-nakit-total-row td{background:linear-gradient(90deg,#f0fdf4,#dcfce7);border-top:2px solid #86efac!important;border-bottom:1px solid #bbf7d0!important;}
+.pz-nakit-total-row th{font-weight:700;color:#15803d;display:flex;align-items:center;gap:6px;}
+.pz-nakit-icon{color:#16a34a;flex-shrink:0;}
+.pz-nakit-total-hint{font-size:11px;font-weight:400;color:#6b7280;margin-left:4px;font-style:italic;}
+/* Save tutarları */
+.pz-nakit-save{color:#15803d;font-weight:800;}
+.pz-nakit-save-preview{font-size:15px;letter-spacing:-0.3px;}
+.pz-nakit-applied{font-size:15px;color:#15803d;font-weight:800;}
+/* Fee satırı */
+.cart_totals .fee th,.woocommerce-checkout-review-order-table .fee th{color:#15803d;}
+.cart_totals .fee td,.woocommerce-checkout-review-order-table .fee td{color:#15803d;font-weight:800;}
+/* Banner */
+.pz-nakit-banner{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #6ee7b7;border-radius:12px;padding:11px 16px;margin-bottom:16px;font-size:13.5px;font-weight:600;color:#065f46;}
+.pz-nakit-banner svg{color:#059669;flex-shrink:0;}
+.pz-nakit-banner strong{color:#047857;font-weight:800;}
+/* Sipariş özeti fee label */
+.pz-nakit-fee-label{color:#15803d;font-weight:700;}
