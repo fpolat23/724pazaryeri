@@ -2793,3 +2793,11 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
   .pazaryeri-wrap .hb-cargo-logo{width:62px;}
   .pazaryeri-wrap .hb-cargo-badge{min-width:64px;font-size:11.5px;padding:4px 10px;}
 }
+
+/* Nakit iskonto badge (sepet + odeme ozeti) */
+.pz-nakit-item-badge{display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px solid #fed7aa;color:#ea580c;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:500;margin-top:5px;margin-left:6px;}
+.pz-nakit-item-badge strong{color:#dc2626;font-weight:700;}
+.pz-nakit-total-row th,.pz-nakit-total-row td{background:#f0fdf4;}
+.pz-nakit-total-hint{font-size:11px;font-weight:400;color:#6b7280;margin-left:6px;}
+.pz-nakit-save{color:#16a34a;font-weight:700;}
+.cart_totals .fee .pz-nakit-save,.woocommerce-checkout-review-order-table .fee .pz-nakit-save{color:#16a34a;font-weight:700;}

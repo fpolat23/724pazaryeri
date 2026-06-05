@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.154' );
+define( 'PAZARYERI_VERSION', '9.9.155' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -1616,3 +1616,78 @@ add_action( 'wp_head', function () {
         }
     }
 }, 5 );
+
+/* ═══════════════════════════════════════════════════════════
+   NAKİT ÖDEME İSKONTO SİSTEMİ — %5
+   • Sepet: ürün başına badge + toplam satırı
+   • Ödeme sayfası: nakit seçilince fee olarak otomatik düşüm
+═══════════════════════════════════════════════════════════ */
+
+if ( ! defined( 'PZ_NAKIT_RATE' ) ) define( 'PZ_NAKIT_RATE', 0.05 );
+
+function pz_nakit_payment_ids() {
+    return apply_filters( 'pz_nakit_payment_ids', array(
+        'cod', 'nakit', 'nakit_odeme', 'nakit_payment', 'cash', 'kapida', 'kapida_odeme',
+    ) );
+}
+
+function pz_is_nakit_selected() {
+    if ( ! function_exists( 'WC' ) || ! WC()->session ) return false;
+    $chosen = strtolower( WC()->session->get( 'chosen_payment_method', '' ) );
+    foreach ( pz_nakit_payment_ids() as $id ) {
+        if ( $chosen === strtolower( $id ) || strpos( $chosen, strtolower( $id ) ) !== false ) return true;
+    }
+    return false;
+}
+
+function pz_item_nakit_discount( $cart_item ) {
+    if ( empty( $cart_item['data'] ) ) return 0;
+    return round( (float) $cart_item['data']->get_price() * (int) $cart_item['quantity'] * PZ_NAKIT_RATE, 2 );
+}
+
+function pz_cart_total_nakit() {
+    if ( ! function_exists( 'WC' ) || ! WC()->cart ) return 0;
+    $total = 0;
+    foreach ( WC()->cart->get_cart() as $item ) {
+        $total += pz_item_nakit_discount( $item );
+    }
+    return round( $total, 2 );
+}
+
+add_action( 'woocommerce_cart_calculate_fees', function ( $cart ) {
+    if ( is_admin() && ! defined( 'DOING_AJAX' ) ) return;
+    if ( ! pz_is_nakit_selected() ) return;
+    $discount = pz_cart_total_nakit();
+    if ( $discount > 0 ) {
+        $cart->add_fee( 'Nakit Odeme Iskontosu (%5)', -$discount, false );
+    }
+} );
+
+add_filter( 'woocommerce_cart_item_name', function ( $name, $cart_item, $cart_item_key ) {
+    if ( is_admin() ) return $name;
+    $d = pz_item_nakit_discount( $cart_item );
+    if ( $d <= 0 ) return $name;
+    $name .= '<span class="pz-nakit-item-badge">Nakit odemede <strong>' . wc_price( $d ) . '</strong> indirim</span>';
+    return $name;
+}, 10, 3 );
+
+add_action( 'woocommerce_cart_totals_before_order_total', 'pz_render_nakit_total_row' );
+add_action( 'woocommerce_review_order_before_order_total', 'pz_render_nakit_total_row' );
+function pz_render_nakit_total_row() {
+    $discount = pz_cart_total_nakit();
+    if ( $discount <= 0 ) return;
+    if ( pz_is_nakit_selected() ) return;
+    ?>
+    <tr class="pz-nakit-total-row">
+        <th>Nakit Iskontosu <span class="pz-nakit-total-hint">nakit secilirse</span></th>
+        <td><span class="pz-nakit-save">-<?php echo wc_price( $discount ); ?></span></td>
+    </tr>
+    <?php
+}
+
+add_filter( 'woocommerce_cart_totals_fee_html', function ( $fee_html, $fee ) {
+    if ( strpos( $fee->name, 'Nakit' ) !== false && (float) $fee->total < 0 ) {
+        return '<span class="pz-nakit-save">' . $fee_html . '</span>';
+    }
+    return $fee_html;
+}, 10, 2 );
