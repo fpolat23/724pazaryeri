@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.156' );
+define( 'PAZARYERI_VERSION', '9.9.157' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -1728,3 +1728,42 @@ add_filter( 'woocommerce_get_order_item_totals', function ( $totals, $order, $ta
     }
     return $totals;
 }, 10, 3 );
+
+/* ── Sipariş oluşturulunca nakit iskontosu garantisi ──────────────────
+   woocommerce_cart_calculate_fees bazı akışlarda siparişe yansımaz.
+   Bu hook sipariş nesnesi üzerinde ödeme yöntemini kesin okuyup
+   fee olarak doğrudan ekler; cart hook zaten eklediyse atlar.
+─────────────────────────────────────────────────────────────────── */
+add_action( 'woocommerce_checkout_order_created', function ( $order ) {
+    $payment  = strtolower( (string) $order->get_payment_method() );
+    $is_nakit = false;
+    foreach ( pz_nakit_payment_ids() as $id ) {
+        if ( $payment === strtolower( $id ) || strpos( $payment, strtolower( $id ) ) !== false ) {
+            $is_nakit = true;
+            break;
+        }
+    }
+    if ( ! $is_nakit ) return;
+
+    // Cart fee hook zaten çalıştıysa tekrar ekleme
+    foreach ( $order->get_fees() as $fee ) {
+        if ( strpos( $fee->get_name(), 'Nakit' ) !== false ) return;
+    }
+
+    // Sipariş kalemlerinden %5 iskonto hesapla
+    $discount = 0;
+    foreach ( $order->get_items() as $item ) {
+        $discount += round( (float) $item->get_subtotal() * PZ_NAKIT_RATE, 2 );
+    }
+    if ( $discount <= 0 ) return;
+
+    $fee_item = new WC_Order_Item_Fee();
+    $fee_item->set_name( 'Nakit Odeme Iskontosu (%5)' );
+    $fee_item->set_amount( -$discount );
+    $fee_item->set_total( -$discount );
+    $fee_item->set_tax_status( 'none' );
+    $fee_item->set_tax_class( '' );
+    $order->add_item( $fee_item );
+    $order->calculate_totals( false );
+    $order->save();
+} );
