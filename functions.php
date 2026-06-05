@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.157' );
+define( 'PAZARYERI_VERSION', '9.9.158' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -1627,7 +1627,8 @@ if ( ! defined( 'PZ_NAKIT_RATE' ) ) define( 'PZ_NAKIT_RATE', 0.05 );
 
 function pz_nakit_payment_ids() {
     return apply_filters( 'pz_nakit_payment_ids', array(
-        'cod', 'nakit', 'nakit_odeme', 'nakit_payment', 'cash', 'kapida', 'kapida_odeme',
+        'cod', 'bacs', 'nakit', 'nakit_odeme', 'nakit_payment', 'cash',
+        'kapida', 'kapida_odeme', 'havale', 'eft', 'banka_havalesi', 'wire',
     ) );
 }
 
