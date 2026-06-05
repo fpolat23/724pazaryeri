@@ -14,7 +14,20 @@ function bazario_product_card( $product ) {
     $id        = $product->get_id();
     $permalink = get_permalink( $id );
     $title     = $product->get_name();
-    $img       = $product->get_image( 'woocommerce_thumbnail' );
+    // SEO: öne çıkan görsele anlamlı alt text ver (Yoast boş bırakıyorsa)
+    $img_id    = $product->get_image_id();
+    $img_alt   = '';
+    if ( $img_id ) {
+        $img_alt = get_post_meta( $img_id, '_wp_attachment_image_alt', true );
+    }
+    if ( ! $img_alt ) {
+        $img_alt = $product->get_name();
+        $p_cats  = wc_get_product_terms( $id, 'product_cat', array( 'fields' => 'names', 'number' => 1 ) );
+        if ( ! empty( $p_cats ) ) $img_alt .= ' ' . $p_cats[0];
+    }
+    $img = $img_id
+        ? '<img src="' . esc_url( wp_get_attachment_image_url( $img_id, 'woocommerce_thumbnail' ) ) . '" alt="' . esc_attr( $img_alt ) . '" loading="lazy" decoding="async" width="300" height="300">'
+        : $product->get_image( 'woocommerce_thumbnail' );
 
     // fiyat
     $price_html = $product->get_price_html();
@@ -152,18 +165,28 @@ function bazario_filter_products() {
     $category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : 'all';
 
     $args = array(
-        'post_type'      => 'product',
-        'posts_per_page' => 12,
-        'orderby'        => 'rand',          // RASTGELE
-        'post_status'    => 'publish',
+        'post_type'           => 'product',
+        'posts_per_page'      => 12,
+        'orderby'             => 'rand',
+        'post_status'         => 'publish',
+        'no_found_rows'       => true,
+        'ignore_sticky_posts' => true,
+        // Fiyatı 0 olan ürünleri hariç tut
+        'meta_query'          => array( array(
+            'key'     => '_price',
+            'value'   => '0',
+            'compare' => '>',
+            'type'    => 'NUMERIC',
+        ) ),
     );
 
     if ( $category && $category !== 'all' ) {
         $args['tax_query'] = array(
             array(
-                'taxonomy' => 'product_cat',
-                'field'    => 'slug',
-                'terms'    => $category,
+                'taxonomy'         => 'product_cat',
+                'field'            => 'slug',
+                'terms'            => $category,
+                'include_children' => true,
             ),
         );
     }
@@ -171,8 +194,13 @@ function bazario_filter_products() {
     $loop = new WP_Query( $args );
 
     if ( $loop->have_posts() ) {
+        $seen_ids = array();
         while ( $loop->have_posts() ) {
             $loop->the_post();
+            $pid = get_the_ID();
+            // Tekrar eden ürünü gösterme
+            if ( in_array( $pid, $seen_ids, true ) ) continue;
+            $seen_ids[] = $pid;
             global $product;
             echo bazario_product_card( $product );
         }
@@ -181,7 +209,7 @@ function bazario_filter_products() {
         echo '<p style="grid-column:1/-1;text-align:center;color:#8a8680;padding:30px">Bu kategoride ürün bulunamadı.</p>';
     }
 
-    wp_die(); // AJAX yanıtını sonlandır
+    wp_die();
 }
 add_action( 'wp_ajax_bazario_filter_products', 'bazario_filter_products' );        // giriş yapmış
 add_action( 'wp_ajax_nopriv_bazario_filter_products', 'bazario_filter_products' ); // ziyaretçi
@@ -242,6 +270,14 @@ add_action( 'woocommerce_product_query', function ( $q ) {
     if ( is_admin() ) return;
 
     $meta_query = $q->get( 'meta_query' ) ?: array();
+
+    // Fiyatı 0 veya girilmemiş ürünleri gizle (her zaman geçerli)
+    $meta_query[] = array(
+        'key'     => '_price',
+        'value'   => '0',
+        'compare' => '>',
+        'type'    => 'NUMERIC',
+    );
 
     // Fiyat aralığı
     $min = isset( $_GET['min_price'] ) && $_GET['min_price'] !== '' ? floatval( $_GET['min_price'] ) : null;

@@ -215,7 +215,7 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
             <h1 class="slide-h1">El Emeği<br><em style="color:#ffb000">Benzersiz Eserler</em></h1>
             <p class="slide-p" style="color:rgba(255,255,255,.78)">Yerel sanatçılardan ve zanaatkârlardan tek parça ürünler. Her biri bir hikâye anlatıyor.</p>
             <div class="slide-btns">
-              <a class="sbtn solid" href="/product-category/el-yapimi/">Koleksiyonu Keşfet →</a>
+              <a class="sbtn solid" href="/product-category/oyuncak/">Koleksiyonu Keşfet →</a>
               <a class="sbtn ghost" href="/shop/">Tüm Sanatçılar</a>
             </div>
             <div class="artisan-row">
@@ -416,16 +416,28 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
     <!-- ÜRÜN GRID (AJAX ile dolar; ilk yük "Tümü") -->
     <div class="pgrid" id="catProductGrid">
       <?php
-        // İlk açılışta rastgele ürünler (Tümü)
+        // İlk açılışta rastgele ürünler (Tümü) — tekrarsız, fiyatı 0 olmayanlar
         $loop = new WP_Query( array(
-          'post_type'      => 'product',
-          'posts_per_page' => 12,
-          'orderby'        => 'rand',
-          'post_status'    => 'publish',
+          'post_type'           => 'product',
+          'posts_per_page'      => 12,
+          'orderby'             => 'rand',
+          'post_status'         => 'publish',
+          'no_found_rows'       => true,
+          'ignore_sticky_posts' => true,
+          'meta_query'          => array( array(
+            'key'     => '_price',
+            'value'   => '0',
+            'compare' => '>',
+            'type'    => 'NUMERIC',
+          ) ),
         ) );
+        $loop_seen = array();
         if ( $loop->have_posts() ) :
           while ( $loop->have_posts() ) : $loop->the_post();
-            global $product; $product = wc_get_product();
+            global $product;
+            $loop_pid = get_the_ID();
+            if ( in_array( $loop_pid, $loop_seen, true ) ) continue;
+            $loop_seen[] = $loop_pid;
             echo bazario_product_card( $product );
           endwhile;
           wp_reset_postdata();
@@ -499,18 +511,36 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
     if ( ! empty( $showcase_terms ) && ! is_wp_error( $showcase_terms ) ) :
       foreach ( $showcase_terms as $sc_term ) :
         if ( in_array( mb_strtolower( $sc_term->name ), $skip_names, true ) ) continue;
+        // Günlük seed: sayfa yenilenince sıralama değişmez, ama tekrar OLMAZ
+        $sc_seed = (int) date('Ymd');
         $sc_q = new WP_Query( array(
-          'post_type'      => 'product',
-          'posts_per_page' => 6,
-          'post_status'    => 'publish',
-          'orderby'        => 'rand',
-          'tax_query'      => array( array(
-            'taxonomy' => 'product_cat',
-            'field'    => 'term_id',
-            'terms'    => $sc_term->term_id,
+          'post_type'           => 'product',
+          'posts_per_page'      => 6,
+          'post_status'         => 'publish',
+          'orderby'             => 'rand',
+          'no_found_rows'       => true,
+          'ignore_sticky_posts' => true,
+          'meta_query'          => array( array(
+            'key'     => '_price',
+            'value'   => '0',
+            'compare' => '>',
+            'type'    => 'NUMERIC',
+          ) ),
+          'tax_query'           => array( array(
+            'taxonomy'         => 'product_cat',
+            'field'            => 'term_id',
+            'terms'            => $sc_term->term_id,
+            'include_children' => true,
           ) ),
         ) );
+        // Tekrar kontrolü: aynı post ID'yi iki kez gösterme
+        $sc_seen_ids = array();
         if ( $sc_q->have_posts() ) :
+          // Gerçekten farklı ürün var mı kontrol et
+          $sc_unique = array_unique( wp_list_pluck( $sc_q->posts, 'ID' ) );
+          if ( count( $sc_unique ) < 1 ) :
+            wp_reset_postdata();
+          else :
           $sc_link = get_term_link( $sc_term );
           if ( is_wp_error( $sc_link ) ) $sc_link = wc_get_page_permalink('shop');
   ?>
@@ -520,11 +550,22 @@ $pz_n_active   = number_format( $pz_stats['products'], 0, ',', '.' );
         <a class="hb-showcase-all" href="<?php echo esc_url( $sc_link ); ?>">Tümünü Gör ›</a>
       </div>
       <div class="hb-showcase-row">
-        <?php while ( $sc_q->have_posts() ) : $sc_q->the_post(); global $product; $product = wc_get_product(); echo bazario_product_card( $product ); endwhile; ?>
+        <?php
+          while ( $sc_q->have_posts() ) :
+            $sc_q->the_post();
+            global $product;
+            $sc_pid = get_the_ID();
+            // Aynı ürünü tekrar gösterme
+            if ( in_array( $sc_pid, $sc_seen_ids, true ) ) continue;
+            $sc_seen_ids[] = $sc_pid;
+            echo bazario_product_card( $product );
+          endwhile;
+        ?>
       </div>
     </div>
   <?php
-        endif;
+          endif; // sc_unique kontrolü
+        endif; // sc_q->have_posts
         wp_reset_postdata();
       endforeach;
     endif;

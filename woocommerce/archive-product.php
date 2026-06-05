@@ -6,6 +6,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 get_header();
 
+
 // Mevcut kategori / başlık
 $current_term = is_tax() ? get_queried_object() : null;
 $page_title   = $current_term ? $current_term->name : ( is_search() ? 'Arama Sonuçları' : 'Tüm Ürünler' );
@@ -320,8 +321,12 @@ if ( is_wp_error( $base_url ) ) $base_url = wc_get_page_permalink( 'shop' );
       <?php if ( woocommerce_product_loop() ) : ?>
         <div class="pgrid shop-grid">
           <?php
+            $pz_archive_seen = array();
             while ( have_posts() ) : the_post();
-              global $product; $product = wc_get_product();
+              global $product;
+              $pz_pid = get_the_ID();
+              if ( in_array( $pz_pid, $pz_archive_seen, true ) ) continue;
+              $pz_archive_seen[] = $pz_pid;
               echo bazario_product_card( $product );
             endwhile;
           ?>

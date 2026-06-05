@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.144' );
+define( 'PAZARYERI_VERSION', '9.9.153' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -413,6 +413,14 @@ add_action( 'wp_enqueue_scripts', function(){
             wp_dequeue_style( 'wc-blocks-style' );
             wp_dequeue_style( 'wc-blocks-vendors-style' );
         }
+    }
+    // Digits login CSS - sadece hesap/checkout sayfalarında yüklensin
+    if ( ! is_account_page() && ! is_checkout() && ! is_page( 'giris' ) && ! is_page( 'kayit' ) ) {
+        wp_dequeue_style( 'digits-login-style' );
+    }
+    // Customer Reviews CSS - sadece ürün sayfalarında yüklensin
+    if ( ! is_singular( 'product' ) && ! is_checkout() ) {
+        wp_dequeue_style( 'cr-frontend-css' );
     }
 }, 99 );
 
@@ -1028,11 +1036,11 @@ function pz_normalize_tr( $str ) {
 function pz_ai_search_execute( $q ) {
     $q = trim( sanitize_text_field( $q ) );
     if ( mb_strlen( $q ) < 2 ) {
-        return array( 'products' => array(), 'categories' => array(), 'brands' => array() );
+        return array( 'products' => array(), 'categories' => array(), 'brands' => array(), 'vendors' => array() );
     }
 
     global $wpdb;
-    $result = array( 'products' => array(), 'categories' => array(), 'brands' => array() );
+    $result = array( 'products' => array(), 'categories' => array(), 'brands' => array(), 'vendors' => array() );
     $like   = '%' . $wpdb->esc_like( $q ) . '%';
 
     /* ── 1. KATEGORİLER ── */
@@ -1063,24 +1071,27 @@ function pz_ai_search_execute( $q ) {
         break;
     }
 
-    /* ── 3. BAŞLIK araması ── */
+    /* ── 3. BAŞLIK araması (fiyatı 0 olan ürünler hariç) ── */
     $title_ids = $wpdb->get_col( $wpdb->prepare(
-        "SELECT ID FROM {$wpdb->posts}
-         WHERE post_type = 'product' AND post_status = 'publish' AND post_title LIKE %s
-         ORDER BY CASE WHEN post_title LIKE %s THEN 0 ELSE 1 END, ID DESC
+        "SELECT p.ID FROM {$wpdb->posts} p
+         INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = '_price'
+         WHERE p.post_type = 'product' AND p.post_status = 'publish' AND p.post_title LIKE %s
+           AND CAST(pm.meta_value AS DECIMAL(10,2)) > 0
+         ORDER BY CASE WHEN p.post_title LIKE %s THEN 0 ELSE 1 END, p.ID DESC
          LIMIT 6",
         $like, $wpdb->esc_like( $q ) . '%'
     ) );
 
-    /* ── 4a. SKU araması — basit ürünler ── */
+    /* ── 4a. SKU araması — basit ürünler (tam eşleşme önce) ── */
     $sku_simple = $wpdb->get_col( $wpdb->prepare(
         "SELECT DISTINCT p.ID
          FROM {$wpdb->posts} p
          INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
          WHERE p.post_type = 'product' AND p.post_status = 'publish'
            AND pm.meta_key = '_sku' AND pm.meta_value != '' AND pm.meta_value LIKE %s
+         ORDER BY CASE WHEN pm.meta_value = %s THEN 0 ELSE 1 END, p.ID DESC
          LIMIT 6",
-        $like
+        $like, $q
     ) );
 
     /* ── 4b. SKU araması — varyasyonlar (ana ürün ID'si döner) ── */
@@ -1128,6 +1139,8 @@ function pz_ai_search_execute( $q ) {
     foreach ( $all_ids as $pid ) {
         $product = wc_get_product( $pid );
         if ( ! $product || $product->get_status() !== 'publish' ) continue;
+        // Fiyatı 0 veya girilmemiş ürünleri arama sonuçlarında gösterme
+        if ( (float) $product->get_price() <= 0 ) continue;
         $img = get_the_post_thumbnail_url( $pid, 'woocommerce_thumbnail' ) ?: wc_placeholder_img_src();
         $result['products'][] = array(
             'title' => $product->get_name(),
@@ -1136,6 +1149,81 @@ function pz_ai_search_execute( $q ) {
             'price' => wp_strip_all_tags( $product->get_price_html() ),
             'sku'   => $product->get_sku(),
         );
+    }
+
+    /* ── 6. MAĞAZA (satıcı) araması ── */
+    if ( class_exists( 'PZV_Vendor' ) && defined( 'PZV_ROLE' ) ) {
+        // pzv_store_name meta'sında ara
+        $vendor_rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT u.ID, um_name.meta_value AS store_name, um_slug.meta_value AS store_slug
+             FROM {$wpdb->users} u
+             INNER JOIN {$wpdb->usermeta} um_role ON um_role.user_id = u.ID
+                 AND um_role.meta_key = '{$wpdb->prefix}capabilities'
+                 AND um_role.meta_value LIKE %s
+             INNER JOIN {$wpdb->usermeta} um_name ON um_name.user_id = u.ID
+                 AND um_name.meta_key = 'pzv_store_name'
+                 AND um_name.meta_value LIKE %s
+             LEFT JOIN {$wpdb->usermeta} um_slug ON um_slug.user_id = u.ID
+                 AND um_slug.meta_key = 'pzv_store_slug'
+             LEFT JOIN {$wpdb->usermeta} um_status ON um_status.user_id = u.ID
+                 AND um_status.meta_key = 'pzv_status'
+             WHERE ( um_status.meta_value IS NULL OR um_status.meta_value != 'inactive' )
+             ORDER BY CASE WHEN um_name.meta_value = %s THEN 0 ELSE 1 END, u.ID DESC
+             LIMIT 4",
+            '%' . PZV_ROLE . '%',
+            $like,
+            $q
+        ) );
+
+        foreach ( (array) $vendor_rows as $row ) {
+            $vid        = (int) $row->ID;
+            $store_name = $row->store_name;
+            $store_slug = $row->store_slug ?: sanitize_title( get_userdata( $vid )->user_login );
+            $store_url  = home_url( '/magaza/' . $store_slug . '/' );
+            $logo_id    = (int) get_user_meta( $vid, 'pzv_logo', true );
+            $logo_url   = $logo_id ? wp_get_attachment_image_url( $logo_id, 'thumbnail' ) : '';
+            $city       = get_user_meta( $vid, 'pzv_city', true );
+            $prod_count = PZV_Vendor::product_count( $vid, 'publish' );
+
+            $result['vendors'][] = array(
+                'name'      => $store_name,
+                'url'       => $store_url,
+                'logo'      => $logo_url,
+                'city'      => $city,
+                'products'  => (int) $prod_count,
+            );
+        }
+
+        // display_name ile de ara (mağaza adı girilmemişse)
+        if ( empty( $result['vendors'] ) ) {
+            $fallback_users = get_users( array(
+                'role'       => PZV_ROLE,
+                'search'     => '*' . $q . '*',
+                'search_columns' => array( 'display_name', 'user_login' ),
+                'number'     => 4,
+                'meta_query' => array(
+                    'relation' => 'OR',
+                    array( 'key' => 'pzv_status', 'compare' => 'NOT EXISTS' ),
+                    array( 'key' => 'pzv_status', 'value' => 'inactive', 'compare' => '!=' ),
+                ),
+            ) );
+            foreach ( $fallback_users as $fu ) {
+                $store_name = get_user_meta( $fu->ID, 'pzv_store_name', true ) ?: $fu->display_name;
+                $store_slug = get_user_meta( $fu->ID, 'pzv_store_slug', true ) ?: sanitize_title( $fu->user_login );
+                $store_url  = home_url( '/magaza/' . $store_slug . '/' );
+                $logo_id    = (int) get_user_meta( $fu->ID, 'pzv_logo', true );
+                $logo_url   = $logo_id ? wp_get_attachment_image_url( $logo_id, 'thumbnail' ) : '';
+                $city       = get_user_meta( $fu->ID, 'pzv_city', true );
+                $prod_count = PZV_Vendor::product_count( $fu->ID, 'publish' );
+                $result['vendors'][] = array(
+                    'name'     => $store_name,
+                    'url'      => $store_url,
+                    'logo'     => $logo_url,
+                    'city'     => $city,
+                    'products' => (int) $prod_count,
+                );
+            }
+        }
     }
 
     return $result;
@@ -1165,3 +1253,366 @@ function pz_ai_search_handler() {
 }
 add_action( 'wp_ajax_pz_ai_search',        'pz_ai_search_handler' );
 add_action( 'wp_ajax_nopriv_pz_ai_search', 'pz_ai_search_handler' );
+
+
+/* ══════════════════════════════════════════════════════════════
+   ON-PAGE SEO — Yoast title / metadesc / OG şablonları
+   v9.9.145
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. ÜRÜN sayfası title şablonu ──────────────────────────── */
+add_filter( 'wpseo_title', function ( $title ) {
+    if ( ! is_singular( 'product' ) ) return $title;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return $title;
+
+    $name     = $product->get_name();
+    $site     = get_bloginfo( 'name' );
+
+    // Marka varsa başa ekle: "Marka · Ürün Adı | Site"
+    $brand_terms = wp_get_post_terms( $post->ID, 'product_brand' );
+    if ( ! empty( $brand_terms ) && ! is_wp_error( $brand_terms ) ) {
+        return esc_html( $brand_terms[0]->name ) . ' ' . esc_html( $name ) . ' | ' . esc_html( $site );
+    }
+    return esc_html( $name ) . ' Satın Al | ' . esc_html( $site );
+}, 20 );
+
+/* ── 2. ÜRÜN sayfası metadesc şablonu ───────────────────────── */
+add_filter( 'wpseo_metadesc', function ( $desc ) {
+    if ( ! is_singular( 'product' ) ) return $desc;
+    // Yoast'ta elle girilmişse dokunma
+    global $post;
+    $custom = get_post_meta( $post->ID, '_yoast_wpseo_metadesc', true );
+    if ( $custom ) return $desc;
+
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return $desc;
+
+    $name   = $product->get_name();
+    $price  = wc_price( $product->get_price() );
+    $site   = get_bloginfo( 'name' );
+    $stock  = $product->is_in_stock() ? 'Stokta mevcut.' : 'Stok durumunu kontrol edin.';
+
+    // Kısa açıklama varsa kullan, yoksa otomatik şablon
+    $short = wp_strip_all_tags( $product->get_short_description() );
+    if ( $short ) {
+        $base = mb_substr( $short, 0, 120 );
+    } else {
+        $cats = wc_get_product_terms( $post->ID, 'product_cat', array( 'fields' => 'names' ) );
+        $cat  = ! empty( $cats ) ? $cats[0] : '';
+        $base = $cat
+            ? esc_html( $name ) . ' ' . esc_html( $cat ) . ' kategorisinde'
+            : esc_html( $name );
+    }
+    // Fiyat + stok + site adı
+    $generated = $base . ' – ' . wp_strip_all_tags( $price ) . '. ' . $stock . ' ' . esc_html( $site ) . "'te en iyi fiyatla sipariş verin.";
+    return mb_substr( $generated, 0, 155 );
+}, 20 );
+
+/* ── 3. KATEGORİ sayfası title şablonu ──────────────────────── */
+add_filter( 'wpseo_title', function ( $title ) {
+    if ( ! is_product_category() ) return $title;
+    $term = get_queried_object();
+    if ( ! $term ) return $title;
+    $site = get_bloginfo( 'name' );
+    // Alt kategori mi üst kategori mi?
+    $parent_part = '';
+    if ( $term->parent ) {
+        $parent = get_term( $term->parent, 'product_cat' );
+        if ( $parent && ! is_wp_error( $parent ) ) {
+            $parent_part = ' ' . esc_html( $parent->name ) . ' ›';
+        }
+    }
+    return esc_html( $term->name ) . $parent_part . ' Ürünleri | ' . esc_html( $site );
+}, 20 );
+
+/* ── 4. KATEGORİ sayfası metadesc şablonu ───────────────────── */
+add_filter( 'wpseo_metadesc', function ( $desc ) {
+    if ( ! is_product_category() ) return $desc;
+    $term = get_queried_object();
+    if ( ! $term ) return $desc;
+    // Elle girilmişse dokunma
+    $custom = get_term_meta( $term->term_id, '_yoast_wpseo_metadesc', true );
+    if ( $custom ) return $desc;
+    $site  = get_bloginfo( 'name' );
+    $count = $term->count;
+    $base  = $term->description
+        ? mb_substr( wp_strip_all_tags( $term->description ), 0, 110 )
+        : esc_html( $term->name ) . ' kategorisindeki tüm ürünleri keşfedin';
+    return $base . '. ' . esc_html( $site ) . "'te " . (int) $count . " ürün sizi bekliyor. Hızlı kargo, güvenli ödeme.";
+}, 20 );
+
+/* ── 5. ÜRÜN Open Graph görseli — öne çıkan görseli zorla ───── */
+add_filter( 'wpseo_opengraph_image', function ( $img ) {
+    if ( ! is_singular( 'product' ) ) return $img;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return $img;
+    $img_id = $product->get_image_id();
+    if ( ! $img_id ) return $img;
+    $url = wp_get_attachment_image_url( $img_id, 'large' );
+    return $url ?: $img;
+}, 20 );
+
+/* ── 6. Twitter Card görseli ─────────────────────────────────── */
+add_filter( 'wpseo_twitter_image', function ( $img ) {
+    if ( ! is_singular( 'product' ) ) return $img;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return $img;
+    $img_id = $product->get_image_id();
+    if ( ! $img_id ) return $img;
+    $url = wp_get_attachment_image_url( $img_id, 'large' );
+    return $url ?: $img;
+}, 20 );
+
+/* ── 7. OG: site_name, price, availability ───────────────────── */
+add_action( 'wpseo_add_opengraph_additional_images', function ( $ogimage ) {
+    // Galeri görsellerini OG'ye ekle (ilk 3)
+    if ( ! is_singular( 'product' ) ) return;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return;
+    $gallery = array_slice( $product->get_gallery_image_ids(), 0, 3 );
+    foreach ( $gallery as $gid ) {
+        $url = wp_get_attachment_image_url( $gid, 'large' );
+        if ( $url ) $ogimage->add_image_by_url( $url );
+    }
+} );
+
+add_action( 'wp_head', function () {
+    if ( ! is_singular( 'product' ) ) return;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return;
+    $price    = $product->get_price();
+    $currency = get_woocommerce_currency();
+    $avail    = $product->is_in_stock() ? 'instock' : 'oos';
+    // Facebook/Instagram ürün meta etiketleri
+    echo '<meta property="product:price:amount" content="' . esc_attr( $price ) . '">' . "\n";
+    echo '<meta property="product:price:currency" content="' . esc_attr( $currency ) . '">' . "\n";
+    echo '<meta property="product:availability" content="' . esc_attr( $avail ) . '">' . "\n";
+    if ( $product->get_sku() ) {
+        echo '<meta property="product:retailer_item_id" content="' . esc_attr( $product->get_sku() ) . '">' . "\n";
+    }
+    // Marka
+    $brand_terms = wp_get_post_terms( $post->ID, 'product_brand' );
+    if ( ! empty( $brand_terms ) && ! is_wp_error( $brand_terms ) ) {
+        echo '<meta property="product:brand" content="' . esc_attr( $brand_terms[0]->name ) . '">' . "\n";
+    }
+}, 10 );
+
+/* ── 8. Canonical: sayfalama — ?paged=2 vb. tekil sayfaya yönlendirilmesin */
+add_filter( 'wpseo_canonical', function ( $canonical ) {
+    // Ürün sayfasında ?tab= veya ?ppage= parametreleri canonical'ı bozmasın
+    if ( is_singular( 'product' ) ) {
+        global $post;
+        return get_permalink( $post->ID );
+    }
+    // Kategori sayfalarında ?min_price= vb. parametreleri canonical'dan temizle
+    if ( is_product_category() || is_shop() || is_tax( 'product_brand' ) ) {
+        $term = get_queried_object();
+        if ( $term && isset( $term->term_id ) ) {
+            $link = get_term_link( $term );
+            return is_wp_error( $link ) ? $canonical : $link;
+        }
+        if ( is_shop() ) {
+            return wc_get_page_permalink( 'shop' );
+        }
+    }
+    return $canonical;
+}, 25 );
+
+/* ── 9. Sayfalama canonical: ?paged=N düzgün rel="next/prev" ── */
+add_action( 'wp_head', function () {
+    if ( ! ( is_product_category() || is_shop() || is_tax( 'product_brand' ) ) ) return;
+    global $wp_query;
+    $paged = max( 1, (int) get_query_var( 'paged' ) );
+    $max   = (int) $wp_query->max_num_pages;
+    $term  = get_queried_object();
+    $base  = ( $term && isset( $term->term_id ) && ! is_wp_error( get_term_link( $term ) ) )
+        ? get_term_link( $term )
+        : wc_get_page_permalink( 'shop' );
+    if ( $paged > 1 ) {
+        echo '<link rel="prev" href="' . esc_url( $paged === 2 ? $base : trailingslashit( $base ) . 'page/' . ( $paged - 1 ) . '/' ) . '">' . "\n";
+    }
+    if ( $paged < $max ) {
+        echo '<link rel="next" href="' . esc_url( trailingslashit( $base ) . 'page/' . ( $paged + 1 ) . '/' ) . '">' . "\n";
+    }
+}, 5 );
+
+/* ── 10. Ürün slug otomatik temizleme ────────────────────────── */
+// Yeni ürün kaydedilirken slug'u SEO dostu yap:
+// Türkçe karakterleri ASCII'ye çevir, gereksiz kelimeleri kaldır
+add_filter( 'wp_unique_post_slug', function ( $slug, $post_id, $post_status, $post_type ) {
+    if ( $post_type !== 'product' ) return $slug;
+    // Gereksiz TR stop words slug'dan kaldır
+    $stop = array( '-ve-', '-ile-', '-bir-', '-bu-', '-da-', '-de-', '-den-', '-dan-', '-icin-', '-için-', '-mi-', '-mu-', '-mü-' );
+    $clean = str_replace( $stop, '-', $slug );
+    $clean = preg_replace( '/-{2,}/', '-', $clean );
+    return trim( $clean, '-' );
+}, 10, 4 );
+
+/* ── 11. noindex: stoksuz + taslak ürünler ───────────────────── */
+add_filter( 'wpseo_robots', function ( $robots ) {
+    if ( ! is_singular( 'product' ) ) return $robots;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return $robots;
+    // Stokta yok + yayında olan ürünleri noindex yapma — Google zaten düşürür
+    // Sadece taslak/pending olanları noindex yap (önlem olarak)
+    if ( in_array( $product->get_status(), array( 'draft', 'pending', 'private' ), true ) ) {
+        return 'noindex,nofollow';
+    }
+    return $robots;
+}, 10 );
+
+/* ── 12. WooCommerce: ürün arşiv sayfası <title> tag ────────── */
+add_filter( 'woocommerce_page_title', function ( $title ) {
+    if ( is_shop() ) {
+        return get_bloginfo( 'name' ) . ' — Tüm Ürünler';
+    }
+    return $title;
+} );
+
+
+/* ══════════════════════════════════════════════════════════════
+   ÜRÜN SAYFASI — Schema.org JSON-LD (functions.php'ye taşındı)
+   ══════════════════════════════════════════════════════════════ */
+add_action( 'wp_head', function () {
+    if ( ! is_singular( 'product' ) ) return;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return;
+
+    $author_id   = (int) $post->post_author;
+    $vendor      = class_exists( 'PZV_Vendor' ) ? PZV_Vendor::get( $author_id ) : null;
+    $seller_name = $vendor ? $vendor['store_name'] : get_bloginfo( 'name' );
+    $seller_url  = $vendor ? PZV_Vendor::store_url( $author_id ) : home_url( '/' );
+    $price       = $product->get_price();
+    $img_id      = $product->get_image_id();
+    $img_url     = $img_id ? wp_get_attachment_image_url( $img_id, 'large' ) : wc_placeholder_img_src();
+    $img_list    = array( $img_url );
+    foreach ( $product->get_gallery_image_ids() as $gid ) {
+        $gu = wp_get_attachment_image_url( $gid, 'large' );
+        if ( $gu ) $img_list[] = $gu;
+    }
+    $in_stock  = $product->is_in_stock();
+    $sku       = $product->get_sku();
+    $permalink = get_permalink( $post->ID );
+
+    $schema = array(
+        '@context'    => 'https://schema.org/',
+        '@type'       => 'Product',
+        'name'        => $product->get_name(),
+        'image'       => $img_list,
+        'description' => wp_strip_all_tags( $product->get_short_description() ?: $product->get_description() ),
+        'url'         => $permalink,
+        'offers'      => array(
+            '@type'         => 'Offer',
+            'url'           => $permalink,
+            'priceCurrency' => get_woocommerce_currency(),
+            'price'         => $price,
+            'availability'  => $in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            'seller'        => array( '@type' => 'Organization', 'name' => $seller_name, 'url' => $seller_url ),
+        ),
+    );
+    if ( $sku ) $schema['sku'] = $sku;
+    if ( $product->get_weight() ) $schema['weight'] = $product->get_weight() . ' ' . get_option( 'woocommerce_weight_unit' );
+    $brand_terms = wp_get_post_terms( $post->ID, 'product_brand' );
+    if ( ! empty( $brand_terms ) && ! is_wp_error( $brand_terms ) ) {
+        $schema['brand'] = array( '@type' => 'Brand', 'name' => $brand_terms[0]->name );
+    }
+    $avg = $product->get_average_rating();
+    $cnt = $product->get_review_count();
+    if ( $avg > 0 && $cnt > 0 ) {
+        $schema['aggregateRating'] = array(
+            '@type' => 'AggregateRating', 'ratingValue' => round( (float) $avg, 1 ),
+            'reviewCount' => (int) $cnt, 'bestRating' => 5, 'worstRating' => 1,
+        );
+    }
+    $original_id = (int) get_post_meta( $post->ID, '_pzv_cloned_from', true );
+    if ( $original_id && get_post_status( $original_id ) === 'publish' ) {
+        $schema['isVariantOf'] = array( '@type' => 'Product', 'url' => get_permalink( $original_id ) );
+    }
+    echo '<script type="application/ld+json">' . "\n" . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . "\n</script>\n";
+}, 5 );
+
+// Ürün breadcrumb schema
+add_action( 'wp_head', function () {
+    if ( ! is_singular( 'product' ) ) return;
+    global $post;
+    $product = wc_get_product( $post->ID );
+    if ( ! $product ) return;
+    $items = array();
+    $pos   = 1;
+    $items[] = array( '@type' => 'ListItem', 'position' => $pos++, 'name' => 'Ana Sayfa', 'item' => home_url( '/' ) );
+    $terms = wc_get_product_terms( $product->get_id(), 'product_cat', array( 'orderby' => 'parent', 'order' => 'ASC' ) );
+    if ( ! empty( $terms ) ) {
+        $main_term = end( $terms );
+        foreach ( array_reverse( get_ancestors( $main_term->term_id, 'product_cat' ) ) as $anc_id ) {
+            $anc = get_term( $anc_id, 'product_cat' );
+            if ( $anc && ! is_wp_error( $anc ) ) {
+                $items[] = array( '@type' => 'ListItem', 'position' => $pos++, 'name' => $anc->name, 'item' => get_term_link( $anc ) );
+            }
+        }
+        $items[] = array( '@type' => 'ListItem', 'position' => $pos++, 'name' => $main_term->name, 'item' => get_term_link( $main_term ) );
+    }
+    $items[] = array( '@type' => 'ListItem', 'position' => $pos, 'name' => $product->get_name(), 'item' => get_permalink( $post->ID ) );
+    $schema  = array( '@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $items );
+    echo '<script type="application/ld+json">' . "\n" . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . "\n</script>\n";
+}, 6 );
+
+// Yoast odak anahtar kelimesi otomasyonu
+add_action( 'save_post_product', function ( $post_id ) {
+    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+    if ( wp_is_post_revision( $post_id ) ) return;
+    if ( get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) ) return;
+    $product = wc_get_product( $post_id );
+    if ( ! $product ) return;
+    $cats     = wc_get_product_terms( $post_id, 'product_cat', array( 'fields' => 'names', 'number' => 1 ) );
+    $focus_kw = $product->get_name() . ( ! empty( $cats ) ? ' ' . $cats[0] : '' );
+    update_post_meta( $post_id, '_yoast_wpseo_focuskw', sanitize_text_field( mb_substr( $focus_kw, 0, 60 ) ) );
+}, 20 );
+
+/* ══════════════════════════════════════════════════════════════
+   KATEGORİ SAYFASI — Schema.org (functions.php'ye taşındı)
+   ══════════════════════════════════════════════════════════════ */
+add_action( 'wp_head', function () {
+    if ( ! ( is_shop() || is_product_category() || is_product_tag() || is_tax( 'product_brand' ) ) ) return;
+    $term  = get_queried_object();
+    $items = array();
+    $pos   = 1;
+    $items[] = array( '@type' => 'ListItem', 'position' => $pos++, 'name' => 'Ana Sayfa', 'item' => home_url( '/' ) );
+    if ( $term && isset( $term->term_id ) ) {
+        foreach ( array_reverse( get_ancestors( $term->term_id, $term->taxonomy ) ) as $anc_id ) {
+            $anc      = get_term( $anc_id, $term->taxonomy );
+            $anc_link = $anc && ! is_wp_error( $anc ) ? get_term_link( $anc ) : false;
+            if ( $anc_link && ! is_wp_error( $anc_link ) ) {
+                $items[] = array( '@type' => 'ListItem', 'position' => $pos++, 'name' => $anc->name, 'item' => $anc_link );
+            }
+        }
+        $term_link = get_term_link( $term );
+        if ( ! is_wp_error( $term_link ) ) {
+            $items[] = array( '@type' => 'ListItem', 'position' => $pos, 'name' => $term->name, 'item' => $term_link );
+        }
+    } else {
+        $items[] = array( '@type' => 'ListItem', 'position' => $pos, 'name' => 'Tüm Ürünler', 'item' => wc_get_page_permalink( 'shop' ) );
+    }
+    $schema = array( '@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $items );
+    echo '<script type="application/ld+json">' . "\n" . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . "\n</script>\n";
+    if ( $term && isset( $term->term_id ) ) {
+        $term_link = get_term_link( $term );
+        if ( ! is_wp_error( $term_link ) ) {
+            $col = array(
+                '@context'    => 'https://schema.org',
+                '@type'       => 'CollectionPage',
+                'name'        => $term->name,
+                'description' => $term->description ?: ( $term->name . ' kategorisindeki ürünler' ),
+                'url'         => $term_link,
+            );
+            echo '<script type="application/ld+json">' . "\n" . wp_json_encode( $col, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . "\n</script>\n";
+        }
+    }
+}, 5 );

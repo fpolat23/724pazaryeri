@@ -1403,17 +1403,7 @@ while ( have_posts() ) : the_post();
       </div>
     </div>
     <div class="alt-products-row" id="altProductsRow">
-      <?php
-        $pz_alt_seen = array();
-        while ( $alt_q->have_posts() ) : $alt_q->the_post();
-          global $product;
-          $pz_alt_pid = get_the_ID();
-          if ( in_array( $pz_alt_pid, $pz_alt_seen, true ) ) continue;
-          $pz_alt_seen[] = $pz_alt_pid;
-          echo bazario_product_card( $product );
-        endwhile;
-        wp_reset_postdata();
-      ?>
+      <?php while ( $alt_q->have_posts() ) : $alt_q->the_post(); global $product; echo bazario_product_card( $product ); endwhile; wp_reset_postdata(); ?>
     </div>
   </div>
   <?php

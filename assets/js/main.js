@@ -1913,6 +1913,28 @@ window.addEventListener('popstate', function(){
 
   function renderResults(dd, data, q){
     var homeUrl = getHomeUrl(); var html = ''; var hasResult = false;
+    // Mağazalar — kategorilerden önce göster (doğrudan yönlendirme için)
+    if (data.vendors && data.vendors.length) {
+      hasResult = true;
+      html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">🏪 Mağazalar</div>';
+      data.vendors.forEach(function(v){
+        var logoHtml = v.logo
+          ? '<img class="pz-ai-vendor-logo" src="'+escapeHTML(v.logo)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+          : '<div class="pz-ai-vendor-fb">'+escapeHTML((v.name||'?').substring(0,2).toUpperCase())+'</div>';
+        var meta = [];
+        if (v.city) meta.push('📍 '+escapeHTML(v.city));
+        if (v.products) meta.push(v.products+' ürün');
+        html += '<a class="pz-ai-item pz-ai-vendor" href="'+escapeHTML(v.url)+'">'+
+          '<div class="pz-ai-vendor-av">'+logoHtml+'</div>'+
+          '<div class="pz-ai-prod-info">'+
+            '<div class="pz-ai-prod-title">'+highlight(v.name,q)+'</div>'+
+            (meta.length ? '<div class="pz-ai-vendor-meta">'+meta.join(' &nbsp;·&nbsp; ')+'</div>' : '')+
+          '</div>'+
+          '<span class="pz-ai-vendor-arr">›</span>'+
+          '</a>';
+      });
+      html += '</div>';
+    }
     if (data.categories && data.categories.length) {
       hasResult = true;
       html += '<div class="pz-ai-section"><div class="pz-ai-sect-title">📂 Kategoriler</div>';
@@ -1944,7 +1966,7 @@ window.addEventListener('popstate', function(){
       html += '</div>';
     }
     if (!hasResult) {
-      html += '<div class="pz-ai-empty">😔 "<b>'+escapeHTML(q)+'</b>" için sonuç bulunamadı.<br><small>Farklı bir kelime veya SKU deneyin.</small></div>';
+      html += '<div class="pz-ai-empty">😔 "<b>'+escapeHTML(q)+'</b>" için sonuç bulunamadı.<br><small>Farklı bir kelime, SKU veya mağaza adı deneyin.</small></div>';
     } else {
       html += '<a class="pz-ai-all" href="'+homeUrl+'?s='+encodeURIComponent(q)+'&post_type=product">🔎 "<b>'+escapeHTML(q)+'</b>" için tüm sonuçları gör →</a>';
     }
