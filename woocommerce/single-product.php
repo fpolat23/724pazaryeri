@@ -710,7 +710,7 @@ while ( have_posts() ) : the_post();
       <?php
         $pz_free_ship  = ( $price >= 1500 );
         $pz_std_fee    = 150;
-        $pz_expr_fee   = 199;
+        $pz_expr_fee   = 150;
         $pz_cargo_badge = function( $is_free, $fee_tl, $extra_class = '' ) {
           if ( $is_free ) {
             return '<span class="hb-cargo-badge hb-cargo-free">ÜCRETSİZ</span>';
@@ -728,11 +728,43 @@ while ( have_posts() ) : the_post();
           <?php endif; ?>
         </div>
         <div class="hb-cargo-list">
+          <!-- Sürat Kargo -->
           <div class="hb-cargo-row">
             <div class="hb-cargo-logo">
-              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
-                <rect width="80" height="28" rx="4" fill="#E8001C"/>
-                <text x="40" y="19" font-family="Arial,sans-serif" font-size="9.5" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="0.3">YURTİÇİ KARGO</text>
+              <svg viewBox="0 0 88 30" width="72" height="24" xmlns="http://www.w3.org/2000/svg">
+                <rect width="88" height="30" rx="5" fill="#F47920"/>
+                <polygon points="8,22 16,8 20,8 12,22" fill="#fff" opacity="0.9"/>
+                <text x="52" y="20" font-family="Arial,sans-serif" font-size="10" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="0.5">SÜRAT KARGO</text>
+              </svg>
+            </div>
+            <div class="hb-cargo-info">
+              <span class="hb-cargo-name">Sürat Kargo</span>
+              <span class="hb-cargo-days">1 – 3 İş Günü</span>
+            </div>
+            <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
+          </div>
+          <!-- HepsiJET -->
+          <div class="hb-cargo-row">
+            <div class="hb-cargo-logo">
+              <svg viewBox="0 0 88 30" width="72" height="24" xmlns="http://www.w3.org/2000/svg">
+                <rect width="88" height="30" rx="5" fill="#FF6000"/>
+                <text x="44" y="13" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="0.2">hepsi</text>
+                <text x="44" y="24" font-family="Arial,sans-serif" font-size="11" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1">JET</text>
+              </svg>
+            </div>
+            <div class="hb-cargo-info">
+              <span class="hb-cargo-name">HepsiJET</span>
+              <span class="hb-cargo-days">1 – 2 İş Günü</span>
+            </div>
+            <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
+          </div>
+          <!-- Yurtiçi Kargo -->
+          <div class="hb-cargo-row">
+            <div class="hb-cargo-logo">
+              <svg viewBox="0 0 88 30" width="72" height="24" xmlns="http://www.w3.org/2000/svg">
+                <rect width="88" height="30" rx="5" fill="#E8001C"/>
+                <text x="44" y="13.5" font-family="Arial,sans-serif" font-size="8.5" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="0.3">YURTİÇİ</text>
+                <text x="44" y="24" font-family="Arial,sans-serif" font-size="8.5" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="0.3">KARGO</text>
               </svg>
             </div>
             <div class="hb-cargo-info">
@@ -741,42 +773,18 @@ while ( have_posts() ) : the_post();
             </div>
             <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
           </div>
+          <!-- DHL Kargo -->
           <div class="hb-cargo-row">
             <div class="hb-cargo-logo">
-              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
-                <rect width="80" height="28" rx="4" fill="#FFCC00"/>
-                <text x="40" y="19.5" font-family="Arial,sans-serif" font-size="13" font-weight="900" fill="#D40511" text-anchor="middle" letter-spacing="1">DHL</text>
+              <svg viewBox="0 0 88 30" width="72" height="24" xmlns="http://www.w3.org/2000/svg">
+                <rect width="88" height="30" rx="5" fill="#FFCC00"/>
+                <text x="30" y="21" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="#D40511" text-anchor="middle" letter-spacing="1.5">DHL</text>
+                <text x="68" y="21" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#D40511" text-anchor="middle" letter-spacing="0.3">KARGO</text>
               </svg>
             </div>
             <div class="hb-cargo-info">
-              <span class="hb-cargo-name">DHL Express</span>
+              <span class="hb-cargo-name">DHL Kargo</span>
               <span class="hb-cargo-days">1 – 2 İş Günü</span>
-            </div>
-            <?php echo $pz_cargo_badge( $pz_free_ship, $pz_expr_fee, 'hb-cargo-price-expr' ); ?>
-          </div>
-          <div class="hb-cargo-row">
-            <div class="hb-cargo-logo">
-              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
-                <rect width="80" height="28" rx="4" fill="#003087"/>
-                <text x="40" y="19" font-family="Arial,sans-serif" font-size="9.5" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="0.5">ARAS KARGO</text>
-              </svg>
-            </div>
-            <div class="hb-cargo-info">
-              <span class="hb-cargo-name">Aras Kargo</span>
-              <span class="hb-cargo-days">1 – 3 İş Günü</span>
-            </div>
-            <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
-          </div>
-          <div class="hb-cargo-row">
-            <div class="hb-cargo-logo">
-              <svg viewBox="0 0 80 28" width="64" height="22" xmlns="http://www.w3.org/2000/svg">
-                <rect width="80" height="28" rx="4" fill="#FFD100"/>
-                <text x="40" y="19" font-family="Arial,sans-serif" font-size="10.5" font-weight="800" fill="#00539B" text-anchor="middle" letter-spacing="0.8">PTT KARGO</text>
-              </svg>
-            </div>
-            <div class="hb-cargo-info">
-              <span class="hb-cargo-name">PTT Kargo</span>
-              <span class="hb-cargo-days">2 – 4 İş Günü</span>
             </div>
             <?php echo $pz_cargo_badge( $pz_free_ship, $pz_std_fee ); ?>
           </div>
