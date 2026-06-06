@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.158' );
+define( 'PAZARYERI_VERSION', '9.9.170' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -287,6 +287,17 @@ add_action( 'after_switch_theme', function () {
             'post_type'    => 'page',
         ) );
     }
+    // Flash Satış sayfası
+    if ( ! get_page_by_path( 'flash-sale' ) ) {
+        wp_insert_post( array(
+            'post_title'     => '⚡ Flash Satış',
+            'post_name'      => 'flash-sale',
+            'post_content'   => '',
+            'post_status'    => 'publish',
+            'post_type'      => 'page',
+            'page_template'  => 'page-flash-sale.php',
+        ) );
+    }
     // WooCommerce sayfalarını ve endpoint'lerini garanti et
     if ( class_exists( 'WooCommerce' ) ) {
         WC_Install::create_pages();
@@ -308,6 +319,17 @@ add_action( 'after_switch_theme', function () {
 add_action( 'init', function () {
     if ( class_exists( 'WooCommerce' ) && function_exists( 'WC' ) && isset( WC()->query ) ) {
         WC()->query->add_endpoints();
+    }
+    // Flash Satış sayfası yoksa oluştur
+    if ( ! get_page_by_path( 'flash-sale' ) ) {
+        wp_insert_post( array(
+            'post_title'    => '⚡ Flash Satış',
+            'post_name'     => 'flash-sale',
+            'post_content'  => '',
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'page_template' => 'page-flash-sale.php',
+        ) );
     }
 }, 5 );
 
@@ -1623,12 +1645,29 @@ add_action( 'wp_head', function () {
    • Ödeme sayfası: nakit seçilince fee olarak otomatik düşüm
 ═══════════════════════════════════════════════════════════ */
 
-if ( ! defined( 'PZ_NAKIT_RATE' ) ) define( 'PZ_NAKIT_RATE', 0.05 );
+if ( ! defined( 'PZ_NAKIT_RATE' ) ) define( 'PZ_NAKIT_RATE', 0.05 ); // Varsayılan %5
+
+/** Bir ürünün vendor'unun nakit iskonto oranını döndürür (0–1 arası) */
+function pz_get_vendor_nakit_rate( $product_id = 0 ) {
+    $vendor_id = 0;
+    if ( $product_id ) {
+        $vendor_id = (int) get_post_meta( $product_id, '_pzv_vendor_id', true );
+        if ( ! $vendor_id ) {
+            $vendor_id = (int) get_post_field( 'post_author', $product_id );
+        }
+    }
+    if ( $vendor_id ) {
+        $rate_meta = get_user_meta( $vendor_id, 'pzv_nakit_rate', true );
+        if ( $rate_meta !== '' && $rate_meta !== false ) {
+            return max( 0, min( 50, (float) $rate_meta ) ) / 100;
+        }
+    }
+    return PZ_NAKIT_RATE; // Varsayılan %5
+}
 
 function pz_nakit_payment_ids() {
     return apply_filters( 'pz_nakit_payment_ids', array(
-        'cod', 'bacs', 'nakit', 'nakit_odeme', 'nakit_payment', 'cash',
-        'kapida', 'kapida_odeme', 'havale', 'eft', 'banka_havalesi', 'wire',
+        'bacs', 'cod', 'nakit', 'nakit_odeme', 'nakit_payment', 'cash', 'kapida', 'kapida_odeme',
     ) );
 }
 
@@ -1650,7 +1689,11 @@ function pz_is_nakit_selected() {
 
 function pz_item_nakit_discount( $cart_item ) {
     if ( empty( $cart_item['data'] ) ) return 0;
-    return round( (float) $cart_item['data']->get_price() * (int) $cart_item['quantity'] * PZ_NAKIT_RATE, 2 );
+    $product_id = $cart_item['data']->get_id();
+    $rate       = pz_get_vendor_nakit_rate( $product_id );
+    if ( $rate <= 0 ) return 0;
+    // Müşterinin gerçekte ödeyeceği vergi dahil fiyat üzerinden hesapla
+    return (float) $cart_item['data']->get_price() * (int) $cart_item['quantity'] * $rate;
 }
 
 function pz_cart_total_nakit() {
@@ -1659,17 +1702,96 @@ function pz_cart_total_nakit() {
     foreach ( WC()->cart->get_cart() as $item ) {
         $total += pz_item_nakit_discount( $item );
     }
+    // Tek seferlik yuvarlama — her yerde aynı tutarı verir
     return round( $total, 2 );
 }
 
-add_action( 'woocommerce_cart_calculate_fees', function ( $cart ) {
-    if ( is_admin() && ! defined( 'DOING_AJAX' ) ) return;
-    if ( ! pz_is_nakit_selected() ) return;
+/* ── NAKİT İSKONTO — SANAL KUPON SİSTEMİ ─────────────────────────────
+   Fee sistemi WooCommerce bug nedeniyle negatif fee'lerde vergi hesaplıyor.
+   Coupon sistemi vergi hesabının tamamen dışında çalışır — vergi sorunu yok.
+   Sanal kupon: veritabanına kaydedilmez, sadece o oturum için geçerlidir.
+──────────────────────────────────────────────────────────────────── */
+define( 'PZ_NAKIT_COUPON_CODE', 'pz-nakit-iskonto-otomatik' );
+
+/* Sanal kupon verisini sağla — DB'ye kaydetmeden çalışır */
+add_filter( 'woocommerce_get_shop_coupon_data', function( $data, $code, $coupon ) {
+    if ( strtolower( $code ) !== PZ_NAKIT_COUPON_CODE ) return $data;
     $discount = pz_cart_total_nakit();
-    if ( $discount > 0 ) {
-        $cart->add_fee( 'Nakit Odeme Iskontosu (%5)', -$discount, false );
+    return array(
+        'id'                         => 0,
+        'code'                       => PZ_NAKIT_COUPON_CODE,
+        'amount'                     => pz_cart_total_nakit(), // vendor oranlarına göre hesaplanmış tutar
+        'discount_type'              => 'fixed_cart',
+        'individual_use'             => false,
+        'product_ids'                => array(),
+        'excluded_product_ids'       => array(),
+        'usage_limit'                => 0,
+        'usage_limit_per_user'       => 0,
+        'usage_count'                => 0,
+        'date_expires'               => null,
+        'free_shipping'              => false,
+        'product_categories'         => array(),
+        'excluded_product_categories'=> array(),
+        'exclude_sale_items'         => false,
+        'minimum_amount'             => '',
+        'maximum_amount'             => '',
+        'customer_email'             => array(),
+        'description'                => 'Nakit Odeme Iskontosu',
+    );
+}, 10, 3 );
+
+/* Kupon label'ını dinamik olarak göster */
+add_filter( 'woocommerce_cart_totals_coupon_label', function( $label, $coupon ) {
+    if ( $coupon->get_code() === PZ_NAKIT_COUPON_CODE ) {
+        $rates = array();
+        if ( WC()->cart ) {
+            foreach ( WC()->cart->get_cart() as $item ) {
+                if ( empty( $item['data'] ) ) continue;
+                $rate = pz_get_vendor_nakit_rate( $item['data']->get_id() );
+                $rates[ round( $rate * 100, 1 ) ] = true;
+            }
+        }
+        if ( count( $rates ) === 1 ) {
+            $pct = array_key_first( $rates );
+            return '💳 Nakit Ödeme İskontosu (%' . $pct . ')';
+        }
+        return '💳 Nakit Ödeme İskontosu';
+    }
+    return $label;
+}, 10, 2 );
+
+/* [Kaldır] linkini gizle — müşteri bu kuponu kaldıramamalı */
+add_filter( 'woocommerce_cart_totals_coupon_html', function( $coupon_html, $coupon, $discount_amount_html ) {
+    if ( $coupon->get_code() === PZ_NAKIT_COUPON_CODE ) {
+        return $discount_amount_html;
+    }
+    return $coupon_html;
+}, 10, 3 );
+
+/* Nakit seçilince kuponu ekle, seçilmeyince kaldır */
+add_action( 'woocommerce_before_calculate_totals', function( $cart ) {
+    if ( is_admin() && ! defined( 'DOING_AJAX' ) ) return;
+    $code       = PZ_NAKIT_COUPON_CODE;
+    $has_coupon = $cart->has_discount( $code );
+    $is_nakit   = pz_is_nakit_selected();
+
+    if ( $is_nakit && ! $has_coupon ) {
+        $cart->apply_coupon( $code );
+    } elseif ( ! $is_nakit && $has_coupon ) {
+        $cart->remove_coupon( $code );
     }
 } );
+
+/* Kuponun manuel eklenmesini/kaldırılmasını engelle */
+add_filter( 'woocommerce_coupon_is_valid', function( $valid, $coupon, $discount ) {
+    if ( $coupon->get_code() === PZ_NAKIT_COUPON_CODE ) {
+        return pz_is_nakit_selected();
+    }
+    return $valid;
+}, 10, 3 );
+
+/* Sipariş oluştuktan sonra kupon zaten siparişe yansımış olur — ekstra işlem yok */
+add_action( 'woocommerce_checkout_update_order_meta', function( $order_id ) {} );
 
 add_filter( 'woocommerce_cart_item_name', function ( $name, $cart_item, $cart_item_key ) {
     if ( is_admin() ) return $name;
@@ -1688,11 +1810,19 @@ function pz_render_nakit_total_row() {
     $discount = pz_cart_total_nakit();
     if ( $discount <= 0 ) return;
     if ( pz_is_nakit_selected() ) return;
+    // Oranı dinamik göster
+    $rates = array();
+    foreach ( WC()->cart->get_cart() as $item ) {
+        if ( empty( $item['data'] ) ) continue;
+        $rate = pz_get_vendor_nakit_rate( $item['data']->get_id() );
+        $rates[ round( $rate * 100, 1 ) ] = true;
+    }
+    $rate_label = count( $rates ) === 1 ? '%' . array_key_first( $rates ) : '';
     ?>
     <tr class="pz-nakit-total-row">
         <th>
             <svg class="pz-nakit-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            Nakit &Ouml;deme &dot; %5 &nbsp;<span class="pz-nakit-total-hint">Nakit se&ccedil;ilirse uygulan&iacute;r</span>
+            Nakit &Ouml;deme<?php echo $rate_label ? ' &dot; ' . esc_html( $rate_label ) : ''; ?> &nbsp;<span class="pz-nakit-total-hint">Nakit se&ccedil;ilirse uygulan&iacute;r</span>
         </th>
         <td><span class="pz-nakit-save pz-nakit-save-preview">-<?php echo wc_price( $discount ); ?></span></td>
     </tr>
@@ -1717,25 +1847,44 @@ add_filter( 'woocommerce_cart_totals_fee_html', function ( $fee_html, $fee ) {
     return $fee_html;
 }, 10, 2 );
 
-/* Ödeme sayfasında da fee label'i güzelleştir */
+/* Sipariş onay/teşekkür sayfasında fee label'i güzelleştir
+   NOT: woocommerce_get_order_item_totals label alanında HTML tag'leri
+   escape edilir; bu yüzden sadece düz metin + emoji kullanıyoruz. */
 add_filter( 'woocommerce_get_order_item_totals', function ( $totals, $order, $tax_display ) {
     foreach ( $totals as $key => $total ) {
         if ( isset( $total['label'] ) && strpos( $total['label'], 'Nakit' ) !== false ) {
-            $totals[ $key ]['label'] = '<span class="pz-nakit-fee-label">&#128179; ' . esc_html( $total['label'] ) . '</span>';
-            if ( isset( $totals[ $key ]['value'] ) ) {
-                $totals[ $key ]['value'] = '<span class="pz-nakit-save">' . $totals[ $key ]['value'] . '</span>';
-            }
+            $totals[ $key ]['label'] = '💳 ' . esc_html( strip_tags( $total['label'] ) );
         }
     }
     return $totals;
 }, 10, 3 );
 
+/* Ödeme sayfasında ödeme yöntemi değişince sepeti AJAX ile yenile
+   → woocommerce_cart_calculate_fees tetiklenir → nakit fee eklenir/kaldırılır */
+add_action( 'woocommerce_review_order_before_payment', function () {
+    if ( ! is_checkout() ) return;
+    ?>
+    <script>
+    (function($){
+        if ( typeof wc_checkout_params === 'undefined' ) return;
+        $( document.body ).on( 'change', 'input[name="payment_method"]', function(){
+            $( document.body ).trigger( 'update_checkout' );
+        });
+    })(jQuery);
+    </script>
+    <?php
+} );
+
 /* ── Sipariş oluşturulunca nakit iskontosu garantisi ──────────────────
    woocommerce_cart_calculate_fees bazı akışlarda siparişe yansımaz.
-   Bu hook sipariş nesnesi üzerinde ödeme yöntemini kesin okuyup
-   fee olarak doğrudan ekler; cart hook zaten eklediyse atlar.
+   woocommerce_checkout_update_order_meta daha erken ve güvenilir tetiklenir;
+   sipariş nesnesi üzerinde ödeme yöntemini kesin okuyup fee ekler.
+   Cart hook zaten çalıştıysa tekrar eklemez.
 ─────────────────────────────────────────────────────────────────── */
-add_action( 'woocommerce_checkout_order_created', function ( $order ) {
+add_action( 'woocommerce_checkout_update_order_meta', function ( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) return;
+
     $payment  = strtolower( (string) $order->get_payment_method() );
     $is_nakit = false;
     foreach ( pz_nakit_payment_ids() as $id ) {
@@ -1751,11 +1900,14 @@ add_action( 'woocommerce_checkout_order_created', function ( $order ) {
         if ( strpos( $fee->get_name(), 'Nakit' ) !== false ) return;
     }
 
-    // Sipariş kalemlerinden %5 iskonto hesapla
+    // Sipariş kalemlerinden vendor oranına göre iskonto hesapla
     $discount = 0;
     foreach ( $order->get_items() as $item ) {
-        $discount += round( (float) $item->get_subtotal() * PZ_NAKIT_RATE, 2 );
+        $product_id = $item->get_product_id();
+        $rate       = pz_get_vendor_nakit_rate( $product_id );
+        $discount  += (float) $item->get_subtotal() * $rate;
     }
+    $discount = round( $discount, 2 );
     if ( $discount <= 0 ) return;
 
     $fee_item = new WC_Order_Item_Fee();

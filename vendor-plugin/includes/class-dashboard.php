@@ -794,8 +794,28 @@ class PZV_Dashboard {
         $pending = PZV_Commission::vendor_pending( $user_id );
         $paid = PZV_Commission::vendor_paid( $user_id );
         $records = PZV_Commission::vendor_records( $user_id, 100 );
+
+        // 3 ay muafiyet durumu
+        $approved_at = get_user_meta( $user_id, 'pzv_approved_at', true );
+        if ( ! $approved_at ) {
+            $u = get_userdata( $user_id );
+            $approved_at = $u ? $u->user_registered : null;
+        }
         ?>
         <h3>💰 Kazançlarım</h3>
+        <?php if ( $approved_at ) :
+            $diff_days = ( time() - strtotime( $approved_at ) ) / DAY_IN_SECONDS;
+            $remaining = max( 0, 90 - (int) $diff_days );
+            if ( $remaining > 0 ) : ?>
+            <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#1e40af;">
+                🎁 <strong>Yeni satıcı teşviki:</strong> İlk 3 ay komisyon muafiyetiniz devam ediyor. <strong><?php echo $remaining; ?> gün</strong> daha %0 komisyon uygulanır.
+            </div>
+            <?php else : ?>
+            <div style="background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#6b7280;">
+                ℹ️ 3 aylık komisyon muafiyeti dolmuştur. Komisyon oranları kategorinize göre uygulanmaktadır.
+            </div>
+            <?php endif;
+        endif; ?>
         <div class="pzv-stats">
             <div class="pzv-stat pzv-stat-pending"><div class="pzv-stat-n"><?php echo wc_price( $pending ); ?></div><div class="pzv-stat-l">⏳ Bekleyen</div></div>
             <div class="pzv-stat pzv-stat-paid"><div class="pzv-stat-n"><?php echo wc_price( $paid ); ?></div><div class="pzv-stat-l">✓ Ödenmiş</div></div>
@@ -903,6 +923,11 @@ class PZV_Dashboard {
                     <div class="pzv-form-row">
                         <label>İade Politikası</label>
                         <textarea id="pzv-prf-return-policy" rows="3" placeholder="Müşterilere gösterilen iade/değişim politikanız..."><?php echo esc_textarea( $v['return_policy'] ?? '' ); ?></textarea>
+                    </div>
+                    <div class="pzv-form-row">
+                        <label>Nakit Ödeme İskonto Oranı (%)</label>
+                        <input type="number" id="pzv-prf-nakit-rate" value="<?php echo esc_attr( (float) ( get_user_meta( $user_id, 'pzv_nakit_rate', true ) ?: 5 ) ); ?>" min="0" max="50" step="0.5" style="max-width:120px;">
+                        <small style="color:#888;font-size:12px;margin-top:4px;display:block;">Banka havalesi/EFT ile ödemede müşteriye uygulanacak iskonto oranı. Varsayılan %5'tir. 0 girerseniz iskonto uygulanmaz.</small>
                     </div>
                 </div>
                 <div class="pzv-pf-side">
@@ -1172,6 +1197,7 @@ class PZV_Dashboard {
         update_user_meta( $uid, 'pzv_logo',          (int) ( $_POST['logo']          ?? 0 ) );
         update_user_meta( $uid, 'pzv_banner',        (int) ( $_POST['banner']        ?? 0 ) );
         update_user_meta( $uid, 'pzv_dispatch_days', max( 0, min( 30, (int) ( $_POST['dispatch_days'] ?? 1 ) ) ) );
+        update_user_meta( $uid, 'pzv_nakit_rate',    max( 0, min( 50, (float) ( $_POST['nakit_rate'] ?? 5 ) ) ) );
 
         wp_send_json_success( array( 'message' => 'Profil güncellendi.' ) );
     }

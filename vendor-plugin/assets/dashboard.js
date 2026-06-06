@@ -483,6 +483,7 @@
       {id:'pzv-prf-twitter',         name:'twitter_url'},
       {id:'pzv-prf-working-hours',   name:'working_hours'},
       {id:'pzv-prf-return-policy',   name:'return_policy'},
+      {id:'pzv-prf-nakit-rate',      name:'nakit_rate'},
     ]
   });
 

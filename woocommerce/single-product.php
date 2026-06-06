@@ -370,7 +370,13 @@ while ( have_posts() ) : the_post();
       <?php endif; ?>
 
       <!-- Nakit indirim -->
-      <div class="hb-724pay"><span class="hb-724pay-badge">Nakit</span> ödemede <strong><?php echo wc_price( $price * 0.05 ); ?></strong> ekstra indirim</div>
+      <?php
+      $pz_nakit_rate = pz_get_vendor_nakit_rate( $product->get_id() );
+      if ( $pz_nakit_rate > 0 ) :
+          $pz_nakit_pct = round( $pz_nakit_rate * 100, 1 );
+      ?>
+      <div class="hb-724pay"><span class="hb-724pay-badge">Nakit</span> ödemede <strong><?php echo wc_price( $price * $pz_nakit_rate ); ?></strong> ekstra indirim</div>
+      <?php endif; ?>
 
       <!-- Kargo / teslimat -->
       <div class="hb-delivery">

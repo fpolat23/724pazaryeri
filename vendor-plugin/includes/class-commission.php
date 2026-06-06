@@ -7,12 +7,31 @@ class PZV_Commission {
         add_action( 'woocommerce_order_status_refunded',  array( $this, 'cancel_on_refund' ) );
     }
 
-    /** Komisyon oranı: vendor override > kategori meta (en yüksek) > global default */
+    /** Komisyon oranı hesapla:
+     *  1. İlk 3 ay (90 gün) → %0 (yeni satıcı teşviki)
+     *  2. Vendor override (admin tarafından atanmış sabit oran)
+     *  3. Kategori bazlı oran (en yüksek kategori oranı)
+     *  4. Global varsayılan oran
+     */
     public static function calculate_rate( $product_id, $vendor_id ) {
+        // ── 1. İlk 3 ay sıfır komisyon ──────────────────────────────
+        $approved_at = get_user_meta( $vendor_id, 'pzv_approved_at', true );
+        if ( ! $approved_at ) {
+            $user = get_userdata( $vendor_id );
+            $approved_at = $user ? $user->user_registered : null;
+        }
+        if ( $approved_at ) {
+            $diff_days = ( time() - strtotime( $approved_at ) ) / DAY_IN_SECONDS;
+            if ( $diff_days < 90 ) return 0.0;
+        }
+
+        // ── 2. Vendor override (sadece admin atayabilir) ─────────────
         $vendor_rate = get_user_meta( $vendor_id, 'pzv_commission_override', true );
         if ( $vendor_rate !== '' && $vendor_rate !== false && is_numeric( $vendor_rate ) ) {
             return (float) $vendor_rate;
         }
+
+        // ── 3. Kategori bazlı oran (en yüksek) ──────────────────────
         $cats = wp_get_post_terms( $product_id, 'product_cat', array( 'fields' => 'ids' ) );
         $cat_rates = array();
         if ( ! is_wp_error( $cats ) ) {
@@ -22,6 +41,8 @@ class PZV_Commission {
             }
         }
         if ( ! empty( $cat_rates ) ) return max( $cat_rates );
+
+        // ── 4. Global varsayılan ────────────────────────────────────
         return (float) get_option( 'pzv_default_commission', 10 );
     }
 

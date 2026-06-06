@@ -210,6 +210,7 @@ class PZV_Admin {
             update_user_meta( $vendor_id, 'pzv_logo',          (int) ( $_POST['logo']          ?? 0 ) );
             update_user_meta( $vendor_id, 'pzv_banner',        (int) ( $_POST['banner']        ?? 0 ) );
             update_user_meta( $vendor_id, 'pzv_dispatch_days', max( 0, min( 30, (int) ( $_POST['dispatch_days'] ?? 1 ) ) ) );
+            update_user_meta( $vendor_id, 'pzv_nakit_rate',    max( 0, min( 50, (float) ( $_POST['nakit_rate']    ?? 5 ) ) ) );
             $rate = $_POST['commission_override'] ?? '';
             if ( $rate === '' ) delete_user_meta( $vendor_id, 'pzv_commission_override' );
             else update_user_meta( $vendor_id, 'pzv_commission_override', floatval( $rate ) );
@@ -274,7 +275,26 @@ class PZV_Admin {
                                 <td>
                                     <input type="number" name="commission_override" step="0.5" min="0" max="100"
                                         value="<?php echo esc_attr( $v['commission_override'] ); ?>" class="small-text" placeholder="Default">
-                                    <p class="description">Boş bırakırsanız varsayılan oran kullanılır.</p>
+                                    <p class="description">
+                                        Boş bırakırsanız kategori bazlı oran, o da yoksa varsayılan oran kullanılır.<br>
+                                        <strong>⚠️ Sadece admin/yönetici değiştirebilir.</strong><br>
+                                        <?php
+                                        $approved_at = get_user_meta( $vendor_id, 'pzv_approved_at', true );
+                                        if ( ! $approved_at ) {
+                                            $u = get_userdata( $vendor_id );
+                                            $approved_at = $u ? $u->user_registered : null;
+                                        }
+                                        if ( $approved_at ) {
+                                            $diff_days = ( time() - strtotime( $approved_at ) ) / DAY_IN_SECONDS;
+                                            $remaining = max( 0, 90 - (int) $diff_days );
+                                            if ( $remaining > 0 ) {
+                                                echo '<span style="color:#2563eb;">🎁 İlk 3 ay muafiyeti: ' . $remaining . ' gün daha %0 komisyon uygulanır.</span>';
+                                            } else {
+                                                echo '<span style="color:#6b7280;">3 ay muafiyeti doldu — normal komisyon uygulanıyor.</span>';
+                                            }
+                                        }
+                                        ?>
+                                    </p>
                                 </td>
                             </tr>
                             <tr>
@@ -307,6 +327,14 @@ class PZV_Admin {
                             <tr>
                                 <th>İade Politikası</th>
                                 <td><textarea name="return_policy" rows="3" class="large-text"><?php echo esc_textarea( $v['return_policy'] ?? '' ); ?></textarea></td>
+                            </tr>
+                            <tr>
+                                <th>Nakit Ödeme İskonto Oranı (%)</th>
+                                <td>
+                                    <input type="number" name="nakit_rate" step="0.5" min="0" max="50"
+                                        value="<?php echo esc_attr( (float) ( get_user_meta( $vendor_id, 'pzv_nakit_rate', true ) ?: 5 ) ); ?>" class="small-text">
+                                    <p class="description">Banka havalesi/EFT ödemede uygulanacak iskonto oranı. Varsayılan %5'tir. 0 girerseniz iskonto uygulanmaz.</p>
+                                </td>
                             </tr>
                         </table>
 
@@ -540,8 +568,9 @@ class PZV_Admin {
             if ( ! empty( $_POST['store_slug'] ) ) {
                 update_user_meta( $uid, 'pzv_store_slug', sanitize_title( $_POST['store_slug'] ) );
             }
-            update_user_meta( $uid, 'pzv_logo',   (int) ( $_POST['logo']   ?? 0 ) );
-            update_user_meta( $uid, 'pzv_banner', (int) ( $_POST['banner'] ?? 0 ) );
+            update_user_meta( $uid, 'pzv_logo',        (int) ( $_POST['logo']   ?? 0 ) );
+            update_user_meta( $uid, 'pzv_banner',      (int) ( $_POST['banner'] ?? 0 ) );
+            update_user_meta( $uid, 'pzv_nakit_rate',  max( 0, min( 50, (float) ( $_POST['nakit_rate'] ?? 5 ) ) ) );
             echo '<div class="notice notice-success"><p>Kaydedildi.</p></div>';
         }
         $v = PZV_Vendor::get( $uid );
@@ -558,6 +587,14 @@ class PZV_Admin {
                     <tr><th>Adres</th><td><textarea name="address" rows="3" class="large-text"><?php echo esc_textarea( $v['address'] ); ?></textarea></td></tr>
                     <tr><th>Açıklama</th><td><textarea name="description" rows="4" class="large-text"><?php echo esc_textarea( $v['description'] ); ?></textarea></td></tr>
                     <tr><th>IBAN</th><td><input type="text" name="iban" value="<?php echo esc_attr( $v['iban'] ); ?>" class="regular-text"></td></tr>
+                    <tr>
+                        <th>Nakit Ödeme İskonto Oranı (%)</th>
+                        <td>
+                            <input type="number" name="nakit_rate" step="0.5" min="0" max="50" class="small-text"
+                                value="<?php echo esc_attr( (float) ( get_user_meta( $uid, 'pzv_nakit_rate', true ) ?: 5 ) ); ?>">
+                            <p class="description">Banka havalesi/EFT ödemede uygulanacak iskonto oranı. Varsayılan %5'tir. 0 girerseniz iskonto uygulanmaz.</p>
+                        </td>
+                    </tr>
                     <tr>
                         <th>Mağaza Logosu</th>
                         <td>

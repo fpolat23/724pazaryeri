@@ -1106,7 +1106,13 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 /* ── SEPET TOPLAMI (cart_totals) — sticky modern kart ── */
 .pazaryeri-wrap .cart_totals{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,.06);position:sticky;top:16px;}
 .pazaryeri-wrap .cart_totals h2{font-family:'Archivo',sans-serif;font-size:18px;font-weight:800;color:var(--ink);margin:0 0 18px;padding-bottom:14px;border-bottom:2px solid var(--paper);}
-.pazaryeri-wrap .cart_totals table{border:none!important;width:100%;}
+.pazaryeri-wrap .cart_totals table{border:none!important;width:100%;display:flex;flex-direction:column;}
+.pazaryeri-wrap .cart_totals table tbody{display:flex;flex-direction:column;}
+.pazaryeri-wrap .cart_totals table tr{display:flex;justify-content:space-between;align-items:flex-start;}
+.pazaryeri-wrap .cart_totals table tr.cart-subtotal{order:1;}
+.pazaryeri-wrap .cart_totals table tr.woocommerce-shipping-totals{order:2;}
+.pazaryeri-wrap .cart_totals table tr.coupon-pz-nakit-iskonto-otomatik{order:3;}
+.pazaryeri-wrap .cart_totals table tr.order-total{order:4;}
 .pazaryeri-wrap .cart_totals table th,
 .pazaryeri-wrap .cart_totals table td{border:none!important;padding:11px 0!important;font-size:14px;background:transparent!important;}
 .pazaryeri-wrap .cart_totals table th{color:var(--muted);font-weight:600;text-align:left;}
@@ -2816,3 +2822,13 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pz-nakit-banner strong{color:#047857;font-weight:800;}
 /* Sipariş özeti fee label */
 .pz-nakit-fee-label{color:#15803d;font-weight:700;}
+
+/* ── Flash Satış sayfası ─────────────────────────────────────────── */
+.pz-flash-banner{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:2px solid #fb923c;border-radius:14px;padding:14px 20px;margin-bottom:20px;}
+.pz-flash-icon{font-size:28px;flex-shrink:0;}
+.pz-flash-text{flex:1;}
+.pz-flash-text strong{display:block;font-size:16px;font-weight:800;color:#c2410c;}
+.pz-flash-text span{font-size:12px;color:#9a3412;}
+.pz-flash-count{text-align:right;flex-shrink:0;}
+.pz-flash-count span{display:block;font-size:22px;font-weight:800;color:#ea580c;line-height:1;}
+.pz-flash-count::after{content:'ürün';font-size:11px;color:#9a3412;display:none;}
