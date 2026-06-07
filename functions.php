@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'PAZARYERI_VERSION', '9.9.170' );
+define( 'PAZARYERI_VERSION', '9.9.183' );
 define( 'PAZARYERI_DIR', get_template_directory() );
 define( 'PAZARYERI_URL', get_template_directory_uri() );
 
@@ -1279,8 +1279,29 @@ add_action( 'wp_ajax_nopriv_pz_ai_search', 'pz_ai_search_handler' );
 
 /* ══════════════════════════════════════════════════════════════
    ON-PAGE SEO — Yoast title / metadesc / OG şablonları
-   v9.9.145
+   v9.9.173
    ══════════════════════════════════════════════════════════════ */
+
+// Yardımcı: title'ı 60 karaktere sığdır, kelime ortasında kesme
+if ( ! function_exists( 'pz_trim_title' ) ) {
+    function pz_trim_title( $str, $max = 60 ) {
+        $str = html_entity_decode( $str, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        $str = wp_strip_all_tags( $str );
+        if ( mb_strlen( $str ) <= $max ) return $str;
+        $cut = mb_substr( $str, 0, $max );
+        $last_space = mb_strrpos( $cut, ' ' );
+        return $last_space ? mb_substr( $cut, 0, $last_space ) . '…' : $cut . '…';
+    }
+}
+
+// Yardımcı: fiyatı temiz sayısal string'e çevir (wc_price HTML'ini temizler)
+if ( ! function_exists( 'pz_clean_price' ) ) {
+    function pz_clean_price( $price_raw ) {
+        $clean = wp_strip_all_tags( html_entity_decode( $price_raw ) );
+        $clean = preg_replace( '/\s+/', ' ', trim( $clean ) );
+        return $clean;
+    }
+}
 
 /* ── 1. ÜRÜN sayfası title şablonu ──────────────────────────── */
 add_filter( 'wpseo_title', function ( $title ) {
@@ -1289,22 +1310,34 @@ add_filter( 'wpseo_title', function ( $title ) {
     $product = wc_get_product( $post->ID );
     if ( ! $product ) return $title;
 
-    $name     = $product->get_name();
-    $site     = get_bloginfo( 'name' );
+    $name = html_entity_decode( $product->get_name(), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+    $site = get_bloginfo( 'name' );
 
-    // Marka varsa başa ekle: "Marka · Ürün Adı | Site"
     $brand_terms = wp_get_post_terms( $post->ID, 'product_brand' );
     if ( ! empty( $brand_terms ) && ! is_wp_error( $brand_terms ) ) {
-        return esc_html( $brand_terms[0]->name ) . ' ' . esc_html( $name ) . ' | ' . esc_html( $site );
+        $brand_name = html_entity_decode( $brand_terms[0]->name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+        if ( mb_stripos( $name, $brand_name ) === 0 ) {
+            $raw = $name . ' | ' . $site;
+        } else {
+            $raw = $brand_name . ' ' . $name . ' | ' . $site;
+        }
+    } else {
+        $cats = wc_get_product_terms( $post->ID, 'product_cat', array( 'fields' => 'names', 'number' => 1 ) );
+        if ( ! empty( $cats ) ) {
+            $raw = $name . ' - ' . html_entity_decode( $cats[0], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) . ' | ' . $site;
+        } else {
+            $raw = $name . ' Satın Al | ' . $site;
+        }
     }
-    return esc_html( $name ) . ' Satın Al | ' . esc_html( $site );
+
+    return pz_trim_title( $raw, 60 );
 }, 20 );
 
 /* ── 2. ÜRÜN sayfası metadesc şablonu ───────────────────────── */
 add_filter( 'wpseo_metadesc', function ( $desc ) {
     if ( ! is_singular( 'product' ) ) return $desc;
-    // Yoast'ta elle girilmişse dokunma
     global $post;
+    // Yoast'ta elle girilmişse dokunma
     $custom = get_post_meta( $post->ID, '_yoast_wpseo_metadesc', true );
     if ( $custom ) return $desc;
 
@@ -1312,24 +1345,25 @@ add_filter( 'wpseo_metadesc', function ( $desc ) {
     if ( ! $product ) return $desc;
 
     $name   = $product->get_name();
-    $price  = wc_price( $product->get_price() );
+    $price  = pz_clean_price( wc_price( $product->get_price() ) );
     $site   = get_bloginfo( 'name' );
-    $stock  = $product->is_in_stock() ? 'Stokta mevcut.' : 'Stok durumunu kontrol edin.';
+    $stock  = $product->is_in_stock() ? 'Stokta mevcut.' : 'Stok sınırlı.';
 
-    // Kısa açıklama varsa kullan, yoksa otomatik şablon
+    // ikinci el mi?
+    $condition = get_post_meta( $post->ID, 'pz_condition', true );
+    $cond_str  = ( $condition === 'used' ) ? 'İkinci el ' : '';
+
+    // Kısa açıklama varsa kullan
     $short = wp_strip_all_tags( $product->get_short_description() );
     if ( $short ) {
-        $base = mb_substr( $short, 0, 120 );
+        $base = $cond_str . mb_substr( $short, 0, 100 );
     } else {
-        $cats = wc_get_product_terms( $post->ID, 'product_cat', array( 'fields' => 'names' ) );
+        $cats = wc_get_product_terms( $post->ID, 'product_cat', array( 'fields' => 'names', 'number' => 1 ) );
         $cat  = ! empty( $cats ) ? $cats[0] : '';
-        $base = $cat
-            ? esc_html( $name ) . ' ' . esc_html( $cat ) . ' kategorisinde'
-            : esc_html( $name );
+        $base = $cond_str . $name . ( $cat ? ' · ' . $cat : '' );
     }
-    // Fiyat + stok + site adı
-    $generated = $base . ' – ' . wp_strip_all_tags( $price ) . '. ' . $stock . ' ' . esc_html( $site ) . "'te en iyi fiyatla sipariş verin.";
-    return mb_substr( $generated, 0, 155 );
+
+    return mb_substr( $base . ' - ' . $price . '. ' . $stock, 0, 155 );
 }, 20 );
 
 /* ── 3. KATEGORİ sayfası title şablonu ──────────────────────── */
@@ -1337,16 +1371,21 @@ add_filter( 'wpseo_title', function ( $title ) {
     if ( ! is_product_category() ) return $title;
     $term = get_queried_object();
     if ( ! $term ) return $title;
-    $site = get_bloginfo( 'name' );
-    // Alt kategori mi üst kategori mi?
+    $site  = get_bloginfo( 'name' );
+    $paged = max( 1, (int) get_query_var( 'paged' ) );
+
     $parent_part = '';
     if ( $term->parent ) {
         $parent = get_term( $term->parent, 'product_cat' );
         if ( $parent && ! is_wp_error( $parent ) ) {
-            $parent_part = ' ' . esc_html( $parent->name ) . ' ›';
+            $parent_part = ' · ' . $parent->name;
         }
     }
-    return esc_html( $term->name ) . $parent_part . ' Ürünleri | ' . esc_html( $site );
+
+    $raw = $term->name . $parent_part . ' Ürünleri | ' . $site;
+    if ( $paged > 1 ) $raw .= ' (Sayfa ' . $paged . ')';
+
+    return pz_trim_title( $raw, 60 );
 }, 20 );
 
 /* ── 4. KATEGORİ sayfası metadesc şablonu ───────────────────── */
@@ -1354,15 +1393,38 @@ add_filter( 'wpseo_metadesc', function ( $desc ) {
     if ( ! is_product_category() ) return $desc;
     $term = get_queried_object();
     if ( ! $term ) return $desc;
-    // Elle girilmişse dokunma
     $custom = get_term_meta( $term->term_id, '_yoast_wpseo_metadesc', true );
     if ( $custom ) return $desc;
     $site  = get_bloginfo( 'name' );
-    $count = $term->count;
+    $count = (int) $term->count;
     $base  = $term->description
         ? mb_substr( wp_strip_all_tags( $term->description ), 0, 110 )
-        : esc_html( $term->name ) . ' kategorisindeki tüm ürünleri keşfedin';
-    return $base . '. ' . esc_html( $site ) . "'te " . (int) $count . " ürün sizi bekliyor. Hızlı kargo, güvenli ödeme.";
+        : $term->name . ' kategorisindeki tüm ürünleri keşfedin';
+    return mb_substr( $base . '. ' . $count . ' urun listeleniyor.', 0, 155 );
+}, 20 );
+
+/* ── 5. MARKA sayfası (product_brand) title + metadesc ──────── */
+add_filter( 'wpseo_title', function ( $title ) {
+    if ( ! is_tax( 'product_brand' ) ) return $title;
+    $term = get_queried_object();
+    if ( ! $term ) return $title;
+    $site = get_bloginfo( 'name' );
+    $raw  = $term->name . ' Ürünleri | ' . $site;
+    return pz_trim_title( $raw, 60 );
+}, 20 );
+
+add_filter( 'wpseo_metadesc', function ( $desc ) {
+    if ( ! is_tax( 'product_brand' ) ) return $desc;
+    $term = get_queried_object();
+    if ( ! $term ) return $desc;
+    $custom = get_term_meta( $term->term_id, '_yoast_wpseo_metadesc', true );
+    if ( $custom ) return $desc;
+    $site  = get_bloginfo( 'name' );
+    $count = (int) $term->count;
+    $base  = $term->description
+        ? mb_substr( wp_strip_all_tags( $term->description ), 0, 110 )
+        : $term->name . ' markalı orijinal ürünler';
+    return mb_substr( $base . '. ' . $count . ' urun listeleniyor.', 0, 155 );
 }, 20 );
 
 /* ── 5. ÜRÜN Open Graph görseli — öne çıkan görseli zorla ───── */
@@ -1425,68 +1487,123 @@ add_action( 'wp_head', function () {
     }
 }, 10 );
 
-/* ── 8. Canonical: sayfalama — ?paged=2 vb. tekil sayfaya yönlendirilmesin */
+/* ══════════════════════════════════════════════════════════════
+   CANONICAL URL & DUPLICATE CONTENT KORUMALARI
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 8. Canonical: tüm kirli parametreleri temizle ───────────── */
+// Temizlenen parametreler:
+// ?tab=, ?ppage=                   → ürün sayfası UI parametreleri
+// ?min_price=, ?max_price=         → WooCommerce fiyat filtresi
+// ?orderby=                        → sıralama
+// ?filter_*                        → WooCommerce attribute filtresi
+// ?attribute_pa_*                  → varyasyon seçim parametreleri
+// ?paged=                          → sayfalama (sadece canonical; prev/next ayrı)
 add_filter( 'wpseo_canonical', function ( $canonical ) {
-    // Ürün sayfasında ?tab= veya ?ppage= parametreleri canonical'ı bozmasın
+
+    // ── Ürün sayfası: tüm query parametrelerini at, salt permalink döndür
     if ( is_singular( 'product' ) ) {
         global $post;
         return get_permalink( $post->ID );
     }
-    // Kategori sayfalarında ?min_price= vb. parametreleri canonical'dan temizle
-    if ( is_product_category() || is_shop() || is_tax( 'product_brand' ) ) {
-        $term = get_queried_object();
-        if ( $term && isset( $term->term_id ) ) {
-            $link = get_term_link( $term );
-            return is_wp_error( $link ) ? $canonical : $link;
-        }
+
+    // ── Arşiv sayfaları (kategori, mağaza, marka, product_tag)
+    if ( is_product_category() || is_shop() || is_product_tag() || is_tax( 'product_brand' ) ) {
+        $paged = max( 1, (int) get_query_var( 'paged' ) );
+        $term  = get_queried_object();
+
         if ( is_shop() ) {
-            return wc_get_page_permalink( 'shop' );
+            $base = wc_get_page_permalink( 'shop' );
+        } elseif ( $term && isset( $term->term_id ) ) {
+            $link = get_term_link( $term );
+            $base = is_wp_error( $link ) ? $canonical : $link;
+        } else {
+            return $canonical;
         }
+
+        // Sayfalama varsa /page/N/ formatında canonical — query string değil
+        if ( $paged > 1 ) {
+            return trailingslashit( $base ) . 'page/' . $paged . '/';
+        }
+        return trailingslashit( $base );
     }
+
     return $canonical;
 }, 25 );
 
-/* ── 9. Sayfalama canonical: ?paged=N düzgün rel="next/prev" ── */
+/* ── 9. Sayfalama: rel prev/next ─────────────────────────────── */
 add_action( 'wp_head', function () {
-    if ( ! ( is_product_category() || is_shop() || is_tax( 'product_brand' ) ) ) return;
+    if ( ! ( is_product_category() || is_shop() || is_product_tag() || is_tax( 'product_brand' ) ) ) return;
     global $wp_query;
     $paged = max( 1, (int) get_query_var( 'paged' ) );
     $max   = (int) $wp_query->max_num_pages;
     $term  = get_queried_object();
-    $base  = ( $term && isset( $term->term_id ) && ! is_wp_error( get_term_link( $term ) ) )
-        ? get_term_link( $term )
-        : wc_get_page_permalink( 'shop' );
+
+    if ( is_shop() ) {
+        $base = trailingslashit( wc_get_page_permalink( 'shop' ) );
+    } elseif ( $term && isset( $term->term_id ) && ! is_wp_error( get_term_link( $term ) ) ) {
+        $base = trailingslashit( get_term_link( $term ) );
+    } else {
+        return;
+    }
+
     if ( $paged > 1 ) {
-        echo '<link rel="prev" href="' . esc_url( $paged === 2 ? $base : trailingslashit( $base ) . 'page/' . ( $paged - 1 ) . '/' ) . '">' . "\n";
+        $prev = $paged === 2 ? $base : $base . 'page/' . ( $paged - 1 ) . '/';
+        echo '<link rel="prev" href="' . esc_url( $prev ) . '">' . "\n";
     }
     if ( $paged < $max ) {
-        echo '<link rel="next" href="' . esc_url( trailingslashit( $base ) . 'page/' . ( $paged + 1 ) . '/' ) . '">' . "\n";
+        echo '<link rel="next" href="' . esc_url( $base . 'page/' . ( $paged + 1 ) . '/' ) . '">' . "\n";
     }
 }, 5 );
 
 /* ── 10. Ürün slug otomatik temizleme ────────────────────────── */
-// Yeni ürün kaydedilirken slug'u SEO dostu yap:
-// Türkçe karakterleri ASCII'ye çevir, gereksiz kelimeleri kaldır
 add_filter( 'wp_unique_post_slug', function ( $slug, $post_id, $post_status, $post_type ) {
     if ( $post_type !== 'product' ) return $slug;
-    // Gereksiz TR stop words slug'dan kaldır
-    $stop = array( '-ve-', '-ile-', '-bir-', '-bu-', '-da-', '-de-', '-den-', '-dan-', '-icin-', '-için-', '-mi-', '-mu-', '-mü-' );
+    $stop  = array( '-ve-', '-ile-', '-bir-', '-bu-', '-da-', '-de-', '-den-', '-dan-', '-icin-', '-için-', '-mi-', '-mu-', '-mü-' );
     $clean = str_replace( $stop, '-', $slug );
     $clean = preg_replace( '/-{2,}/', '-', $clean );
     return trim( $clean, '-' );
 }, 10, 4 );
 
-/* ── 11. noindex: stoksuz + taslak ürünler ───────────────────── */
+/* ── 11. noindex kuralları ────────────────────────────────────── */
+// Noindex yapılan sayfalar:
+// a) Taslak/pending/private ürünler
+// b) ?orderby=, ?min_price=, ?max_price=, ?filter_* içeren filtre URL'leri
+// c) product_tag arşiv sayfaları (binlerce unindexed sayfa kaynağı)
 add_filter( 'wpseo_robots', function ( $robots ) {
-    if ( ! is_singular( 'product' ) ) return $robots;
-    global $post;
-    $product = wc_get_product( $post->ID );
-    if ( ! $product ) return $robots;
-    // Stokta yok + yayında olan ürünleri noindex yapma — Google zaten düşürür
-    // Sadece taslak/pending olanları noindex yap (önlem olarak)
-    if ( in_array( $product->get_status(), array( 'draft', 'pending', 'private' ), true ) ) {
-        return 'noindex,nofollow';
+
+    // a) Taslak/pending ürünler
+    if ( is_singular( 'product' ) ) {
+        global $post;
+        $product = wc_get_product( $post->ID );
+        if ( $product && in_array( $product->get_status(), array( 'draft', 'pending', 'private' ), true ) ) {
+            return 'noindex,nofollow';
+        }
+        return $robots;
     }
+
+    // b) Filtre/sıralama parametreli arşiv URL'leri
+    if ( is_product_category() || is_shop() || is_tax( 'product_brand' ) ) {
+        $dirty_params = array( 'orderby', 'min_price', 'max_price', 'rating_filter', 'on_sale' );
+        foreach ( $dirty_params as $param ) {
+            if ( isset( $_GET[ $param ] ) ) {
+                return 'noindex,follow';
+            }
+        }
+        // ?filter_* (WooCommerce attribute filtresi)
+        foreach ( array_keys( $_GET ) as $key ) {
+            if ( strpos( $key, 'filter_' ) === 0 || strpos( $key, 'query_type_' ) === 0 ) {
+                return 'noindex,follow';
+            }
+        }
+        return $robots;
+    }
+
+    // c) product_tag sayfaları — tümünü noindex yap
+    if ( is_product_tag() ) {
+        return 'noindex,follow';
+    }
+
     return $robots;
 }, 10 );
 
@@ -1500,30 +1617,147 @@ add_filter( 'woocommerce_page_title', function ( $title ) {
 
 
 /* ══════════════════════════════════════════════════════════════
-   ÜRÜN SAYFASI — Schema.org JSON-LD (functions.php'ye taşındı)
+   ÜRÜN SAYFASI — Schema.org JSON-LD
+   • Yoast'ın Product schema'sı devre dışı — çakışmayı önler
+   • itemCondition, priceValidUntil, iade politikası, kargo eklendi
+   • Variable ürünlerde offers array olarak üretiliyor
    ══════════════════════════════════════════════════════════════ */
+
+// 1) Yoast'ın kendi Product + Offer schema'sını kapat, BreadcrumbList'e dokunma
+add_filter( 'wpseo_schema_graph_pieces', function ( $pieces, $context ) {
+    foreach ( $pieces as $key => $piece ) {
+        $class = get_class( $piece );
+        // Yalnızca Product ve Offer piece'lerini çıkar
+        if (
+            ( substr( $class, -8 ) === '\Product' ) ||
+            ( substr( $class, -6 ) === '\Offer' )
+        ) {
+            unset( $pieces[ $key ] );
+        }
+    }
+    return $pieces;
+}, 11, 2 );
+
+// 2) Tema'nın kapsamlı Product schema'sı
 add_action( 'wp_head', function () {
     if ( ! is_singular( 'product' ) ) return;
     global $post;
     $product = wc_get_product( $post->ID );
     if ( ! $product ) return;
 
+    // --- Satıcı ---
     $author_id   = (int) $post->post_author;
     $vendor      = class_exists( 'PZV_Vendor' ) ? PZV_Vendor::get( $author_id ) : null;
     $seller_name = $vendor ? $vendor['store_name'] : get_bloginfo( 'name' );
     $seller_url  = $vendor ? PZV_Vendor::store_url( $author_id ) : home_url( '/' );
-    $price       = $product->get_price();
-    $img_id      = $product->get_image_id();
-    $img_url     = $img_id ? wp_get_attachment_image_url( $img_id, 'large' ) : wc_placeholder_img_src();
-    $img_list    = array( $img_url );
+
+    // --- Görseller ---
+    $img_id   = $product->get_image_id();
+    $img_url  = $img_id ? wp_get_attachment_image_url( $img_id, 'large' ) : wc_placeholder_img_src();
+    $img_list = array( $img_url );
     foreach ( $product->get_gallery_image_ids() as $gid ) {
         $gu = wp_get_attachment_image_url( $gid, 'large' );
         if ( $gu ) $img_list[] = $gu;
     }
-    $in_stock  = $product->is_in_stock();
-    $sku       = $product->get_sku();
-    $permalink = get_permalink( $post->ID );
 
+    // --- Temel değişkenler ---
+    $in_stock    = $product->is_in_stock();
+    $sku         = $product->get_sku();
+    $permalink   = get_permalink( $post->ID );
+    $currency    = get_woocommerce_currency();
+    $avail       = $in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+
+    // itemCondition: ürün meta'sında 'pz_condition' = 'used' ise ikinci el
+    $condition_meta = get_post_meta( $post->ID, 'pz_condition', true );
+    $condition = ( $condition_meta === 'used' )
+        ? 'https://schema.org/UsedCondition'
+        : 'https://schema.org/NewCondition';
+
+    // priceValidUntil: bugünden 30 gün
+    $price_valid_until = gmdate( 'Y-m-d', strtotime( '+30 days' ) );
+
+    // İade politikası (tüm ürünler için sabit 14 gün)
+    $return_policy = array(
+        '@type'                    => 'MerchantReturnPolicy',
+        'applicableCountry'        => 'TR',
+        'returnPolicyCategory'     => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+        'merchantReturnDays'       => 14,
+        'returnMethod'             => 'https://schema.org/ReturnByMail',
+        'returnFees'               => 'https://schema.org/FreeReturn',
+    );
+
+    // Kargo detayları
+    $shipping_details = array(
+        '@type'               => 'OfferShippingDetails',
+        'shippingRate'        => array(
+            '@type'    => 'MonetaryAmount',
+            'value'    => 0,
+            'currency' => $currency,
+        ),
+        'shippingDestination' => array(
+            '@type'           => 'DefinedRegion',
+            'addressCountry'  => 'TR',
+        ),
+        'deliveryTime'        => array(
+            '@type'        => 'ShippingDeliveryTime',
+            'handlingTime' => array(
+                '@type'    => 'QuantitativeValue',
+                'minValue' => 0,
+                'maxValue' => 1,
+                'unitCode' => 'DAY',
+            ),
+            'transitTime'  => array(
+                '@type'    => 'QuantitativeValue',
+                'minValue' => 1,
+                'maxValue' => 3,
+                'unitCode' => 'DAY',
+            ),
+        ),
+    );
+
+    // --- Offer üretici yardımcı fonksiyon ---
+    $pz_make_offer = function( $offer_url, $price, $in_stk ) use (
+        $currency, $avail, $seller_name, $seller_url,
+        $condition, $price_valid_until, $return_policy, $shipping_details
+    ) {
+        return array(
+            '@type'                     => 'Offer',
+            'url'                       => $offer_url,
+            'priceCurrency'             => $currency,
+            'price'                     => (string) $price,
+            'priceValidUntil'           => $price_valid_until,
+            'availability'              => $in_stk ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            'itemCondition'             => $condition,
+            'seller'                    => array( '@type' => 'Organization', 'name' => $seller_name, 'url' => $seller_url ),
+            'hasMerchantReturnPolicy'   => $return_policy,
+            'shippingDetails'           => $shipping_details,
+        );
+    };
+
+    // --- Variable vs Simple offers ---
+    if ( $product->is_type( 'variable' ) ) {
+        $offers = array();
+        foreach ( $product->get_available_variations() as $vd ) {
+            if ( empty( $vd['variation_id'] ) ) continue;
+            $var       = wc_get_product( $vd['variation_id'] );
+            if ( ! $var ) continue;
+            $var_price = $var->get_price();
+            if ( $var_price === '' || $var_price === null ) continue;
+            $var_url   = add_query_arg(
+                array_map( 'urlencode', $vd['attributes'] ),
+                $permalink
+            );
+            $offers[]  = $pz_make_offer( $var_url, $var_price, $var->is_in_stock() );
+        }
+        // Varyasyon listesi boşsa tek offer dön
+        if ( empty( $offers ) ) {
+            $offers = $pz_make_offer( $permalink, $product->get_price(), $in_stock );
+        }
+    } else {
+        $offers = $pz_make_offer( $permalink, $product->get_price(), $in_stock );
+    }
+
+    // --- Ana schema ---
     $schema = array(
         '@context'    => 'https://schema.org/',
         '@type'       => 'Product',
@@ -1531,33 +1765,34 @@ add_action( 'wp_head', function () {
         'image'       => $img_list,
         'description' => wp_strip_all_tags( $product->get_short_description() ?: $product->get_description() ),
         'url'         => $permalink,
-        'offers'      => array(
-            '@type'         => 'Offer',
-            'url'           => $permalink,
-            'priceCurrency' => get_woocommerce_currency(),
-            'price'         => $price,
-            'availability'  => $in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-            'seller'        => array( '@type' => 'Organization', 'name' => $seller_name, 'url' => $seller_url ),
-        ),
+        'offers'      => $offers,
     );
-    if ( $sku ) $schema['sku'] = $sku;
+
+    if ( $sku )                   $schema['sku']    = $sku;
     if ( $product->get_weight() ) $schema['weight'] = $product->get_weight() . ' ' . get_option( 'woocommerce_weight_unit' );
+
     $brand_terms = wp_get_post_terms( $post->ID, 'product_brand' );
     if ( ! empty( $brand_terms ) && ! is_wp_error( $brand_terms ) ) {
         $schema['brand'] = array( '@type' => 'Brand', 'name' => $brand_terms[0]->name );
     }
+
     $avg = $product->get_average_rating();
     $cnt = $product->get_review_count();
     if ( $avg > 0 && $cnt > 0 ) {
         $schema['aggregateRating'] = array(
-            '@type' => 'AggregateRating', 'ratingValue' => round( (float) $avg, 1 ),
-            'reviewCount' => (int) $cnt, 'bestRating' => 5, 'worstRating' => 1,
+            '@type'       => 'AggregateRating',
+            'ratingValue' => round( (float) $avg, 1 ),
+            'reviewCount' => (int) $cnt,
+            'bestRating'  => 5,
+            'worstRating' => 1,
         );
     }
+
     $original_id = (int) get_post_meta( $post->ID, '_pzv_cloned_from', true );
     if ( $original_id && get_post_status( $original_id ) === 'publish' ) {
         $schema['isVariantOf'] = array( '@type' => 'Product', 'url' => get_permalink( $original_id ) );
     }
+
     echo '<script type="application/ld+json">' . "\n" . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . "\n</script>\n";
 }, 5 );
 
@@ -1920,3 +2155,73 @@ add_action( 'woocommerce_checkout_update_order_meta', function ( $order_id ) {
     $order->calculate_totals( false );
     $order->save();
 } );
+
+/* ══════════════════════════════════════════════════════════════
+   SITEMAP — Gereksiz taksonomi ve post type sitemaplarını kapat
+   ══════════════════════════════════════════════════════════════ */
+
+// Taksonomi bazlı sitemap'leri kapat
+add_filter( 'wpseo_sitemap_exclude_taxonomy', function ( $excluded, $taxonomy ) {
+    $exclude_list = array(
+        'product_tag',
+        'product_shipping_class',
+        'pa_kordon_tipi',
+        'pa_materyal',
+        'pa_standart',
+        'pa_tarz',
+        'pa_tas_cinsi',
+    );
+    return in_array( $taxonomy, $exclude_list, true ) ? true : $excluded;
+}, 10, 2 );
+
+// Post type bazlı sitemap'leri kapat
+add_filter( 'wpseo_sitemap_exclude_post_type', function ( $excluded, $post_type ) {
+    $exclude_list = array( 'pz_saticim', 'pzv_vendor', 'pro_vendor', 'product_variation' );
+    return in_array( $post_type, $exclude_list, true ) ? true : $excluded;
+}, 10, 2 );
+
+// Yazar sitemap'ini kapat
+add_filter( 'wpseo_sitemap_exclude_author', '__return_true' );
+
+// Sitemap index'i oluştururken pa_* ve vendor sitemaplarını çıkar
+add_filter( 'wpseo_sitemap_index', function ( $xml ) {
+    // pa_ ile başlayan tüm attribute sitemap'lerini kaldır
+    $xml = preg_replace( '/<sitemap>\s*<loc>[^<]*\/pa_[^<]*<\/loc>[^<]*<lastmod>[^<]*<\/lastmod>\s*<\/sitemap>\s*/s', '', $xml );
+    // vendor, author, tag sitemaplarını kaldır
+    $patterns = array(
+        'pzv-vendor-sitemap.xml',
+        'pro-vendor-sitemap.xml',
+        'author-sitemap.xml',
+        'product-tag-sitemap.xml',
+        'product_shipping_class-sitemap.xml',
+    );
+    foreach ( $patterns as $p ) {
+        $xml = preg_replace( '/<sitemap>\s*<loc>[^<]*' . preg_quote( $p, '/' ) . '<\/loc>[^<]*<lastmod>[^<]*<\/lastmod>\s*<\/sitemap>\s*/s', '', $xml );
+    }
+    return $xml;
+} );
+
+/* ══════════════════════════════════════════════════════════════
+   5XX KORUMA — Aşırı uzun filtre URL'lerini yakala, 404 döndür
+   /shop/category-X-or-Y-or-Z/ formatındaki URL'ler sunucu 500
+   hatasına yol açıyor. 200 karakteri aşan shop URL'lerini engelle.
+   ══════════════════════════════════════════════════════════════ */
+add_action( 'template_redirect', function () {
+    if ( ! isset( $_SERVER['REQUEST_URI'] ) ) return;
+    $uri = $_SERVER['REQUEST_URI'];
+
+    // /shop/ veya /product-tag/ ile başlayan çok uzun URL'leri engelle
+    $is_shop_url = ( strpos( $uri, '/shop/' ) !== false || strpos( $uri, '/product-tag/' ) !== false );
+    if ( ! $is_shop_url ) return;
+
+    // URL 200 karakteri aşıyorsa veya 2'den fazla -or- içeriyorsa 404
+    $uri_length   = strlen( $uri );
+    $or_count     = substr_count( strtolower( $uri ), '-or-' );
+
+    if ( $uri_length > 200 || $or_count >= 2 ) {
+        status_header( 404 );
+        nocache_headers();
+        include get_404_template();
+        exit;
+    }
+}, 1 );

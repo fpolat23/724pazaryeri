@@ -318,6 +318,52 @@ if ( is_wp_error( $base_url ) ) $base_url = wc_get_page_permalink( 'shop' );
         </div>
       </div>
 
+      <?php
+      // ── KATEGORİ AÇIKLAMASI + ALT KATEGORİ LİNKLERİ (SEO içerik bloğu) ──
+      // Sadece ilk sayfada göster
+      $pz_current_page = max( 1, (int) get_query_var( 'paged' ) );
+      if ( $current_term && $pz_current_page === 1 ) :
+        $cat_desc    = term_description( $current_term->term_id, 'product_cat' );
+        $cat_desc    = $cat_desc ? wp_kses_post( $cat_desc ) : '';
+        $seo_subcats = get_terms( array(
+          'taxonomy'   => 'product_cat',
+          'parent'     => $current_term->term_id,
+          'hide_empty' => true,
+          'orderby'    => 'count',
+          'order'      => 'DESC',
+          'number'     => 12,
+        ) );
+        $has_desc    = ! empty( $cat_desc );
+        $has_subcats = ! empty( $seo_subcats ) && ! is_wp_error( $seo_subcats );
+        if ( $has_desc || $has_subcats ) :
+      ?>
+      <div class="cat-seo-block">
+        <?php if ( $has_desc ) : ?>
+        <div class="cat-seo-desc"><?php echo $cat_desc; ?></div>
+        <?php endif; ?>
+        <?php if ( $has_subcats ) : ?>
+        <div class="cat-seo-subcats">
+          <h2 class="cat-seo-h2"><?php echo esc_html( $current_term->name ); ?> Alt Kategorileri</h2>
+          <div class="cat-seo-links">
+            <?php foreach ( $seo_subcats as $sc ) :
+              if ( $sc->slug === 'uncategorized' ) continue;
+              $sc_link = get_term_link( $sc );
+              if ( is_wp_error( $sc_link ) ) continue;
+            ?>
+              <a class="cat-seo-link" href="<?php echo esc_url( $sc_link ); ?>">
+                <?php echo esc_html( $sc->name ); ?>
+                <span class="cat-seo-link-count"><?php echo esc_html( $sc->count ); ?></span>
+              </a>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <?php endif; ?>
+      </div>
+      <?php
+        endif; // has_desc || has_subcats
+      endif; // paged === 1
+      ?>
+
       <?php if ( woocommerce_product_loop() ) : ?>
         <div class="pgrid shop-grid">
           <?php
@@ -351,6 +397,79 @@ if ( is_wp_error( $base_url ) ) $base_url = wc_get_page_permalink( 'shop' );
           <a href="<?php echo esc_url( $base_url ); ?>" class="shop-empty-btn">Filtreleri Temizle</a>
         </div>
       <?php endif; ?>
+
+      <?php
+      // ── SAYFA ALTI: KARDEŞ KATEGORİLER + POPÜLER ÜRÜNLER (dahili linkleme) ──
+      if ( $current_term && $pz_current_page === 1 ) :
+        // Kardeş kategoriler
+        $sibling_cats = array();
+        if ( $current_term->parent ) {
+          $siblings = get_terms( array(
+            'taxonomy'   => 'product_cat',
+            'parent'     => $current_term->parent,
+            'hide_empty' => true,
+            'orderby'    => 'count',
+            'order'      => 'DESC',
+            'exclude'    => array( $current_term->term_id ),
+            'number'     => 8,
+          ) );
+          if ( ! empty( $siblings ) && ! is_wp_error( $siblings ) ) {
+            $sibling_cats = $siblings;
+          }
+        }
+        // Bu kategorinin en çok satılan 6 ürünü
+        $pop_products = wc_get_products( array(
+          'status'   => 'publish',
+          'limit'    => 6,
+          'orderby'  => 'popularity',
+          'order'    => 'DESC',
+          'category' => array( $current_term->slug ),
+          'return'   => 'objects',
+        ) );
+        $has_siblings = ! empty( $sibling_cats );
+        $has_pop      = ! empty( $pop_products );
+        if ( $has_siblings || $has_pop ) :
+      ?>
+      <div class="cat-bottom-seo">
+
+        <?php if ( $has_siblings ) : ?>
+        <div class="cat-related-cats">
+          <h2 class="cat-bottom-h2">İlgili Kategoriler</h2>
+          <div class="cat-seo-links">
+            <?php foreach ( $sibling_cats as $sib ) :
+              if ( $sib->slug === 'uncategorized' ) continue;
+              $sib_link = get_term_link( $sib );
+              if ( is_wp_error( $sib_link ) ) continue;
+            ?>
+              <a class="cat-seo-link" href="<?php echo esc_url( $sib_link ); ?>">
+                <?php echo esc_html( $sib->name ); ?>
+                <span class="cat-seo-link-count"><?php echo esc_html( $sib->count ); ?></span>
+              </a>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if ( $has_pop ) : ?>
+        <div class="cat-popular-products">
+          <h2 class="cat-bottom-h2"><?php echo esc_html( $current_term->name ); ?> — Popüler Ürünler</h2>
+          <div class="cat-pop-links">
+            <?php foreach ( $pop_products as $pop_p ) : ?>
+              <a class="cat-pop-link" href="<?php echo esc_url( get_permalink( $pop_p->get_id() ) ); ?>">
+                <?php echo esc_html( $pop_p->get_name() ); ?>
+                <span class="cat-pop-price"><?php echo wp_strip_all_tags( wc_price( $pop_p->get_price() ) ); ?> ₺</span>
+              </a>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <?php endif; ?>
+
+      </div>
+      <?php
+        endif; // has_siblings || has_pop
+      endif; // paged === 1 && current_term
+      ?>
+
     </main>
 
   </div>

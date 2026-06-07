@@ -622,6 +622,19 @@ body.pazaryeri-site .pazaryeri-wrap{width:100%;max-width:100%;}
 .pazaryeri-wrap .shop-pagination .page-numbers{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;padding:0 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;transition:background 140ms ease,color 140ms ease,border-color 140ms ease;background:#fff;}
 .pazaryeri-wrap .shop-pagination .page-numbers:hover{border-color:var(--accent);color:var(--accent);}
 .pazaryeri-wrap .shop-pagination .page-numbers.current{background:var(--accent);color:#fff;border-color:var(--accent);}
+.pazaryeri-wrap .cat-seo-block{background:#f8f9fa;border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px;}
+.pazaryeri-wrap .cat-seo-desc{font-size:14px;line-height:1.7;color:var(--ink);margin-bottom:16px;}
+.pazaryeri-wrap .cat-seo-desc:last-child{margin-bottom:0;}
+.pazaryeri-wrap .cat-seo-h2,.pazaryeri-wrap .cat-bottom-h2{font-size:15px;font-weight:700;color:var(--ink);margin:0 0 12px;}
+.pazaryeri-wrap .cat-seo-links{display:flex;flex-wrap:wrap;gap:8px;}
+.pazaryeri-wrap .cat-seo-link{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:#fff;border:1px solid var(--border);border-radius:20px;font-size:13px;color:var(--ink);text-decoration:none;transition:border-color .14s,color .14s;}
+.pazaryeri-wrap .cat-seo-link:hover{border-color:var(--accent);color:var(--accent);}
+.pazaryeri-wrap .cat-seo-link-count{font-size:11px;color:var(--muted);background:#f0f0f0;border-radius:10px;padding:1px 6px;}
+.pazaryeri-wrap .cat-bottom-seo{margin-top:32px;border-top:1px solid var(--border);padding-top:24px;display:flex;flex-direction:column;gap:24px;}
+.pazaryeri-wrap .cat-pop-links{display:flex;flex-direction:column;gap:4px;}
+.pazaryeri-wrap .cat-pop-link{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8f9fa;border-radius:8px;font-size:13px;color:var(--ink);text-decoration:none;transition:background .14s;}
+.pazaryeri-wrap .cat-pop-link:hover{background:#f0f0f0;}
+.pazaryeri-wrap .cat-pop-price{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;margin-left:8px;}
 /* Boş durum */
 .pazaryeri-wrap .shop-empty{text-align:center;padding:60px 20px;background:#fff;border:1.5px solid var(--border);border-radius:14px;}
 .pazaryeri-wrap .shop-empty-ico{font-size:50px;margin-bottom:14px;opacity:.5;}
