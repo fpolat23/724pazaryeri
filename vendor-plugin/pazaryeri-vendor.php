@@ -97,6 +97,38 @@ add_action( 'plugins_loaded', function () {
 
 add_shortcode( 'pazaryeri_vendor_dashboard', array( 'PZV_Dashboard', 'render_shortcode' ) );
 
+// ── Cache uyumluluğu ────────────────────────────────────────────────────────
+// WP Rocket ve diğer cache eklentileri vendor dashboard sayfasını önbelleğe
+// almamalı; her istek kullanıcıya özel ve ?tab= parametresine duyarlıdır.
+
+// WP Rocket: /saticim/ URL'sini reddedilen URI listesine ekle
+add_filter( 'rocket_cache_reject_uri', function( $uris ) {
+    $uris[] = '/saticim/';
+    return $uris;
+} );
+
+// WP Rocket: ?tab= query parametresini cache key'e dahil et (ek güvence)
+add_filter( 'rocket_cache_query_strings', function( $qs ) {
+    $qs[] = 'tab';
+    $qs[] = 'view';
+    $qs[] = 'edit';
+    $qs[] = 'paged';
+    return $qs;
+} );
+
+// Tüm cache eklentileri: vendor dashboard sayfasında cache başlıklarını kapat
+add_action( 'template_redirect', function() {
+    if ( ! is_page() ) return;
+    global $post;
+    if ( ! $post ) return;
+    $is_dash = ( $post->post_name === 'saticim' )
+            || ( strpos( $post->post_content, '[pazaryeri_vendor_dashboard]' ) !== false );
+    if ( ! $is_dash ) return;
+    if ( ! defined( 'DONOTCACHEPAGE' ) ) define( 'DONOTCACHEPAGE', true );
+    if ( ! defined( 'DONOTMINIFY' ) )   define( 'DONOTMINIFY',   true );
+    nocache_headers();
+}, 1 );
+
 // AJAX endpoints
 add_action( 'wp_ajax_pzv_approve_vendor',       array( 'PZV_Admin',    'ajax_approve_vendor' ) );
 add_action( 'wp_ajax_pzv_save_commission',      array( 'PZV_Admin',    'ajax_save_commission' ) );
