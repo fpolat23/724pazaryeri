@@ -236,7 +236,7 @@ class PZV_Dashboard {
             <h3>📦 Ürünlerim
                 <span class="pzv-prod-count"><?php echo $has_filter ? esc_html( $total . ' / ' . $total_all ) : $total_all; ?></span>
             </h3>
-            <a class="pzv-btn-primary" href="<?php echo esc_url( add_query_arg( 'tab', 'add_product', $base_link ) ); ?>">+ Yeni Ürün Ekle</a>
+            <a class="pzv-btn-primary" href="<?php echo esc_url( add_query_arg( 'tab', 'add-product', $base_link ) ); ?>">+ Yeni Ürün Ekle</a>
         </div>
 
         <!-- ── Kompakt filtre çubuğu ── -->
