@@ -316,6 +316,87 @@
 (function(){
   'use strict';
 
+  // ── Kaskad Kategori ──
+  function pzvInitCatCascade(prefix, tree, selectedId) {
+    var cascade  = document.getElementById('pzv-' + prefix + '-cat-cascade');
+    var hidden   = document.getElementById('pzv-' + prefix + '-cat');
+    var crumb    = document.getElementById('pzv-' + prefix + '-cat-crumb');
+    var attrsSec = document.getElementById('pzv-' + prefix + '-attrs-section');
+    if (!cascade || !tree || !tree.length) return;
+    var nodeMap = {};
+    function indexNodes(nodes) { nodes.forEach(function(n){ nodeMap[n.id]=n; if(n.children) indexNodes(n.children); }); }
+    indexNodes(tree);
+    function findPath(nodes, id, path) {
+      for (var i=0;i<nodes.length;i++) { var n=nodes[i],p=path.concat([n]); if(n.id==id) return p; if(n.children){var r=findPath(n.children,id,p);if(r) return r;} } return null;
+    }
+    function renderLevel(nodes, depth, preselect) {
+      var sel = document.createElement('select');
+      sel.className = 'pzv-cat-level';
+      sel.dataset.depth = depth;
+      var ph = document.createElement('option');
+      ph.value = ''; ph.textContent = depth===0 ? '— Ana kategori seçin —' : '— Alt kategori seçin (opsiyonel) —';
+      sel.appendChild(ph);
+      nodes.forEach(function(n) {
+        var opt = document.createElement('option');
+        opt.value = n.id; opt.textContent = n.name;
+        if (preselect && n.id == preselect) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', function() {
+        Array.from(cascade.querySelectorAll('select')).forEach(function(s){ if(parseInt(s.dataset.depth)>depth) s.remove(); });
+        if (!sel.value) { if(depth===0){hidden.value='';updateCrumb();toggleAttrs(false);} else {updateCrumb();} return; }
+        hidden.value = sel.value;
+        updateCrumb(); toggleAttrs(true);
+        var chosen = nodeMap[sel.value];
+        if (chosen && chosen.children && chosen.children.length) cascade.appendChild(renderLevel(chosen.children, depth+1, 0));
+      });
+      return sel;
+    }
+    function updateCrumb() {
+      if (!crumb) return;
+      var parts = [];
+      cascade.querySelectorAll('select').forEach(function(s){ if(s.value) parts.push(s.options[s.selectedIndex].textContent.trim()); });
+      crumb.textContent = parts.length ? parts.join(' › ') : '';
+    }
+    function toggleAttrs(show) { if(attrsSec) attrsSec.style.display = show ? '' : 'none'; }
+
+    cascade.appendChild(renderLevel(tree, 0, 0));
+    if (selectedId) {
+      var path = findPath(tree, selectedId, []);
+      if (path) {
+        cascade.querySelector('select').value = path[0].id;
+        for (var d=1; d<path.length; d++) cascade.appendChild(renderLevel(path[d-1].children, d, path[d].id));
+        hidden.value = selectedId; updateCrumb(); toggleAttrs(true);
+      }
+    }
+  }
+
+  // ── Özellik Grid ──
+  function pzvInitAttrsGrid(prefix, attrsData, existing) {
+    var grid = document.getElementById('pzv-' + prefix + '-attrs-grid');
+    if (!grid || !attrsData || !attrsData.length) return;
+    grid.innerHTML = '';
+    attrsData.forEach(function(attr) {
+      if (!attr.terms || !attr.terms.length) return;
+      var card = document.createElement('div'); card.className = 'pzv-attr-card';
+      var head = '<div class="pzv-attr-card-head"><strong>' + escapeHTML(attr.label) + '</strong></div>';
+      var body = '<div class="pzv-attr-card-body">';
+      attr.terms.forEach(function(term) {
+        var checked = existing && existing[attr.taxonomy] && existing[attr.taxonomy].indexOf(term.slug) !== -1 ? ' checked' : '';
+        body += '<label class="pzv-attr-chk"><input type="checkbox" data-tax="' + escapeAttr(attr.taxonomy) + '" value="' + escapeAttr(term.slug) + '"' + checked + '><span>' + escapeHTML(term.name) + '</span></label>';
+      });
+      body += '</div>';
+      card.innerHTML = head + body; grid.appendChild(card);
+    });
+  }
+
+  function pzvCollectAttrs(prefix) {
+    var attrs = {};
+    var boxes = document.querySelectorAll('#pzv-' + prefix + '-attrs-grid input[type="checkbox"]:checked');
+    boxes.forEach(function(cb){ var tax=cb.getAttribute('data-tax'); if(!attrs[tax]) attrs[tax]=[]; attrs[tax].push(cb.value); });
+    return JSON.stringify(attrs);
+  }
+
   // ── Medya seçici yardımcısı ──
   function pzvMedia(btnId, removeId, inputId, previewId, phId, title){
     var btn = document.getElementById(btnId);
@@ -413,11 +494,14 @@
       {id:'pzv-np-status',     name:'status'},
       {id:'pzv-np-img-id',     name:'image_id'},
     ],
+    extra: function(fd){ fd.append('attrs_json', pzvCollectAttrs('np')); },
     validate: function(){
       var t = document.getElementById('pzv-np-title');
       var p = document.getElementById('pzv-np-price');
+      var c = document.getElementById('pzv-np-cat');
       if(!t||!t.value.trim()) return 'Ürün adı gerekli.';
       if(!p||parseFloat(p.value)<=0) return 'Geçerli bir fiyat girin.';
+      if(!c||!c.value) return 'Kategori seçin.';
       return null;
     },
     onSuccess: function(data){
@@ -451,13 +535,23 @@
         {id:'pzv-ep-status',     name:'status'},
         {id:'pzv-ep-img-id',     name:'image_id'},
       ],
-      extra: function(fd){ fd.append('product_id', pid); },
+      extra: function(fd){ fd.append('product_id', pid); fd.append('attrs_json', pzvCollectAttrs('ep')); },
       validate: function(){
         var t = document.getElementById('pzv-ep-title');
         if(!t||!t.value.trim()) return 'Ürün adı gerekli.';
         return null;
       }
     });
+  }
+
+  // ── Cascade + Attrs başlatma ──
+  if (document.getElementById('pzv-np-cat-cascade') && window.pzvCatTree) {
+    pzvInitCatCascade('np', window.pzvCatTree, 0);
+    pzvInitAttrsGrid('np', window.pzvAttrsData || [], {});
+  }
+  if (document.getElementById('pzv-ep-cat-cascade') && window.pzvCatTree) {
+    pzvInitCatCascade('ep', window.pzvCatTree, window.pzvCurrentCat || 0);
+    pzvInitAttrsGrid('ep', window.pzvAttrsData || [], window.pzvCurrentAttrs || {});
   }
 
   // ── PROFİL formu ──
