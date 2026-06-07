@@ -1,0 +1,180 @@
+/* PZV Vendor Migrator – Admin Styles */
+
+.pzv-mig-wrap {
+	max-width: 900px;
+}
+
+.pzv-mig-wrap h1 {
+	margin-bottom: 12px;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────── */
+
+.pzv-mig-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 24px 28px;
+	margin-top: 20px;
+	box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.pzv-mig-card h2 {
+	margin-top: 0;
+	font-size: 1.2em;
+}
+
+/* ── Nav tabs ─────────────────────────────────────────────────────────── */
+
+.pzv-mig-content {
+	padding-top: 4px;
+}
+
+/* ── Notice / message ─────────────────────────────────────────────────── */
+
+.pzv-notice {
+	padding: 10px 14px;
+	border-radius: 4px;
+	margin-bottom: 16px;
+	font-size: 0.95em;
+}
+
+.pzv-notice.success {
+	background: #d4edda;
+	border: 1px solid #c3e6cb;
+	color: #155724;
+}
+
+.pzv-notice.warning {
+	background: #fff3cd;
+	border: 1px solid #ffc107;
+	color: #856404;
+}
+
+.pzv-msg {
+	display: inline-block;
+	margin-left: 8px;
+	font-size: 0.9em;
+}
+
+.pzv-msg.success { color: #155724; }
+.pzv-msg.error   { color: #721c24; }
+
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+
+.pzv-progress-wrap {
+	margin-top: 16px;
+}
+
+.pzv-progress-outer {
+	width: 100%;
+	height: 14px;
+	background: #e9ecef;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.pzv-progress-inner {
+	height: 100%;
+	background: linear-gradient(90deg, #0073aa, #00a0d2);
+	border-radius: 8px;
+	transition: width 0.4s ease;
+}
+
+.pzv-progress-text {
+	margin-top: 6px;
+	font-size: 0.85em;
+	color: #555;
+}
+
+.pzv-progress-status {
+	font-weight: 600;
+	margin-top: 4px;
+	color: #0073aa;
+	font-size: 0.9em;
+}
+
+.pzv-progress-status.status-done {
+	color: #155724;
+}
+
+/* ── Result grid ──────────────────────────────────────────────────────── */
+
+.pzv-result-grid {
+	display: flex;
+	gap: 12px;
+	flex-wrap: wrap;
+	margin-top: 14px;
+}
+
+.pzv-result-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	background: #f8f9fa;
+	border: 1px solid #dee2e6;
+	border-radius: 6px;
+	padding: 12px 20px;
+	min-width: 90px;
+	text-align: center;
+}
+
+.pzv-result-item.created { border-color: #c3e6cb; background: #f0fff4; }
+.pzv-result-item.updated { border-color: #bee5eb; background: #f0f8ff; }
+.pzv-result-item.skipped { border-color: #ffc107; background: #fffdf0; }
+.pzv-result-item.errors  { border-color: #f5c6cb; background: #fff5f5; }
+
+.pzv-result-val {
+	font-size: 1.6em;
+	font-weight: 700;
+	line-height: 1.2;
+	color: #333;
+}
+
+.pzv-result-item.created .pzv-result-val { color: #155724; }
+.pzv-result-item.updated .pzv-result-val { color: #0c5460; }
+.pzv-result-item.errors  .pzv-result-val { color: #721c24; }
+
+.pzv-result-lbl {
+	font-size: 0.78em;
+	color: #666;
+	margin-top: 2px;
+	text-transform: uppercase;
+	letter-spacing: .03em;
+}
+
+/* ── Error list ───────────────────────────────────────────────────────── */
+
+.pzv-errors {
+	margin-top: 16px;
+	background: #fff5f5;
+	border: 1px solid #f5c6cb;
+	border-radius: 4px;
+	padding: 12px 16px;
+	font-size: 0.88em;
+}
+
+.pzv-errors ul {
+	margin: 6px 0 0 18px;
+	padding: 0;
+}
+
+.pzv-errors li {
+	color: #721c24;
+	margin-bottom: 3px;
+}
+
+/* ── Spinner alignment ────────────────────────────────────────────────── */
+
+.pzv-mig-card .spinner {
+	float: none;
+	vertical-align: middle;
+	margin: 0 4px;
+}
+
+/* ── Reset section ────────────────────────────────────────────────────── */
+
+.pzv-mig-card hr {
+	border: none;
+	border-top: 1px solid #e0e0e0;
+}
