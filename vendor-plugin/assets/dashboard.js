@@ -605,12 +605,15 @@
     fd.append('nonce', pzv.nonce);
     fd.append('tab', tab);
 
-    fetch(pzv.ajax_url, {method:'POST', body:fd, credentials:'same-origin'})
+    // HTTPS/HTTP protokol uyumsuzluğunu düzelt (mixed content hatasını önle)
+    var ajaxUrl = (pzv.ajax_url || '').replace(/^https?:/, location.protocol);
+
+    fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'})
       .then(function(r){ return r.text(); })
       .then(function(text) {
         var res;
         try { res = JSON.parse(text); } catch(e) {
-          content.innerHTML = '<p style="padding:30px;color:#c00">Sunucu yanıtı geçersiz. Lütfen sayfayı yenileyin.</p>';
+          content.innerHTML = '<p style="padding:20px;color:#c00;font-size:13px">Sunucu yanıtı geçersiz.<br><small>' + text.substr(0,200) + '</small></p>';
           return;
         }
         if (!res || !res.success) {
