@@ -606,10 +606,15 @@
     fd.append('tab', tab);
 
     fetch(pzv.ajax_url, {method:'POST', body:fd, credentials:'same-origin'})
-      .then(function(r){ return r.json(); })
-      .then(function(res) {
+      .then(function(r){ return r.text(); })
+      .then(function(text) {
+        var res;
+        try { res = JSON.parse(text); } catch(e) {
+          content.innerHTML = '<p style="padding:30px;color:#c00">Sunucu yanıtı geçersiz. Lütfen sayfayı yenileyin.</p>';
+          return;
+        }
         if (!res || !res.success) {
-          content.innerHTML = '<p style="padding:30px;color:#c00">Hata oluştu, sayfayı yenileyin.</p>';
+          content.innerHTML = '<p style="padding:30px;color:#c00">' + ((res&&res.data&&res.data.message)||'Hata oluştu, sayfayı yenileyin.') + '</p>';
           return;
         }
         content.innerHTML = res.data.html;
