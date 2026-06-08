@@ -161,6 +161,7 @@ add_action( 'wp_ajax_pzv_update_my_product',    array( 'PZV_Dashboard','ajax_upd
 add_action( 'wp_ajax_pzv_update_order',         array( 'PZV_Dashboard','ajax_update_order' ) );
 add_action( 'wp_ajax_pzv_approve_product',      array( 'PZV_Admin',    'ajax_approve_product' ) );
 add_action( 'wp_ajax_pzv_dokan_migrate',        array( 'PZV_Admin',    'ajax_dokan_migrate' ) );
+add_action( 'wp_ajax_pzv_load_tab',             array( 'PZV_Dashboard','ajax_load_tab' ) );
 add_action( 'wp_ajax_pzv_new_product',          array( 'PZV_Dashboard','ajax_new_product' ) );
 add_action( 'wp_ajax_pzv_save_product_data',    array( 'PZV_Dashboard','ajax_save_product_data' ) );
 add_action( 'wp_ajax_pzv_save_vendor_profile',  array( 'PZV_Dashboard','ajax_save_vendor_profile' ) );

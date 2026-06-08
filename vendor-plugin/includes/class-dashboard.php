@@ -1274,6 +1274,30 @@ class PZV_Dashboard {
         <?php
     }
 
+    /** AJAX: Tab içeriğini döndürür (cache bypass için) */
+    public static function ajax_load_tab() {
+        check_ajax_referer( 'pzv_nonce', 'nonce' );
+        $user_id = get_current_user_id();
+        if ( ! is_user_logged_in() || ! PZV_Roles::is_vendor( $user_id ) ) {
+            wp_send_json_error( array( 'message' => 'Yetkisiz erişim' ) );
+            return;
+        }
+        $allowed = array( 'overview', 'products', 'add-product', 'orders', 'earnings', 'profile' );
+        $tab     = isset( $_POST['tab'] ) && in_array( sanitize_key( $_POST['tab'] ), $allowed, true )
+                   ? sanitize_key( $_POST['tab'] ) : 'overview';
+        ob_start();
+        switch ( $tab ) {
+            case 'products':    self::tab_products( $user_id ); break;
+            case 'add-product': self::tab_add_product(); break;
+            case 'orders':      self::tab_orders( $user_id ); break;
+            case 'earnings':    self::tab_earnings( $user_id ); break;
+            case 'profile':     self::tab_profile( $user_id ); break;
+            default:            self::tab_overview( $user_id );
+        }
+        $html = ob_get_clean();
+        wp_send_json_success( array( 'html' => $html, 'tab' => $tab ) );
+    }
+
     /** AJAX: Yeni ürün oluştur */
     public static function ajax_new_product() {
         check_ajax_referer( 'pzv_nonce', 'nonce' );

@@ -581,4 +581,136 @@
     ]
   });
 
+  // ── AJAX Tab Yükleyici ──────────────────────────────────────────────────────
+  // Her tab navigasyonu AJAX ile yapılır; böylece WP Rocket / Cloudflare cache
+  // hiçbir zaman devreye girmez ve ?tab= parametresi sorunu tamamen ortadan kalkar.
+
+  function pzvTabFromHref(href) {
+    try { return new URL(href, location.origin).searchParams.get('tab') || 'overview'; }
+    catch(e) { var m = (href||'').match(/[?&]tab=([^&#]+)/); return m ? m[1] : 'overview'; }
+  }
+
+  function pzvLoadTabAjax(tab) {
+    var content = document.querySelector('.pzv-dash-content');
+    if (!content) return;
+
+    document.querySelectorAll('.pzv-tab').forEach(function(t) {
+      t.classList.toggle('pzv-active', pzvTabFromHref(t.getAttribute('href')||'') === tab);
+    });
+
+    content.innerHTML = '<div style="padding:80px;text-align:center;color:#bbb;font-size:16px">Yükleniyor...</div>';
+
+    var fd = new FormData();
+    fd.append('action', 'pzv_load_tab');
+    fd.append('nonce', pzv.nonce);
+    fd.append('tab', tab);
+
+    fetch(pzv.ajax_url, {method:'POST', body:fd, credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(res) {
+        if (!res || !res.success) {
+          content.innerHTML = '<p style="padding:30px;color:#c00">Hata oluştu, sayfayı yenileyin.</p>';
+          return;
+        }
+        content.innerHTML = res.data.html;
+
+        // PHP'nin enjekte ettiği window.pzvCatTree vb. inline scriptleri çalıştır
+        content.querySelectorAll('script').forEach(function(s) {
+          var ns = document.createElement('script');
+          ns.textContent = s.textContent;
+          document.head.appendChild(ns);
+        });
+
+        if (tab === 'add-product') {
+          pzvMedia('pzv-np-img-btn','pzv-np-img-remove','pzv-np-img-id','pzv-np-img-preview','pzv-np-placeholder','Ürün Görseli Seç');
+          pzvSubmitForm({
+            submitId:'pzv-np-submit', msgId:'pzv-np-msg', action:'pzv_new_product',
+            fields:[
+              {id:'pzv-np-title',name:'title'},{id:'pzv-np-cat',name:'cat_id'},
+              {id:'pzv-np-price',name:'price'},{id:'pzv-np-sale-price',name:'sale_price'},
+              {id:'pzv-np-stock',name:'stock'},{id:'pzv-np-sku',name:'sku'},
+              {id:'pzv-np-short-desc',name:'short_desc'},{id:'pzv-np-desc',name:'desc'},
+              {id:'pzv-np-status',name:'status'},{id:'pzv-np-img-id',name:'image_id'},
+            ],
+            extra:function(fd2){fd2.append('attrs_json',pzvCollectAttrs('np'));},
+            validate:function(){
+              var t=document.getElementById('pzv-np-title');
+              var p=document.getElementById('pzv-np-price');
+              var c=document.getElementById('pzv-np-cat');
+              if(!t||!t.value.trim()) return 'Ürün adı gerekli.';
+              if(!p||parseFloat(p.value)<=0) return 'Geçerli bir fiyat girin.';
+              if(!c||!c.value) return 'Kategori seçin.';
+              return null;
+            },
+            onSuccess:function(data){
+              if(data&&data.went_pending){
+                setTimeout(function(){
+                  var m=document.getElementById('pzv-np-msg');
+                  if(m) m.innerHTML+=' &mdash; <a href="'+data.products_url+'">Ürünlerime git &rarr;</a>';
+                },200);
+              }
+            }
+          });
+          if (window.pzvCatTree) {
+            pzvInitCatCascade('np', window.pzvCatTree, 0);
+            pzvInitAttrsGrid('np', window.pzvAttrsData || [], {});
+          }
+        }
+
+        if (tab === 'profile') {
+          pzvMedia('pzv-prf-logo-btn','pzv-prf-logo-rm','pzv-prf-logo-id','pzv-prf-logo-img','pzv-prf-logo-ph','Mağaza Logosu Seç');
+          pzvMedia('pzv-prf-banner-btn','pzv-prf-banner-rm','pzv-prf-banner-id','pzv-prf-banner-img','pzv-prf-banner-ph','Mağaza Bannerı Seç');
+          pzvSubmitForm({
+            submitId:'pzv-prf-save', msgId:'pzv-prf-msg', action:'pzv_save_vendor_profile',
+            fields:[
+              {id:'pzv-prf-name',name:'store_name'},{id:'pzv-prf-slug',name:'store_slug'},
+              {id:'pzv-prf-phone',name:'phone'},{id:'pzv-prf-city',name:'city'},
+              {id:'pzv-prf-address',name:'address'},{id:'pzv-prf-desc',name:'description'},
+              {id:'pzv-prf-iban',name:'iban'},{id:'pzv-prf-logo-id',name:'logo'},
+              {id:'pzv-prf-banner-id',name:'banner'},{id:'pzv-prf-dispatch',name:'dispatch_days'},
+              {id:'pzv-prf-tc-tax',name:'tc_or_tax'},{id:'pzv-prf-instagram',name:'instagram_url'},
+              {id:'pzv-prf-twitter',name:'twitter_url'},{id:'pzv-prf-working-hours',name:'working_hours'},
+              {id:'pzv-prf-return-policy',name:'return_policy'},{id:'pzv-prf-nakit-rate',name:'nakit_rate'},
+            ]
+          });
+        }
+
+        if (tab === 'orders') {
+          content.querySelectorAll('.pzv-update-order').forEach(function(btn2){
+            btn2.addEventListener('click', function(){
+              var form=btn2.closest('.pzv-order-form'); if(!form) return;
+              var msg2=form.querySelector('.pzv-order-msg'); msg2.className='pzv-order-msg'; msg2.textContent='Gönderiliyor...';
+              var fd2=new FormData(); fd2.append('action','pzv_update_order'); fd2.append('nonce',pzv.nonce); fd2.append('order_id',form.getAttribute('data-order'));
+              ['status','shipping_company','tracking_number','note'].forEach(function(f){var el=form.querySelector('[name="'+f+'"]');if(el)fd2.append(f,el.value);});
+              btn2.disabled=true;
+              fetch(pzv.ajax_url,{method:'POST',body:fd2,credentials:'same-origin'}).then(function(r){return r.json();}).then(function(r2){btn2.disabled=false;if(r2&&r2.success){msg2.className='pzv-order-msg success';msg2.textContent='✓ '+(r2.data.message||'Güncellendi');}else{msg2.className='pzv-order-msg error';msg2.textContent='✗ '+((r2&&r2.data&&r2.data.message)||'Hata');}}).catch(function(){btn2.disabled=false;msg2.className='pzv-order-msg error';msg2.textContent='✗ Bağlantı hatası';});
+            });
+          });
+        }
+
+        history.pushState({tab:tab}, '', '?tab=' + tab);
+      })
+      .catch(function() {
+        content.innerHTML = '<p style="padding:30px;color:#c00">Bağlantı hatası, sayfayı yenileyin.</p>';
+      });
+  }
+
+  // Tüm vendor panel tab ve buton tıklamalarını AJAX'a yönlendir
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (!link) return;
+    var href = link.getAttribute('href') || '';
+    if (!href || href.indexOf('tab=') === -1) return;
+    // edit= içeren linkleri (ürün düzenleme) doğrudan bırak
+    if (href.indexOf('edit=') !== -1) return;
+    e.preventDefault();
+    pzvLoadTabAjax(pzvTabFromHref(href));
+  });
+
+  // Tarayıcı geri/ileri tuşları
+  window.addEventListener('popstate', function(e) {
+    var tab = (e.state && e.state.tab) || pzvTabFromHref(location.search) || 'overview';
+    pzvLoadTabAjax(tab);
+  });
+
 })();
