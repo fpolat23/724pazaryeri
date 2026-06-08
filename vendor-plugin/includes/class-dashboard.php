@@ -388,9 +388,10 @@ class PZV_Dashboard {
     }
 
     private static function tab_add_product() {
-        $cat_tree   = wp_json_encode( self::build_cat_tree(),   JSON_UNESCAPED_UNICODE );
-        $attrs_data = wp_json_encode( self::build_attrs_data(), JSON_UNESCAPED_UNICODE );
-        $has_attrs  = ! empty( self::build_attrs_data() );
+        $attrs_raw  = self::build_attrs_data();
+        $cat_tree   = wp_json_encode( self::build_cat_tree(), JSON_UNESCAPED_UNICODE );
+        $attrs_data = wp_json_encode( $attrs_raw,             JSON_UNESCAPED_UNICODE );
+        $has_attrs  = ! empty( $attrs_raw );
         $sn = 1;
         ?>
         <script>window.pzvCatTree=<?php echo $cat_tree; ?>;window.pzvAttrsData=<?php echo $attrs_data; ?>;window.pzvCurrentCat=0;window.pzvCurrentAttrs={};</script>
@@ -1017,15 +1018,41 @@ class PZV_Dashboard {
     }
 
     /** Kategori ağacını PHP dizisi olarak döndürür (JS cascade için) */
-    private static function build_cat_tree( $parent = 0 ) {
-        $terms = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'parent' => $parent, 'orderby' => 'name', 'order' => 'ASC' ) );
-        if ( is_wp_error( $terms ) || empty( $terms ) ) return array();
-        $result = array();
-        foreach ( $terms as $term ) {
+    private static function build_cat_tree() {
+        // Tek bir DB sorgusu ile tüm kategorileri çek; recursive sorgu yerine PHP'de ağaç kur
+        $all = get_terms( array(
+            'taxonomy'   => 'product_cat',
+            'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+            'number'     => 0,
+        ) );
+        if ( is_wp_error( $all ) || empty( $all ) ) return array();
+
+        $by_parent = array();
+        foreach ( $all as $term ) {
             if ( $term->slug === 'uncategorized' ) continue;
-            $result[] = array( 'id' => (int) $term->term_id, 'name' => $term->name, 'children' => self::build_cat_tree( $term->term_id ) );
+            $by_parent[ (int) $term->parent ][] = array(
+                'id'       => (int) $term->term_id,
+                'name'     => $term->name,
+                'parent'   => (int) $term->parent,
+                'children' => array(),
+            );
         }
-        return $result;
+
+        $build = null;
+        $build = function( $pid ) use ( &$build, &$by_parent ) {
+            if ( empty( $by_parent[ $pid ] ) ) return array();
+            $nodes = array();
+            foreach ( $by_parent[ $pid ] as $node ) {
+                $node['children'] = $build( $node['id'] );
+                unset( $node['parent'] );
+                $nodes[] = $node;
+            }
+            return $nodes;
+        };
+
+        return $build( 0 );
     }
 
     /** Global WC özelliklerini terimlerle birlikte döndürür (JS attrs grid için) */
@@ -1114,10 +1141,11 @@ class PZV_Dashboard {
         $img_id     = (int) $product->get_image_id();
         $img_url    = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
         $back_url   = add_query_arg( 'tab', 'products', get_permalink() );
-        $cat_tree   = wp_json_encode( self::build_cat_tree(),   JSON_UNESCAPED_UNICODE );
-        $attrs_data = wp_json_encode( self::build_attrs_data(), JSON_UNESCAPED_UNICODE );
+        $attrs_raw  = self::build_attrs_data();
+        $cat_tree   = wp_json_encode( self::build_cat_tree(), JSON_UNESCAPED_UNICODE );
+        $attrs_data = wp_json_encode( $attrs_raw,             JSON_UNESCAPED_UNICODE );
         $curr_attrs = self::get_product_attrs_json( $product_id );
-        $has_attrs  = ! empty( self::build_attrs_data() );
+        $has_attrs  = ! empty( $attrs_raw );
         $sn = 1;
         ?>
         <script>window.pzvCatTree=<?php echo $cat_tree; ?>;window.pzvAttrsData=<?php echo $attrs_data; ?>;window.pzvCurrentCat=<?php echo $first_cat; ?>;window.pzvCurrentAttrs=<?php echo $curr_attrs; ?>;</script>
