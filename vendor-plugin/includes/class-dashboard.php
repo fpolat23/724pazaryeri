@@ -89,7 +89,7 @@ class PZV_Dashboard {
             'earnings'    => array( 'icon' => '💰', 'label' => 'Kazançlarım' ),
             'profile'     => array( 'icon' => '⚙️', 'label' => 'Profilim' ),
         );
-        $base = get_permalink();
+        $base = add_query_arg( 'nowprocket', '1', get_permalink() );
         ?>
         <nav class="pzv-dash-tabs">
             <?php foreach ( $tabs as $k => $t ) :
@@ -156,7 +156,7 @@ class PZV_Dashboard {
         $cur_brand  = intval( $_GET['pbrand']  ?? 0 );
         $cur_status = sanitize_key( $_GET['pstatus'] ?? '' );
         $cur_search = sanitize_text_field( $_GET['ps'] ?? '' );
-        $base_link  = get_permalink();
+        $base_link  = add_query_arg( 'nowprocket', '1', get_permalink() );
 
         // Tüm ürün ID'leri (filtre bağımsız; toplam ve term listesi için)
         $all_ids   = PZV_Vendor::get_product_ids( $user_id );

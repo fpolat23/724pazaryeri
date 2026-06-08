@@ -129,6 +129,28 @@ add_action( 'template_redirect', function() {
     nocache_headers();
 }, 1 );
 
+// WP Rocket: config dosyasını yenile + /saticim/ cache'ini temizle (versiyon değişince)
+// rocket_cache_reject_uri/rocket_cache_query_strings filtreleri config dosyasına yazılana
+// kadar etkili olmaz; bu hook yeni kurulum/güncelleme sonrasında bunu otomatik yapar.
+add_action( 'init', function() {
+    if ( wp_doing_ajax() || wp_doing_cron() ) return;
+    $pzv_ver = defined( 'PZV_VERSION' ) ? PZV_VERSION : '0';
+    $opt_key  = 'pzv_rocket_config_flushed';
+    if ( get_option( $opt_key ) === $pzv_ver ) return;
+
+    $page = get_page_by_path( 'saticim' );
+    if ( function_exists( 'rocket_generate_config_file' ) ) {
+        rocket_generate_config_file();
+    }
+    if ( $page && function_exists( 'rocket_clean_files' ) ) {
+        rocket_clean_files( array( get_permalink( $page->ID ) ) );
+    }
+    if ( function_exists( 'w3tc_flush_url' ) && $page ) {
+        w3tc_flush_url( get_permalink( $page->ID ) );
+    }
+    update_option( $opt_key, $pzv_ver, false );
+}, 25 );
+
 // AJAX endpoints
 add_action( 'wp_ajax_pzv_approve_vendor',       array( 'PZV_Admin',    'ajax_approve_vendor' ) );
 add_action( 'wp_ajax_pzv_save_commission',      array( 'PZV_Admin',    'ajax_save_commission' ) );
