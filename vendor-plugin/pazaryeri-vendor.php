@@ -2,7 +2,7 @@
 /**
  * Plugin Name: PazarYeri Vendor System
  * Description: Hafif WooCommerce çoklu satıcı sistemi. Kategori bazlı komisyon, frontend dashboard, sipariş yönetimi.
- * Version:     1.4.2
+ * Version:     1.4.3
  * Author:      724PazarYeri
  * Requires PHP: 7.2
  * Requires at least: 5.6
@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-if ( ! defined( 'PZV_VERSION' ) ) define( 'PZV_VERSION', '1.4.0' );
+if ( ! defined( 'PZV_VERSION' ) ) define( 'PZV_VERSION', '1.4.3' );
 if ( ! defined( 'PZV_FILE' ) )   define( 'PZV_FILE',   __FILE__ );
 if ( ! defined( 'PZV_DIR' ) )    define( 'PZV_DIR',    plugin_dir_path( __FILE__ ) );
 if ( ! defined( 'PZV_URL' ) )    define( 'PZV_URL',    plugin_dir_url( __FILE__ ) );
